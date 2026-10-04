@@ -20,6 +20,23 @@ const { lireLockfile, appelerClient } = require("./lcu.js");
 const PHASES_FILE = ["Matchmaking", "ReadyCheck"];
 
 /**
+ * Le processus de League dont le numéro est écrit dans le lockfile existe-t-il encore ?
+ * Vu le 04/10/2026 : après un plantage ou un arrêt du PC, League peut laisser son lockfile ; l'appli croyait alors
+ * « League démarre… » indéfiniment alors qu'il était fermé. process.kill(pid, 0) n'arrête rien : il vérifie
+ * seulement que le processus existe (EPERM = il existe mais appartient à un autre utilisateur).
+ * Numéro absent ou illisible : on ne conclut pas (considéré vivant).
+ */
+function processusVivantParDefaut(pid) {
+  if (!Number.isInteger(pid) || pid <= 0) return true;
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (erreur) {
+    return erreur.code === "EPERM";
+  }
+}
+
+/**
  * État de l'appli pour le bandeau de la page : { pret, message }.
  *  - League fermé : pas de bandeau (la carte « Ton compte » dit déjà « Lance League of Legends… ») ;
  *  - League lancé mais qui ne répond pas encore : il démarre ;
@@ -54,6 +71,7 @@ function creerSondage({
   intervalleMs = 1000,
   appeler = appelerClient,
   lire = lireLockfile,
+  processusVivant = processusVivantParDefaut,
 }) {
   let minuterie = null;
   let enMarche = false;
@@ -87,6 +105,7 @@ function creerSondage({
     let session;
     try {
       const connexion = lire(dossierJeu());
+      if (!processusVivant(connexion.pid)) throw new Error("vieux lockfile : League est fermé");
       etat.clientLance = true;
       const phase = await lireJson(connexion, "/lol-gameflow/v1/gameflow-phase");
       if (typeof phase === "string") {
@@ -132,4 +151,4 @@ function creerSondage({
   };
 }
 
-module.exports = { PHASES_FILE, etatPreparation, creerSondage };
+module.exports = { PHASES_FILE, processusVivantParDefaut, etatPreparation, creerSondage };

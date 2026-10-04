@@ -7,7 +7,8 @@ maîtrise, tes missions, et te dire si tu es prêt pour la classée.
 ![Accueil : bilan de session et résumé](docs/captures/accueil.png)
 
 *Captures faites avec un compte fictif et un faux client League (les icônes des champions sont remplacées par des
-lettres). Avec le vrai client, ce sont les icônes du jeu.*
+lettres ; avec le vrai client, ce sont les icônes du jeu). Le build de l'onglet Build vient des vraies statistiques
+publiques (Lolalytics, OP.GG).*
 
 ## Les onglets
 
@@ -40,6 +41,15 @@ lettres). Avec le vrai client, ce sont les icônes du jeu.*
 
 ### Maîtrise
 ![Onglet Maîtrise](docs/captures/maitrise.png)
+
+### Sélection
+![Onglet Sélection](docs/captures/selection.png)
+
+### Build
+![Onglet Build](docs/captures/build.png)
+
+### Augments en jeu (ARAM Mayhem)
+![Stats des augments sous chaque carte, en jeu](docs/captures/apercu-augments.png)
 
 ### Paramètres
 ![Onglet Paramètres](docs/captures/parametres.png)
@@ -119,8 +129,8 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 Il faut [Node.js](https://nodejs.org) (version 22 ou plus) et League of Legends installé sur le même PC.
 
 ```bash
-git clone https://github.com/TON-PSEUDO/lol-level-calculator.git
-cd lol-level-calculator
+git clone https://github.com/mohamed-ali-akir/lol-companion.git
+cd lol-companion
 npm install
 npm start
 ```
@@ -145,7 +155,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (310) |
+| `npm test` | Lance les tests (312) |
 | `npm run build` | Crée l'installateur dans `dist/` |
 
 ## Technologies
@@ -306,6 +316,9 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   **Chien de garde** : si le client répond mais que la connexion en direct est absente, ou n'a pas transmis le dernier
   changement de phase, depuis plus de 15 s, elle est refaite (`reconnecter()`). La vérification « client prêt » a un
   temps limite (8 s) pour ne jamais bloquer les tentatives.
+  **Vieux lockfile** : après un plantage ou un arrêt du PC, League peut laisser son `lockfile` ; l'appli vérifie que le
+  processus dont le numéro y est écrit existe encore (`process.kill(pid, 0)`, qui n'arrête rien), sinon League est
+  considéré comme fermé (vu le 04/10/2026 : « League démarre… » restait affiché alors que League était fermé).
   **Bandeau** en haut de la fenêtre tant que l'appli n'est pas prête (« League démarre… », « Connexion à League en
   cours… (l'acceptation automatique fonctionne déjà) ») ; il disparaît tout seul dès qu'elle est prête.
   **Journal** (`journal.js`) : `%APPDATA%\lol-level-calculator\journal.txt` (200 Ko au plus, puis `journal.ancien.txt`)

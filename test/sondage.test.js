@@ -39,7 +39,8 @@ async function fauxClient() {
   });
   await new Promise((ok) => serveur.listen(0, "127.0.0.1", ok));
   const dossier = fs.mkdtempSync(path.join(os.tmpdir(), "faux-lol-"));
-  fs.writeFileSync(path.join(dossier, "lockfile"), `LeagueClient:1:${serveur.address().port}:mdp:https`);
+  // Numéro de processus : celui du test (il existe vraiment), comme le vrai lockfile de League.
+  fs.writeFileSync(path.join(dossier, "lockfile"), `LeagueClient:${process.pid}:${serveur.address().port}:mdp:https`);
   return { etat, dossier, acceptations, fermer: () => new Promise((ok) => serveur.close(ok)) };
 }
 
@@ -120,6 +121,27 @@ test("sondage : League fermé ou qui ne répond pas encore -> état correct, auc
     sondage.arreter();
     await client.fermer();
   }
+});
+
+test("vieux lockfile (League fermé après un plantage) : considéré comme fermé, pas de « League démarre… »", async () => {
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), "vieux-lockfile-"));
+  fs.writeFileSync(path.join(dossier, "lockfile"), "LeagueClient:999999999:65000:mdp:https"); // processus disparu
+  const etats = [];
+  const sondage = S.creerSondage({ dossierJeu: () => dossier, aEtat: (e) => etats.push(e), intervalleMs: 20 });
+  try {
+    sondage.demarrer();
+    await attendre(60);
+    assert.deepStrictEqual(sondage.etat(), { clientLance: false, clientRepond: false, phase: null });
+    assert.deepStrictEqual(S.etatPreparation({ ...sondage.etat(), directConnecte: false }), { pret: false, message: null }); // pas de bandeau
+  } finally {
+    sondage.arreter();
+  }
+});
+
+test("processus vivant : celui du test oui, un numéro disparu non, un numéro illisible on ne conclut pas", () => {
+  assert.strictEqual(S.processusVivantParDefaut(process.pid), true);
+  assert.strictEqual(S.processusVivantParDefaut(999999999), false);
+  assert.strictEqual(S.processusVivantParDefaut(NaN), true);
 });
 
 test("sondage : une erreur dans un rappel est signalée et ne casse pas le sondage", async () => {
