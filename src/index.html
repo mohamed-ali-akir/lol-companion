@@ -1,0 +1,702 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- Sécurité Electron : la page ne charge que ses propres fichiers, rien depuis Internet.
+       La lecture du client League est faite par main.js, pas par la page.
+       lcu-image: = icônes des champions, servies par main.js (voir classee.js). -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' lcu-image:">
+  <title>LoL Companion</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>LoL Companion</h1>
+      <p class="subtitle">Ton assistant League of Legends : niveau, progression et plus encore.</p>
+    </header>
+
+    <!-- Bandeau « pas encore prête » (onglets/compte.js) : visible tant que l'appli se connecte à League -->
+    <p id="bandeauPreparation" class="bandeau-preparation" role="status" aria-live="polite" hidden></p>
+
+    <!-- Carte "Ton compte" : toujours visible, au-dessus des onglets -->
+    <section class="card">
+      <div class="titre-carte">
+        <h2>Ton compte</h2>
+      </div>
+      <p class="aide">
+        Lu automatiquement dans le client League dès qu'il est lancé sur ce PC, puis après chaque partie : Riot ID,
+        niveau, progression et tes dernières parties. Aucune clé API.
+      </p>
+      <p id="suiviDirect" class="suivi-direct" hidden></p>
+      <p id="etatClient" class="etat" hidden></p>
+
+      <div id="profil" class="profil" hidden>
+        <span class="profil-nom" id="profilNom"></span>
+        <span class="profil-niveau">
+          Niveau <strong id="profilNiveau"></strong>
+          <small id="profilProgression" class="profil-progression"></small>
+        </span>
+      </div>
+      <p id="historique" class="historique" hidden></p>
+    </section>
+
+
+    <nav class="onglets" role="tablist" aria-label="Sections de l'appli">
+      <button type="button" role="tab" id="onglet-accueil" data-onglet="accueil" aria-controls="panneau-accueil" aria-selected="false" tabindex="-1">Accueil</button>
+      <button type="button" role="tab" id="onglet-niveau" data-onglet="niveau" aria-controls="panneau-niveau" aria-selected="false" tabindex="-1">Niveau</button>
+      <button type="button" role="tab" id="onglet-classee" data-onglet="classee" aria-controls="panneau-classee" aria-selected="false" tabindex="-1">Classée</button>
+      <button type="button" role="tab" id="onglet-missions" data-onglet="missions" aria-controls="panneau-missions" aria-selected="false" tabindex="-1">Missions</button>
+      <button type="button" role="tab" id="onglet-stats" data-onglet="stats" aria-controls="panneau-stats" aria-selected="false" tabindex="-1">Stats</button>
+      <button type="button" role="tab" id="onglet-maitrise" data-onglet="maitrise" aria-controls="panneau-maitrise" aria-selected="false" tabindex="-1">Maîtrise</button>
+      <button type="button" role="tab" id="onglet-butin" data-onglet="butin" aria-controls="panneau-butin" aria-selected="false" tabindex="-1">Butin</button>
+      <button type="button" role="tab" id="onglet-selection" data-onglet="selection" aria-controls="panneau-selection" aria-selected="false" tabindex="-1">Sélection</button>
+      <button type="button" role="tab" id="onglet-build" data-onglet="build" aria-controls="panneau-build" aria-selected="false" tabindex="-1">Build</button>
+      <button type="button" role="tab" id="onglet-parametres" data-onglet="parametres" aria-controls="panneau-parametres" aria-selected="false" tabindex="-1">Paramètres</button>
+    </nav>
+
+    <div class="panneaux">
+      <!-- Onglet Accueil : tableau de bord (onglets/accueil.js) -->
+      <section class="panneau" id="panneau-accueil" role="tabpanel" aria-labelledby="onglet-accueil" tabindex="0" hidden>
+        <p id="accueilSansCompte" class="card sans-compte">
+          Lance League of Legends : ton résumé s'affichera tout seul.
+        </p>
+        <div class="accueil-grille" id="accueilCartes" hidden>
+          <!-- Carte principale : bilan de la session (onglets/session.js) -->
+          <section class="card carte-session" id="carteSession" aria-labelledby="titreSession">
+            <div class="titre-carte">
+              <div>
+                <h2 id="titreSession">Ta session</h2>
+                <p class="session-depuis" id="sessionDepuis"></p>
+              </div>
+              <button type="button" class="lien" data-vers="parametres">Réglages</button>
+            </div>
+            <div id="sessionAlertes" class="session-alertes"></div>
+            <p id="sessionVide" class="aide"></p>
+            <div id="sessionContenu" class="tuiles tuiles-session" hidden>
+              <div class="tuile">
+                <span class="tuile-titre">Parties</span><span class="tuile-valeur" id="sessionParties"></span>
+                <span class="tuile-detail" id="sessionPartiesDetail"></span>
+              </div>
+              <div class="tuile">
+                <span class="tuile-titre">Résultats</span><span class="tuile-valeur" id="sessionResultats"></span>
+                <span class="tuile-detail" id="sessionResultatsDetail"></span>
+              </div>
+              <div class="tuile">
+                <span class="tuile-titre">XP gagnée</span><span class="tuile-valeur" id="sessionXp"></span>
+                <span class="tuile-detail">estimée, hors missions</span>
+              </div>
+              <div class="tuile">
+                <span class="tuile-titre">Temps de jeu</span><span class="tuile-valeur" id="sessionTemps"></span>
+                <span class="tuile-detail">en partie (sans les files d'attente)</span>
+              </div>
+              <div class="tuile tuile-meilleur">
+                <span class="tuile-titre">Meilleur champion</span>
+                <span class="session-meilleur" id="sessionMeilleur"></span>
+                <span class="tuile-detail" id="sessionMeilleurDetail"></span>
+              </div>
+            </div>
+          </section>
+
+          <button type="button" class="card carte-accueil" id="carteNiveau" data-vers="niveau">
+            <span class="carte-titre">Ton niveau</span>
+            <span class="carte-valeur"></span>
+            <span class="mini-barre"><span id="carteNiveauBarre"></span></span>
+            <span class="carte-detail"></span>
+          </button>
+          <button type="button" class="card carte-accueil" id="carteObjectif" data-vers="niveau">
+            <span class="carte-titre">Objectif</span>
+            <span class="carte-valeur"></span>
+            <span class="carte-detail"></span>
+          </button>
+          <button type="button" class="card carte-accueil" id="carteRythme" data-vers="niveau">
+            <span class="carte-titre">Ton rythme</span>
+            <span class="carte-valeur"></span>
+            <span class="carte-detail"></span>
+          </button>
+
+          <button type="button" class="card carte-accueil" id="carteFile" data-vers="parametres">
+            <span class="carte-titre">Acceptation auto</span>
+            <span class="carte-valeur"></span>
+            <span class="carte-detail"></span>
+          </button>
+
+          <button type="button" class="card carte-accueil bientot" id="carteStats" data-vers="stats">
+            <span class="carte-titre">Tes stats</span>
+            <span class="carte-valeur"></span>
+            <span class="carte-detail"></span>
+          </button>
+
+          <!-- Emplacements des prochaines fonctionnalités -->
+          <button type="button" class="card carte-accueil bientot" id="carteClassee" data-vers="classee">
+            <span class="carte-titre">Prêt pour la classée ?</span>
+            <span class="carte-valeur"></span>
+            <span class="carte-detail"></span>
+          </button>
+          <button type="button" class="card carte-accueil bientot" id="carteMissions" data-vers="missions">
+            <span class="carte-titre">Missions</span>
+            <span class="carte-valeur"></span>
+            <span class="carte-detail"></span>
+          </button>
+          <button type="button" class="card carte-accueil bientot" id="carteMaitrise" data-vers="maitrise">
+            <span class="carte-titre">Maîtrise</span>
+            <span class="carte-valeur"></span>
+            <span class="carte-detail"></span>
+          </button>
+        </div>
+      </section>
+
+      <!-- Onglet Niveau : le calculateur (onglets/niveau.js) -->
+      <section class="panneau" id="panneau-niveau" role="tabpanel" aria-labelledby="onglet-niveau" tabindex="0" hidden>
+      <section class="card">
+        <h2>Ton objectif</h2>
+        <div class="grid">
+          <label class="field">
+            <span>Niveau visé</span>
+            <input type="number" id="niveauCible" min="2" max="5000" value="30">
+          </label>
+          <label class="field">
+            <span>Temps de jeu par jour (h)</span>
+            <input type="number" id="heuresParJour" min="0.5" max="24" step="0.5" value="3">
+          </label>
+        </div>
+
+        <div class="boosts">
+          <label class="check">
+            <input type="checkbox" id="boostDuree">
+            <span>Boost d'XP à la durée <small>(double l'XP de base)</small></span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="boostVictoire">
+            <span>Boost d'XP par victoire <small>(+216 XP par victoire)</small></span>
+          </label>
+          <label class="check">
+            <input type="checkbox" id="compterMissions" checked>
+            <span>Compter l'XP des missions en cours <small id="infoMissions"></small></span>
+          </label>
+        </div>
+      </section>
+
+      <section class="card results" aria-live="polite">
+        <p id="sansCompte" class="sans-compte">
+          Lance League of Legends : ton estimation s'affichera toute seule.
+        </p>
+        <p id="erreur" class="erreur" hidden></p>
+
+        <div id="resultats" hidden>
+          <div class="progress">
+            <div class="progress-labels">
+              <span id="labelDebut"></span>
+              <span id="labelPourcentage"></span>
+              <span id="labelFin"></span>
+            </div>
+            <div class="progress-bar"><div id="barre" class="progress-fill"></div></div>
+            <p class="detail" id="detail"></p>
+          </div>
+
+          <!-- Une carte par mode, créée par onglets/niveau.js à partir de MODES -->
+          <div class="modes" id="modes"></div>
+
+          <p class="conseil" id="conseil"></p>
+        </div>
+      </section>
+
+      <section class="card" id="carteProgression" hidden>
+        <h2>Ta progression</h2>
+        <ul class="legende" aria-label="Légende">
+          <li><span class="cle-ligne cle-reel"></span>Réel</li>
+          <li><span class="cle-ligne cle-prevu"></span>Prévu (mode le plus rapide, à ton temps de jeu par jour)</li>
+        </ul>
+        <div class="graphique" id="graphique">
+          <svg id="svgProgression" role="img" aria-labelledby="titreGraphique"></svg>
+          <div class="infobulle" id="infobulle" hidden></div>
+        </div>
+        <p class="rythme" id="rythme"></p>
+        <details class="donnees">
+          <summary>Voir les données</summary>
+          <table>
+            <thead><tr><th>Date</th><th>Niveau</th><th>Progression</th><th>XP totale</th></tr></thead>
+            <tbody id="tableProgression"></tbody>
+          </table>
+        </details>
+      </section>
+      </section>
+
+      <!-- Onglet Classée (onglets/classee.js) -->
+      <section class="panneau" id="panneau-classee" role="tabpanel" aria-labelledby="onglet-classee" tabindex="0" hidden>
+        <p id="classeeSansDonnees" class="card sans-compte"></p>
+        <div id="classeeContenu" hidden>
+          <div class="card">
+            <h2>Prêt pour la classée ?</h2>
+            <p id="classeeVerdict" class="verdict"></p>
+            <ul class="checklist">
+              <li id="checkNiveau">
+                <span class="coche" aria-hidden="true"></span>
+                <div>
+                  <strong>Niveau 30</strong> <span class="coche-etat"></span>
+                  <p class="coche-detail"></p>
+                </div>
+              </li>
+              <li id="checkChampions">
+                <span class="coche" aria-hidden="true"></span>
+                <div>
+                  <strong>20 champions possédés</strong> <span class="coche-etat"></span>
+                  <p class="coche-detail"></p>
+                </div>
+              </li>
+            </ul>
+            <p class="aide">Les champions de la rotation gratuite, loués ou prêtés (Game Pass, PC café) ne comptent pas.</p>
+          </div>
+
+          <div class="card">
+            <h2>Ton Essence bleue</h2>
+            <p class="eb-valeur" id="ebValeur"></p>
+            <p class="eb-resume" id="ebResume"></p>
+          </div>
+
+          <div class="card">
+            <h2>Tu peux acheter tout de suite</h2>
+            <p class="aide">Du moins cher au plus cher. Lecture seule : les achats se font dans la boutique du client.</p>
+            <p id="achetablesVide" class="achetables-vide" hidden></p>
+            <ul class="grille-champions" id="achetables"></ul>
+            <button type="button" id="voirTousAchetables" class="bouton-secondaire" hidden></button>
+          </div>
+        </div>
+      </section>
+
+      <!-- Onglet Missions (onglets/missions.js) -->
+      <section class="panneau" id="panneau-missions" role="tabpanel" aria-labelledby="onglet-missions" tabindex="0" hidden>
+        <p id="missionsSansDonnees" class="card sans-compte"></p>
+        <div id="missionsContenu" hidden>
+          <div class="card">
+            <h2>Tes missions</h2>
+            <p class="missions-xp" id="missionsXp"></p>
+            <p class="missions-resume" id="missionsResume"></p>
+            <p class="aide">
+              L'XP des missions est comptée dans l'onglet Niveau (case « Compter l'XP des missions en cours »).
+              Passe d'événement : pas encore affiché, faute de moyen fiable de le lire dans le client.
+            </p>
+          </div>
+          <ul class="liste-missions" id="listeMissions"></ul>
+        </div>
+      </section>
+
+      <!-- Onglet Stats (onglets/stats.js) -->
+      <section class="panneau" id="panneau-stats" role="tabpanel" aria-labelledby="onglet-stats" tabindex="0" hidden>
+        <div class="card import-historique">
+          <div class="titre-carte">
+            <h2>Ton historique</h2>
+            <button type="button" id="boutonImport">Importer tout mon historique</button>
+          </div>
+          <p class="aide">
+            L'appli demande au client League tes parties page par page, en remontant le plus loin qu'il le permet
+            (idéalement jusqu'à la création du compte). Ça peut prendre une minute sur un compte très joué.
+            Les parties déjà connues ne sont jamais comptées deux fois.
+          </p>
+          <p id="etatImport" class="etat" hidden></p>
+        </div>
+
+        <div class="periodes" role="tablist" aria-label="Période des stats">
+          <button type="button" role="tab" id="periode-30" data-periode="30" aria-selected="true" tabindex="0">30 derniers jours</button>
+          <button type="button" role="tab" id="periode-tout" data-periode="tout" aria-selected="false" tabindex="-1">Tout</button>
+        </div>
+
+        <p id="statsSansDonnees" class="card sans-compte"></p>
+        <div id="statsContenu" hidden>
+          <div class="card">
+            <div class="titre-carte">
+              <h2 id="titreStats">Tes stats</h2>
+              <label class="filtre">
+                <span>Mode</span>
+                <select id="filtreMode" aria-label="Filtrer par mode"></select>
+              </label>
+            </div>
+            <div class="tuiles">
+              <div class="tuile"><span class="tuile-titre">Parties</span><span class="tuile-valeur" id="statsParties"></span></div>
+              <div class="tuile">
+                <span class="tuile-titre">Victoires</span><span class="tuile-valeur" id="statsVictoires"></span>
+                <span class="tuile-detail" id="statsVictoiresDetail"></span>
+              </div>
+              <div class="tuile"><span class="tuile-titre">KDA moyen</span><span class="tuile-valeur" id="statsKda"></span></div>
+              <div class="tuile"><span class="tuile-titre">Série en cours</span><span class="tuile-valeur" id="statsSerie"></span></div>
+            </div>
+            <p class="aide" id="statsSource"></p>
+          </div>
+
+          <div class="card">
+            <h2>Tes meilleurs champions</h2>
+            <p class="aide">Au moins 3 parties avec le champion ; classés par taux de victoire, puis par KDA.</p>
+            <p id="meilleursVide" class="achetables-vide" hidden></p>
+            <ol class="meilleurs" id="meilleurs"></ol>
+          </div>
+
+          <div class="card">
+            <h2>Par champion</h2>
+            <div class="table-defilante">
+              <table class="table-stats" id="tableChampions">
+                <thead>
+                  <tr>
+                    <th scope="col" aria-sort="none"><button type="button" class="tri" data-colonne="nom">Champion</button></th>
+                    <th scope="col" aria-sort="descending"><button type="button" class="tri" data-colonne="parties">Parties</button></th>
+                    <th scope="col" aria-sort="none"><button type="button" class="tri" data-colonne="tauxVictoire">Victoires</button></th>
+                    <th scope="col" aria-sort="none"><button type="button" class="tri" data-colonne="kda">KDA</button></th>
+                    <th scope="col">K / D / A moyens</th>
+                  </tr>
+                </thead>
+                <tbody id="corpsChampions"></tbody>
+              </table>
+            </div>
+            <p class="aide">Clique sur un titre de colonne pour trier.</p>
+          </div>
+
+          <div class="card" id="carteModes">
+            <h2>Par mode</h2>
+            <table class="table-stats">
+              <thead><tr><th scope="col">Mode</th><th scope="col">Parties</th><th scope="col">Victoires</th><th scope="col">KDA</th></tr></thead>
+              <tbody id="corpsModes"></tbody>
+            </table>
+          </div>
+
+          <div class="card">
+            <h2>Quand tu gagnes le plus</h2>
+            <p class="aide">Taux de victoire par moment de la journée et par jour, avec le nombre de parties entre parenthèses.
+              En dessous de 3 parties, pas de pourcentage : ce ne serait pas fiable.</p>
+            <p id="creneauxVide" class="achetables-vide" hidden></p>
+            <div id="creneauxContenu" class="creneaux">
+              <h3>Moment de la journée</h3>
+              <svg id="svgTranches" class="graphique-barres" role="img"></svg>
+              <h3>Jour de la semaine</h3>
+              <svg id="svgJours" class="graphique-barres" role="img"></svg>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Onglet Maîtrise (onglets/maitrise.js) -->
+      <section class="panneau" id="panneau-maitrise" role="tabpanel" aria-labelledby="onglet-maitrise" tabindex="0" hidden>
+        <p id="maitriseSansDonnees" class="card sans-compte"></p>
+        <div id="maitriseContenu" hidden>
+          <div class="card">
+            <h2>Ta maîtrise</h2>
+            <div class="tuiles">
+              <div class="tuile"><span class="tuile-titre">Champions joués</span><span class="tuile-valeur" id="maitriseJoues"></span></div>
+              <div class="tuile"><span class="tuile-titre">Points au total</span><span class="tuile-valeur" id="maitrisePoints"></span></div>
+              <div class="tuile"><span class="tuile-titre">Plus haut niveau</span><span class="tuile-valeur" id="maitriseNiveauMax"></span></div>
+              <div class="tuile"><span class="tuile-titre">Niveau 10 et plus</span><span class="tuile-valeur" id="maitrise10"></span></div>
+            </div>
+            <p class="aide">
+              Depuis 2024, il n'y a plus de niveau maximum. Aux niveaux élevés, il faut à la fois des points et des
+              <strong>marques de maîtrise</strong>, gagnées en finissant des parties avec une bonne note (A-, S-…).
+              Les marques repartent de zéro à chaque saison, pas les niveaux.
+            </p>
+          </div>
+
+          <div class="card">
+            <h2>Les plus proches du niveau suivant</h2>
+            <p class="aide" id="maitriseEstimationAide"></p>
+            <ol class="liste-maitrise" id="maitriseProches"></ol>
+          </div>
+
+          <div class="card">
+            <h2>Tes champions les plus joués</h2>
+            <ol class="liste-maitrise" id="maitriseJouesListe"></ol>
+          </div>
+
+          <div class="card">
+            <div class="titre-carte">
+              <h2>Tous tes champions</h2>
+              <div class="outils-maitrise">
+                <label class="filtre">
+                  <span>Rechercher</span>
+                  <input type="search" id="rechercheMaitrise" placeholder="Ex. : Ahri" autocomplete="off" spellcheck="false">
+                </label>
+                <label class="filtre">
+                  <span>Trier par</span>
+                  <select id="triMaitrise">
+                    <option value="points">Points</option>
+                    <option value="proximite">Proximité du niveau suivant</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <p class="aide" id="maitriseCompte" aria-live="polite"></p>
+            <div class="table-defilante">
+              <table class="table-stats table-maitrise">
+                <thead>
+                  <tr>
+                    <th scope="col">Champion</th>
+                    <th scope="col" class="nombre">Niveau</th>
+                    <th scope="col" class="nombre">Points</th>
+                    <th scope="col" class="nombre">Restants</th>
+                    <th scope="col">Il manque aussi</th>
+                    <th scope="col" class="nombre">Estimation</th>
+                  </tr>
+                </thead>
+                <tbody id="corpsMaitrise"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="panneau" id="panneau-butin" role="tabpanel" aria-labelledby="onglet-butin" tabindex="0" hidden>
+        <div class="card bientot-panneau">
+          <h2>Butin Hextech</h2>
+          <p class="sans-compte">Bientôt disponible : les fragments que tu peux désenchanter sans risque, avec ta validation.</p>
+        </div>
+      </section>
+
+      <!-- Onglet Sélection : pick et ban automatiques (onglets/selection.js) -->
+      <section class="panneau" id="panneau-selection" role="tabpanel" aria-labelledby="onglet-selection" tabindex="0" hidden>
+        <div class="card parametres">
+          <h2>Sélection des champions</h2>
+          <p class="aide">
+            Quand c'est ton tour, l'appli peut bannir ou choisir à ta place après un délai, en suivant tes listes
+            dans l'ordre : si ton 1er choix est banni ou déjà pris, elle prend le 2e, puis le 3e.
+            Si tu survoles ou verrouilles un champion toi-même pendant le délai, elle ne fait rien.
+          </p>
+          <p class="aide selection-risque">
+            ⚠ Les règles de Riot interdisent aux applis de choisir ou bannir à la place du joueur.
+            Le risque de sanction est faible, mais pas nul : à activer en connaissance de cause.
+          </p>
+          <form id="formSelection" class="reglages-acceptation">
+            <div class="ligne-reglage">
+              <label class="check">
+                <input type="checkbox" id="pickAuto">
+                <span>Choisir automatiquement après</span>
+              </label>
+              <input type="number" id="delaiPick" min="0" max="25" step="1" value="10" aria-label="Délai avant de choisir (secondes)">
+              <span>s</span>
+            </div>
+            <div class="ligne-reglage">
+              <label class="check">
+                <input type="checkbox" id="banAuto">
+                <span>Bannir automatiquement après</span>
+              </label>
+              <input type="number" id="delaiBan" min="0" max="25" step="1" value="5" aria-label="Délai avant de bannir (secondes)">
+              <span>s</span>
+            </div>
+
+            <h3>Picks <small>(1er, 2e, 3e choix)</small></h3>
+            <p class="aide">
+              L'appli lit le rôle qui t'est attribué en sélection et prend la liste de ce rôle.
+              « Par défaut » sert pour les parties sans rôles, ou si aucun champion de la liste du rôle n'est disponible.
+            </p>
+            <div class="listes-selection" id="listesPicks"></div>
+
+            <h3>Bans <small>(1er, 2e, 3e choix)</small></h3>
+            <p class="aide">Jamais un champion déjà banni, ni un champion survolé ou déclaré par un coéquipier.</p>
+            <div class="listes-selection" id="listesBans"></div>
+          </form>
+          <p id="etatSelection" class="etat" hidden></p>
+          <p id="evenementSelection" class="etat etat-info" hidden></p>
+        </div>
+      </section>
+
+      <!-- Onglet Build : objets et runes d'après les statistiques de Lolalytics et d'OP.GG (onglets/build.js) -->
+      <section class="panneau" id="panneau-build" role="tabpanel" aria-labelledby="onglet-build" tabindex="0" hidden>
+        <div class="card parametres">
+          <h2>Build</h2>
+          <p class="aide">
+            Quand ton champion est verrouillé (ou attribué en ARAM), l'appli lit les statistiques de Lolalytics (objets
+            emplacement par emplacement) et d'OP.GG (runes, sorts) pour ce champion, ton rôle et le mode de jeu.
+            Pour chaque emplacement (départ, objet 1, bottes, objets 2 à 5), elle propose 3 choix : d'abord ceux pris
+            dans au moins 10 % des achats et sur 200 parties, classés par taux de victoire « prudent ».
+          </p>
+          <p class="aide">
+            Seules connexions à Internet de l'appli : elle n'envoie que le champion, le rôle et le mode, jamais ton
+            pseudo. Runes et set d'objets sont autorisés par Riot (comme Blitz ou Porofessor) ; tes pages et tes sets
+            ne sont jamais modifiés, seulement ceux nommés « LoL Companion ».
+          </p>
+          <form id="formBuild" class="reglages-acceptation">
+            <label class="check">
+              <input type="checkbox" id="buildStats">
+              <span>Récupérer le build de mon champion <small>(Lolalytics et OP.GG, connexion à Internet)</small></span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="buildRunes">
+              <span>Créer ma page de runes <small>(runes d'OP.GG, sinon celles recommandées par Riot)</small></span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="buildObjets">
+              <span>Créer le set d'objets dans la boutique en jeu <small>(3 choix par emplacement ; nécessite le build)</small></span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="buildAugments">
+              <span>Afficher les stats des augments en jeu <small>(ARAM Mayhem : % de parties où l'augment est pris avec ton champion, sous chaque carte ; OP.GG)</small></span>
+            </label>
+          </form>
+          <p class="aide">
+            Augments : Riot ne dit pas quels augments te sont proposés, l'appli lit donc leurs noms à l'écran (OCR de Windows,
+            rien ne quitte ton PC), seulement pendant une ARAM Mayhem. Mets le jeu en mode « Sans bordure » (Options → Vidéo) :
+            en plein écran, rien ne peut s'afficher par-dessus. L'appli ne choisit jamais à ta place.
+          </p>
+          <p id="etatBuild" class="etat" hidden></p>
+
+          <h3>Consulter un build</h3>
+          <form id="formConsulterBuild" class="ligne-reglage">
+            <input type="search" id="buildChampion" list="suggestionsChampions" aria-label="Champion" placeholder="Champion (ex. : Ahri)" autocomplete="off" spellcheck="false">
+            <select id="buildRole" aria-label="Rôle">
+              <option value="top">Haut</option>
+              <option value="jungle">Jungle</option>
+              <option value="middle" selected>Milieu</option>
+              <option value="bottom">Bas</option>
+              <option value="utility">Support</option>
+            </select>
+            <select id="buildMode" aria-label="Mode de jeu">
+              <option value="ranked">Faille (classée)</option>
+              <option value="aram">ARAM</option>
+            </select>
+            <button type="submit" class="bouton-secondaire" id="boutonConsulterBuild">Afficher</button>
+          </form>
+          <p id="etatConsulterBuild" class="etat" hidden></p>
+          <div id="buildResultat" class="build-resultat" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <!-- Onglet Paramètres (onglets/parametres.js) -->
+      <section class="panneau" id="panneau-parametres" role="tabpanel" aria-labelledby="onglet-parametres" tabindex="0" hidden>
+        <div class="card parametres">
+          <h2>Paramètres</h2>
+
+          <h3>Partie trouvée</h3>
+          <p class="aide">
+            Quand une partie est trouvée, l'appli peut l'accepter à ta place après un court délai (pour te laisser
+            le temps de refuser), et te prévenir par une notification si tu n'es pas sur League.
+            Elle n'accepte jamais si tu as déjà répondu, ni deux fois la même partie.
+          </p>
+          <form id="formAcceptation" class="reglages-acceptation">
+            <div class="ligne-reglage">
+              <label class="check">
+                <input type="checkbox" id="autoAccepter">
+                <span>Accepter automatiquement après</span>
+              </label>
+              <input type="number" id="delaiAcceptation" min="0" max="8" step="0.5" value="2" aria-label="Délai avant d'accepter (secondes)">
+              <span>s</span>
+            </div>
+            <label class="check">
+              <input type="checkbox" id="notifierPartie" checked>
+              <span>Me prévenir par une notification Windows <small>(si League n'est pas au premier plan)</small></span>
+            </label>
+          </form>
+          <p id="etatAcceptation" class="etat" hidden></p>
+
+          <h3>Session et pauses</h3>
+          <p class="aide">
+            Le bilan de session (Accueil) compte tes parties, tes victoires, l'XP gagnée et ton temps de jeu.
+            Les alertes sont de simples conseils : l'appli ne bloque jamais rien.
+          </p>
+          <form id="formSession" class="reglages-session">
+            <label class="field">
+              <span>Ta session commence</span>
+              <select id="modeSession">
+                <option value="aujourdhui">À ta première partie du jour</option>
+                <option value="ouverture">À l'ouverture de l'appli</option>
+              </select>
+            </label>
+            <div class="ligne-reglage">
+              <label class="check">
+                <input type="checkbox" id="alerteDefaites">
+                <span>Me proposer une pause après</span>
+              </label>
+              <input type="number" id="seuilDefaites" min="2" max="10" step="1" aria-label="Nombre de défaites d'affilée">
+              <span>défaites d'affilée</span>
+            </div>
+            <div class="ligne-reglage">
+              <label class="check">
+                <input type="checkbox" id="rappelDuree">
+                <span>Me rappeler mon temps de jeu toutes les</span>
+              </label>
+              <input type="number" id="heuresRappel" min="1" max="6" step="0.5" aria-label="Heures avant le rappel">
+              <span>h</span>
+            </div>
+            <label class="check">
+              <input type="checkbox" id="notifierSession">
+              <span>Me prévenir aussi par une notification Windows <small>(sinon, juste un message dans l'appli)</small></span>
+            </label>
+          </form>
+          <p id="etatSession" class="etat" hidden></p>
+
+          <h3>Arrière-plan</h3>
+          <p class="aide">
+            Fenêtre cachée, l'appli reste dans la zone de notification (à côté de l'horloge) et continue de surveiller
+            le client : acceptation auto, notifications, mise à jour après chaque partie. Clic droit sur son icône pour
+            l'ouvrir ou la quitter.
+          </p>
+          <form id="formArrierePlan" class="reglages-session">
+            <label class="check">
+              <input type="checkbox" id="fermerReduit">
+              <span>Fermer la fenêtre la réduit dans la zone de notification <small>(sinon, la croix quitte l'appli)</small></span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="lancerAuDemarrage">
+              <span>Lancer LoL Companion au démarrage de Windows</span>
+            </label>
+            <label class="check sous-option">
+              <input type="checkbox" id="demarrerReduit">
+              <span>Démarrer réduit <small>(sans ouvrir la fenêtre)</small></span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="prevenirClientDetecte">
+              <span>Me prévenir quand League est détecté <small>(notification « LoL Companion est prêt », seulement si la fenêtre est cachée)</small></span>
+            </label>
+          </form>
+          <p id="etatArrierePlan" class="etat" hidden></p>
+
+          <h3>Dossier du jeu</h3>
+          <p class="aide">
+            Le dossier où League of Legends est installé (celui qui contient <code>LeagueClient.exe</code>).
+            Par défaut : <code id="dossierParDefaut"></code>.
+          </p>
+          <form id="formDossier" class="ligne">
+            <input type="text" id="dossierJeu" spellcheck="false" autocomplete="off" aria-label="Dossier du jeu">
+            <button type="submit">Enregistrer</button>
+            <button type="button" id="dossierDefaut" class="bouton-secondaire">Par défaut</button>
+          </form>
+          <p id="etatDossier" class="etat" hidden></p>
+
+          <h3>Historique de progression</h3>
+          <p class="aide">
+            Les points de ta courbe sont enregistrés sur ce PC uniquement
+            (<code>%APPDATA%\lol-level-calculator\progression.json</code>).
+          </p>
+          <button type="button" id="effacerProgression" class="bouton-secondaire">Effacer l'historique</button>
+          <p id="etatProgression" class="etat" hidden></p>
+
+          <h3>Historique des parties (onglet Stats)</h3>
+          <p class="aide">
+            Tes parties sont gardées sur ce PC uniquement
+            (<code>%APPDATA%\lol-level-calculator\parties.json</code>), pour que tes stats portent sur plus de parties
+            que celles que le client garde en mémoire.
+          </p>
+          <button type="button" id="effacerStats" class="bouton-secondaire">Effacer l'historique des parties</button>
+          <p id="etatStats" class="etat" hidden></p>
+        </div>
+      </section>
+    </div>
+
+    <footer class="footer">
+      <p>Estimations basées sur les formules d'XP publiées par le wiki League of Legends. L'XP des missions en cours est comptée si l'option est cochée (onglet Niveau) ; les passes d'événement ne sont pas comptés.</p>
+      <p>Projet non officiel, non affilié à Riot Games.</p>
+    </footer>
+  </main>
+
+  <!-- Ordre important : chaque fichier utilise les fonctions des fichiers chargés avant lui (voir app.js). -->
+  <script src="calculs.js"></script>
+  <script src="commun.js"></script>
+  <script src="onglets/onglets.js"></script>
+  <script src="onglets/compte.js"></script>
+  <script src="onglets/accueil.js"></script>
+  <script src="onglets/niveau.js"></script>
+  <script src="onglets/classee.js"></script>
+  <script src="onglets/missions.js"></script>
+  <script src="onglets/stats.js"></script>
+  <script src="onglets/maitrise.js"></script>
+  <script src="onglets/session.js"></script>
+  <script src="onglets/parametres.js"></script>
+  <script src="onglets/selection.js"></script>
+  <script src="onglets/build.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

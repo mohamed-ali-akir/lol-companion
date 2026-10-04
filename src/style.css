@@ -1,0 +1,1449 @@
+:root {
+  --bg: #0a1428;
+  --bg-card: #0f1e36;
+  --border: #1e3a5f;
+  --gold: #c8aa6e;
+  --gold-light: #f0e6d2;
+  --text: #cdd6e4;
+  --text-muted: #8a9bb5;
+  --accent: #0ac8b9;
+  --danger: #e25b5b;
+  --radius: 10px;
+  /* Polices déjà installées sur l'ordinateur : l'appli fonctionne sans Internet. */
+  --font-titre: "Palatino Linotype", "Book Antiqua", Georgia, serif;
+  --font-texte: "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: radial-gradient(circle at top, #13284a 0%, var(--bg) 60%);
+  background-color: var(--bg);
+  color: var(--text);
+  font-family: var(--font-texte);
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.container {
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 32px 16px 48px;
+}
+
+/* En-tête */
+.header {
+  margin-bottom: 28px;
+  position: relative;
+  text-align: center;
+}
+
+h1 {
+  font-family: var(--font-titre);
+  color: var(--gold);
+  font-size: clamp(1.8rem, 5vw, 2.6rem);
+  letter-spacing: 1px;
+}
+
+.subtitle {
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* Cartes */
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+  margin-bottom: 16px;
+}
+
+h2 {
+  font-family: var(--font-titre);
+  color: var(--gold-light);
+  font-size: 1.1rem;
+  margin-bottom: 16px;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+/* Champs */
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+input[type="number"],
+input[type="search"],
+input[type="password"],
+input[type="text"],
+select {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--gold-light);
+  font-size: 1rem;
+  font-family: inherit;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+input[type="number"]:focus,
+input[type="search"]:focus,
+input[type="password"]:focus,
+input[type="text"]:focus,
+select:focus {
+  outline: none;
+  border-color: var(--gold);
+}
+
+.boosts {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.check {
+  display: flex;
+  align-items: flex-start; /* texte sur plusieurs lignes (petite fenêtre) : la case reste en face de la 1re ligne */
+  gap: 10px;
+  cursor: pointer;
+}
+
+.check input {
+  accent-color: var(--gold);
+  flex: none;
+  width: 18px;
+  height: 18px;
+  margin-top: 2px;
+}
+
+.check small {
+  color: var(--text-muted);
+}
+
+/* Résultats */
+.results {
+  border-color: var(--gold);
+}
+
+.progress-labels {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.progress-bar {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  height: 14px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  height: 100%;
+  width: 0;
+  transition: width 0.4s ease;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-top: 22px;
+  text-align: center;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+}
+
+.stat-value {
+  font-family: var(--font-titre);
+  color: var(--gold);
+  font-size: clamp(1.6rem, 6vw, 2.4rem);
+  font-weight: 700;
+}
+
+.stat-label {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.detail {
+  margin-top: 18px;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.erreur {
+  color: var(--danger);
+  text-align: center;
+  font-weight: 500;
+}
+
+.footer {
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 24px;
+}
+
+.footer p + p {
+  margin-top: 4px;
+}
+
+/* Formulaires en ligne (Paramètres) */
+.ligne {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.ligne input {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.ligne select {
+  width: auto;
+}
+
+button {
+  background: var(--gold);
+  border: none;
+  border-radius: 6px;
+  color: var(--bg);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  padding: 10px 18px;
+}
+
+button:hover {
+  background: var(--gold-light);
+}
+
+button:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.etat {
+  font-size: 0.9rem;
+  margin-top: 10px;
+}
+
+.etat-info { color: var(--text-muted); }
+.etat-ok { color: var(--accent); }
+.etat-erreur { color: var(--danger); }
+
+.profil {
+  align-items: baseline;
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  justify-content: space-between;
+  margin-top: 16px;
+  padding-top: 14px;
+}
+
+.profil-nom {
+  color: var(--gold-light);
+  font-family: var(--font-titre);
+  font-size: 1.3rem;
+}
+
+.profil-niveau strong {
+  color: var(--gold);
+  font-size: 1.3rem;
+}
+
+.aide {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.aide a {
+  color: var(--accent);
+}
+
+.aide code {
+  color: var(--gold-light);
+}
+
+/* Résultats par mode */
+.progress {
+  margin-bottom: 22px;
+}
+
+.progress .detail {
+  margin-top: 10px;
+}
+
+/* 4 modes : grille 2 x 2, une seule colonne sur une fenêtre étroite */
+.modes {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .modes {
+    grid-template-columns: 1fr;
+  }
+}
+
+.mode {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+}
+
+.mode h3 {
+  color: var(--gold-light);
+  font-family: var(--font-titre);
+  font-size: 1.1rem;
+  text-align: center;
+}
+
+.mode h3 small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.mode .stats {
+  margin-top: 12px;
+}
+
+.mode .stat-value {
+  font-size: clamp(1.4rem, 4vw, 2rem);
+}
+
+.mode-detail,
+.mode-source {
+  font-size: 0.85rem;
+  margin-top: 10px;
+  text-align: center;
+}
+
+.mode-detail { color: var(--text); }
+.mode-source { color: var(--text-muted); }
+
+.conseil {
+  color: var(--gold-light);
+  font-weight: 500;
+  margin-top: 18px;
+  text-align: center;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+/* Boutons secondaires (Paramètres, Supprimer, Par défaut) */
+.bouton-secondaire {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-weight: 500;
+}
+
+.bouton-secondaire:hover {
+  background: var(--border);
+}
+
+
+/* Titre de carte avec un bouton à droite */
+.titre-carte {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.titre-carte h2 {
+  margin-bottom: 0;
+}
+
+.card > .aide {
+  margin-top: 8px;
+}
+
+.card .grid {
+  margin-top: 14px;
+}
+
+/* Écran Paramètres */
+.parametres h3 {
+  color: var(--gold-light);
+  font-size: 0.95rem;
+  margin-top: 18px;
+}
+
+.parametres h2 + h3 {
+  margin-top: 0;
+}
+
+.parametres h3 small {
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.parametres .aide {
+  margin: 6px 0 10px;
+}
+
+.profil-progression {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.8rem;
+  text-align: right;
+}
+
+.sans-compte {
+  color: var(--text-muted);
+  padding: 12px 0;
+  text-align: center;
+}
+
+/* Compte affiché depuis la mémoire (client fermé) : un peu estompé */
+.profil.memoire {
+  opacity: 0.7;
+}
+
+.suivi-direct {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 10px;
+}
+
+.suivi-direct.actif {
+  color: var(--accent);
+}
+
+.historique {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin-top: 8px;
+}
+
+
+/* Carte "Ta progression" : couleurs validées pour le fond sombre (lisibles aussi pour les daltoniens) */
+:root {
+  --courbe-reelle: #12a293;
+  --courbe-prevue: #b8862a;
+}
+
+.legende {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 18px;
+  list-style: none;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-bottom: 8px;
+}
+
+.legende li {
+  align-items: center;
+  display: flex;
+  gap: 6px;
+}
+
+.cle-ligne {
+  border-top: 2px solid var(--courbe-reelle);
+  display: inline-block;
+  width: 18px;
+}
+
+.cle-ligne.cle-prevu {
+  border-top: 2px dashed var(--courbe-prevue);
+}
+
+.graphique {
+  position: relative;
+}
+
+.graphique svg {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.graphique .grille {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.graphique .graduation {
+  fill: var(--text-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.graphique .courbe {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+}
+
+.graphique .courbe-reelle { stroke: var(--courbe-reelle); }
+.graphique .courbe-prevue { stroke: var(--courbe-prevue); stroke-dasharray: 6 5; }
+
+.graphique .point-reel {
+  fill: var(--courbe-reelle);
+  stroke: var(--bg-card); /* anneau couleur du fond : le point reste lisible sur les lignes */
+  stroke-width: 2;
+}
+
+.graphique .ligne-survol {
+  stroke: var(--text-muted);
+  stroke-width: 1;
+}
+
+.infobulle {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text);
+  font-size: 0.8rem;
+  padding: 4px 8px;
+  pointer-events: none;
+  position: absolute;
+  transform: translate(-50%, calc(-100% - 10px));
+  white-space: nowrap;
+}
+
+.rythme {
+  color: var(--text);
+  font-size: 0.9rem;
+  margin-top: 10px;
+}
+
+.donnees {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-top: 10px;
+}
+
+.donnees summary {
+  cursor: pointer;
+}
+
+.donnees table {
+  border-collapse: collapse;
+  margin-top: 8px;
+  width: 100%;
+}
+
+.donnees th,
+.donnees td {
+  border-bottom: 1px solid var(--border);
+  font-variant-numeric: tabular-nums;
+  padding: 4px 6px;
+  text-align: left;
+}
+
+.parametres > .bouton-secondaire {
+  margin-top: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   Onglets
+   --------------------------------------------------------------------------- */
+
+.onglets {
+  box-shadow: inset 0 -1px 0 var(--border); /* trait sous les onglets, sans déborder */
+  display: flex;
+  gap: 4px;
+  margin: 8px 0 16px;
+  overflow-x: auto; /* sur une fenêtre étroite, les onglets défilent au lieu de déborder */
+  overflow-y: hidden;
+  scrollbar-color: var(--border) transparent;
+  scrollbar-width: thin;
+}
+
+.onglets [role="tab"] {
+  background: transparent;
+  border-bottom: 2px solid transparent;
+  border-radius: 6px 6px 0 0;
+  color: var(--text-muted);
+  flex: 0 0 auto;
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 10px 14px;
+}
+
+.onglets [role="tab"]:hover {
+  background: var(--bg-card);
+  color: var(--text);
+}
+
+.onglets [role="tab"][aria-selected="true"] {
+  border-bottom-color: var(--gold);
+  color: var(--gold-light);
+}
+
+.onglets [role="tab"]:focus-visible,
+.panneau:focus-visible,
+.carte-accueil:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+.panneau:focus {
+  outline: none;
+}
+
+.bientot-panneau h2 {
+  margin-bottom: 4px;
+}
+
+/* ---------------------------------------------------------------------------
+   Accueil : cartes cliquables
+   --------------------------------------------------------------------------- */
+
+.accueil-grille {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+.carte-accueil {
+  color: var(--text);
+  display: flex;
+  flex-direction: column;
+  font-size: 1rem;
+  font-weight: 400;
+  gap: 6px;
+  justify-content: flex-start;
+  line-height: 1.5; /* un bouton n'hérite pas de la hauteur de ligne : on la fixe pour tout aligner */
+  margin-bottom: 0;
+  text-align: left;
+}
+
+button.carte-accueil {
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+button.carte-accueil:hover {
+  background: var(--bg-card);
+  border-color: var(--gold);
+}
+
+.carte-titre {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.carte-valeur {
+  color: var(--gold);
+  font-family: var(--font-titre);
+  font-size: 1.6rem;
+  font-weight: 700;
+}
+
+.carte-detail {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.mini-barre {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: block;
+  height: 8px;
+  overflow: hidden;
+}
+
+.mini-barre > span {
+  background: linear-gradient(90deg, var(--accent), var(--gold));
+  display: block;
+  height: 100%;
+}
+
+.carte-accueil.bientot {
+  border-style: dashed;
+  opacity: 0.6;
+}
+
+/* ---------------------------------------------------------------------------
+   Onglet Classée
+   --------------------------------------------------------------------------- */
+
+.verdict {
+  color: var(--text);
+  font-size: 1.05rem;
+  margin-bottom: 12px;
+}
+
+.verdict.pret {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.checklist {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  list-style: none;
+  margin-bottom: 10px;
+}
+
+.checklist li {
+  align-items: flex-start;
+  display: flex;
+  gap: 12px;
+}
+
+.coche {
+  align-items: center;
+  border: 2px solid var(--danger);
+  border-radius: 50%;
+  color: var(--danger);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-weight: 700;
+  height: 28px;
+  justify-content: center;
+  width: 28px;
+}
+
+.checklist li.fait .coche {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.coche-etat {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin-left: 6px;
+}
+
+.coche-detail {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin-top: 2px;
+}
+
+.lien {
+  background: none;
+  color: var(--accent);
+  font-size: inherit;
+  font-weight: 500;
+  padding: 0;
+  text-decoration: underline;
+}
+
+.lien:hover {
+  background: none;
+  color: var(--gold-light);
+}
+
+.eb-valeur {
+  color: var(--gold);
+  font-family: var(--font-titre);
+  font-size: 2rem;
+  font-weight: 700;
+}
+
+.eb-resume {
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-top: 6px;
+}
+
+.achetables-vide {
+  color: var(--text-muted);
+  margin-top: 10px;
+}
+
+.grille-champions {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fill, minmax(96px, 1fr));
+  list-style: none;
+  margin: 12px 0;
+}
+
+.champion {
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 6px;
+  text-align: center;
+}
+
+.champion img {
+  background: var(--bg-card);
+  border-radius: 6px;
+  height: 48px;
+  width: 48px;
+}
+
+.champion img.sans-image {
+  visibility: hidden;
+}
+
+.champion-nom {
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.2;
+}
+
+.champion-prix {
+  color: var(--gold);
+  font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------------------------------------------------------------------------
+   Onglet Missions
+   --------------------------------------------------------------------------- */
+
+.missions-xp {
+  color: var(--gold);
+  font-family: var(--font-titre);
+  font-size: 1.8rem;
+  font-weight: 700;
+}
+
+.missions-resume {
+  color: var(--text);
+  margin-top: 4px;
+}
+
+.card .aide {
+  margin-top: 8px;
+}
+
+.liste-missions {
+  list-style: none;
+}
+
+.mission-entete {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.mission-titre {
+  color: var(--gold-light);
+  flex: 1 1 auto;
+  font-family: var(--font-titre);
+  font-size: 1rem;
+}
+
+.badge {
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 2px 10px;
+  white-space: nowrap;
+}
+
+.badge-xp {
+  border: 1px solid var(--gold);
+  color: var(--gold);
+}
+
+.mission-description {
+  color: var(--text);
+  font-size: 0.9rem;
+  margin-top: 6px;
+}
+
+.objectif {
+  align-items: center;
+  display: grid;
+  gap: 4px 10px;
+  grid-template-columns: 1fr auto;
+  margin-top: 8px;
+}
+
+.objectif-texte {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  grid-column: 1 / -1;
+}
+
+.objectif-compte {
+  color: var(--text);
+  font-size: 0.85rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.mission-pied {
+  color: var(--text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  gap: 4px 16px;
+  margin-top: 10px;
+}
+
+.mission-fin {
+  color: var(--text);
+}
+
+/* Paramètres : partie trouvée */
+.reglages-acceptation {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+
+/* ---------------------------------------------------------------------------
+   Onglet Stats
+   --------------------------------------------------------------------------- */
+
+.filtre {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-size: 0.85rem;
+  gap: 8px;
+}
+
+.filtre select {
+  width: auto;
+}
+
+.tuiles {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  margin-top: 10px;
+}
+
+.tuile {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px;
+}
+
+.tuile-titre {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.tuile-valeur {
+  color: var(--text);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.tuile-valeur.serie-defaites {
+  color: var(--text-muted);
+}
+
+.tuile-detail {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.meilleurs {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  list-style: none;
+  margin-top: 10px;
+}
+
+.meilleur {
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.meilleur .meilleur-rang {
+  color: var(--gold);
+  font-family: var(--font-titre);
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.meilleur div {
+  display: flex;
+  flex-direction: column;
+}
+
+.meilleur strong {
+  color: var(--gold-light);
+}
+
+.meilleur span,
+.meilleur small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.meilleur .icone-champion {
+  height: 40px;
+  width: 40px;
+}
+
+.icone-champion {
+  background: var(--bg-card);
+  border-radius: 6px;
+  flex: 0 0 auto;
+}
+
+.icone-champion.sans-image {
+  visibility: hidden;
+}
+
+.table-defilante {
+  max-height: 420px;
+  overflow-y: auto;
+}
+
+.table-stats {
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  width: 100%;
+}
+
+.table-stats th,
+.table-stats td {
+  border-bottom: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: left;
+}
+
+.table-stats th {
+  background: var(--bg-card);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  font-weight: 500;
+  position: sticky;
+  top: 0;
+}
+
+.table-stats .nombre {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap; /* sur une petite fenêtre, le tableau défile au lieu de couper "6,3 / 4,1 / 9,1" */
+}
+
+.table-stats th {
+  white-space: nowrap;
+}
+
+.table-stats th:not(:first-child) {
+  text-align: right;
+}
+
+.table-stats .col-nom {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+}
+
+.tri {
+  background: none;
+  color: inherit;
+  font-size: inherit;
+  font-weight: inherit;
+  padding: 0;
+}
+
+.tri:hover {
+  background: none;
+  color: var(--gold-light);
+}
+
+th[aria-sort="ascending"] .tri::after { content: " ▲"; }
+th[aria-sort="descending"] .tri::after { content: " ▼"; }
+
+.creneaux h3 {
+  color: var(--gold-light);
+  font-size: 0.95rem;
+  margin: 14px 0 6px;
+}
+
+.graphique-barres {
+  display: block;
+  height: auto;
+  width: 100%;
+}
+
+.graphique-barres .barre {
+  fill: var(--courbe-reelle);
+}
+
+.graphique-barres .barre-nom {
+  fill: var(--text);
+  font-size: 12px;
+}
+
+.graphique-barres .barre-valeur {
+  fill: var(--text);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.graphique-barres .barre-valeur.vide {
+  fill: var(--text-muted);
+}
+
+.graphique-barres .grille {
+  stroke: var(--border);
+  stroke-width: 1;
+}
+
+.graphique-barres .graduation {
+  fill: var(--text-muted);
+  font-size: 11px;
+}
+
+/* Stats : période (sous-onglets) et import */
+.periodes {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+}
+
+.periodes [role="tab"] {
+  background: transparent;
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  font-weight: 500;
+  padding: 6px 16px;
+}
+
+.periodes [role="tab"]:hover {
+  background: var(--bg);
+  color: var(--text);
+}
+
+.periodes [role="tab"][aria-selected="true"] {
+  background: var(--gold);
+  color: var(--bg);
+}
+
+.periodes [role="tab"]:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
+
+/* ---------------------------------------------------------------------------
+   Onglet Maîtrise
+   --------------------------------------------------------------------------- */
+
+.liste-maitrise {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+}
+
+.maitrise-ligne {
+  align-items: center;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  padding: 10px 12px;
+}
+
+.maitrise-ligne .icone-champion {
+  flex: none;
+  height: 44px;
+  width: 44px;
+}
+
+.maitrise-ligne .meilleur-rang {
+  color: var(--gold);
+  font-family: var(--font-titre);
+  font-size: 1.3rem;
+  font-weight: 700;
+  min-width: 1.2em;
+  text-align: center;
+}
+
+.maitrise-texte {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.maitrise-titre {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  justify-content: space-between;
+}
+
+.maitrise-titre strong {
+  color: var(--gold-light);
+}
+
+.maitrise-titre span,
+.maitrise-texte small {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.maitrise-points {
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.maitrise-condition {
+  color: var(--gold);
+  font-size: 0.85rem;
+}
+
+.outils-maitrise {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.outils-maitrise input[type="search"] {
+  width: 180px;
+}
+
+.table-maitrise .manque {
+  color: var(--gold);
+}
+
+/* ---------------------------------------------------------------------------
+   Bilan de session (carte principale de l'Accueil)
+   --------------------------------------------------------------------------- */
+
+.carte-session {
+  border-color: var(--gold);
+  grid-column: 1 / -1; /* toute la largeur, en haut de l'Accueil */
+}
+
+.carte-session h2 {
+  margin: 0;
+}
+
+.session-depuis {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 2px 0 0;
+}
+
+.tuiles-session {
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)); /* les 5 tuiles sur une ligne quand la fenêtre le permet */
+}
+
+.tuile-meilleur .session-meilleur {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.session-meilleur strong {
+  color: var(--gold-light);
+  font-size: 1.1rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Alertes douces : couleurs calmes (pas de rouge), un simple "OK" pour fermer. */
+.session-alertes {
+  display: grid;
+  gap: 8px;
+}
+
+.session-alertes:not(:empty) {
+  margin: 12px 0 4px;
+}
+
+.session-alerte {
+  align-items: center;
+  background: rgba(10, 200, 185, 0.08);
+  border: 1px solid rgba(10, 200, 185, 0.35);
+  border-radius: 8px;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+  padding: 10px 14px;
+}
+
+.session-alerte strong {
+  color: var(--gold-light);
+}
+
+.session-alerte p {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  margin: 2px 0 0;
+}
+
+.session-alerte button {
+  flex: none;
+  padding: 6px 14px;
+}
+
+.reglages-session {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 4px;
+}
+
+.reglages-session .field {
+  max-width: 320px;
+}
+
+.check.sous-option {
+  margin-left: 28px; /* dépend de la case du dessus */
+}
+
+.ligne-reglage {
+  align-items: center;
+  color: var(--text);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 10px;
+}
+
+.ligne-reglage input[type="number"] {
+  width: 70px;
+}
+
+/* Bandeau « pas encore prête » (en haut de la fenêtre, tant que l'appli se connecte à League) */
+.bandeau-preparation {
+  background: rgba(200, 170, 110, 0.15);
+  border: 1px solid var(--gold);
+  border-radius: 8px;
+  color: var(--gold-light);
+  font-size: 0.95rem;
+  margin: 0 0 12px;
+  padding: 10px 14px;
+  text-align: center;
+}
+
+/* Onglet Build */
+.build-resultat h3 {
+  margin-top: 18px;
+}
+
+.build-etapes {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 10px 0;
+  padding-left: 22px;
+}
+
+.build-etapes strong {
+  color: var(--gold-light);
+}
+
+.build-taux {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+/* Onglet Sélection : une ligne par liste (rôle), trois menus déroulants dans l'ordre */
+.selection-risque {
+  color: var(--danger);
+}
+
+.listes-selection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.ligne-selection {
+  align-items: center;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 90px repeat(3, minmax(0, 1fr));
+}
+
+.ligne-selection > span {
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.ligne-selection input,
+.ligne-selection select {
+  font-size: 0.9rem;
+  min-width: 0;
+  padding: 6px;
+  width: 100%;
+}
+
+@media (max-width: 560px) {
+  .ligne-selection {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ligne-selection > span {
+    grid-column: 1 / -1;
+  }
+}
+
+.tuiles-session .tuile-valeur {
+  font-size: 1.3rem; /* "≈ +1 250 XP" tient sur une ligne */
+}

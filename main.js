@@ -1,0 +1,1024 @@
+// Point d'entrée de l'appli Electron (processus principal, qui a accès à Node.js).
+// Il crée la fenêtre, garde les réglages et lit le client League lancé sur ce PC.
+// Il surveille aussi le client en direct (surveillance.js) pour mettre la page à jour
+// toute seule après chaque partie.
+// Tout passe par l'API locale du client (lcu.js). Seules exceptions : les statistiques de builds d'OP.GG
+// (opgg.js) et de Lolalytics (lolalytics.js), lues seulement si tu l'actives dans l'onglet Build,
+// sans aucune donnée personnelle.
+// La page, elle, n'a accès à ces fonctions qu'à travers preload.js.
+// En arrière-plan (fenêtre cachée), l'appli reste dans la zone de notification de Windows
+// et continue de surveiller le client (voir la partie "Arrière-plan" en bas de ce fichier).
+const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, protocol, Notification, screen } = require("electron");
+const path = require("path");
+const { recupererCompteClient, lireToutHistorique, ErreurClient } = require("./lcu.js");
+const { creerStockage, ErreurStockage, DOSSIER_JEU_PAR_DEFAUT } = require("./stockage.js");
+const { surveillerClient } = require("./surveillance.js");
+const { creerProgression, creerPoint, riotIdDe } = require("./progression.js");
+const { xpDuCompte } = require("./src/calculs.js"); // même calcul d'XP que la page
+const { recupererMissions } = require("./missions.js");
+const { creerAcceptation, accepterReadyCheck, leagueAuPremierPlan } = require("./acceptation.js");
+const { creerSelectionAuto, effectuerAction, lireChampionsAutorises } = require("./selection.js");
+const { lireRecommandations, appliquerPage, monChampion } = require("./runes.js");
+const { estMayhem, indexNoms, indexStats, creerSuiviAugments, lireNomsAugments, lireLangueJeu } = require("./augments.js");
+const { creerLecteurEcran } = require("./ocr.js");
+const { creerLecteurArammayhem } = require("./arammayhem.js");
+const { creerSondage, etatPreparation } = require("./sondage.js");
+const { creerJournal } = require("./journal.js");
+const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireNomsObjets, appliquerSet } = require("./build.js");
+const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg.js");
+const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
+const { creerHistoriqueParties } = require("./parties.js");
+const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
+const { alertesDuCompte, creerSuiviAlertes } = require("./session.js");
+const { recupererClassee, lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./classee.js");
+const {
+  actionFermeture,
+  parametresDemarrageWindows,
+  estDemarrageReduit,
+  doitPrevenirReduction,
+  doitPrevenirClientDetecte,
+  texteClientDetecte,
+  modeleMenuIcone,
+} = require("./arriere-plan.js");
+
+let stockage; // créé quand l'appli est prête (app.getPath en a besoin)
+let progression; // historique de progression (progression.json), créé au même moment
+let historiqueParties; // parties déjà lues (parties.json), pour l'onglet Stats
+let suiviMaitrise; // points de maîtrise gagnés par partie (maitrise.json), pour l'onglet Maîtrise
+let nomsChampions = new Map(); // id -> nom, lu une fois dans le client
+let importEnCours = false; // un seul import de l'historique à la fois
+let fenetre = null;
+let surveillance = null;
+let clientConnecte = false;
+let clientDejaSignale = false; // notification « LoL Companion est prêt » déjà montrée pour ce lancement de League
+let acceptation = null;
+let selectionAuto = null; // pick et ban automatiques (selection.js)
+let buildAuto = null; // build automatique : stats OP.GG, runes, set d'objets (build.js)
+// Seules connexions à Internet de l'appli (onglet Build, désactivées par défaut) : OP.GG et Lolalytics.
+const lecteurOpgg = creerLecteurOpgg();
+const lecteurLolalytics = creerLecteurLolalytics();
+const lecteurArammayhem = creerLecteurArammayhem(); // taux de victoire des augments ARAM Mayhem
+let aliasChampions = new Map(); // id -> nom interne ("MonkeyKing"), pour OP.GG et Lolalytics
+let nomsObjets = new Map(); // id -> nom de l'objet (langue du client), pour Lolalytics
+// Augments ARAM Mayhem affichés en jeu (augments.js) : désactivé par défaut (onglet Build).
+let championPartie = null; // ton champion, retenu pendant la sélection
+let indexAugments = null; // noms de tous les augments (langue du jeu)
+let langueJeu = null; // "en_US"...
+let lecteurEcran = null; // lecture d'écran (ocr.js), lancée seulement pendant une ARAM Mayhem
+let fenetreAugments = null; // fenêtre transparente par-dessus le jeu
+let suiviAugments = null;
+const lancement = Date.now(); // ouverture de l'appli : début de session en mode "depuis l'ouverture"
+const suiviAlertes = creerSuiviAlertes(); // alertes de pause déjà notifiées
+let icone = null; // icône dans la zone de notification (Tray)
+let quitteEnCours = false; // true quand on quitte vraiment (menu "Quitter") : la croix ne cache plus
+const DOSSIER_ASSETS = path.join(__dirname, "assets");
+
+// Journal sur le disque (journal.js) : créé quand l'appli est prête ; avant, les messages ne vont qu'au terminal.
+let journal = { ecrire: () => {} };
+
+/** Écrit dans le journal (journal.txt) et dans le terminal (npm start). */
+function noter(...morceaux) {
+  journal.ecrire(...morceaux);
+}
+
+/** Écrit une erreur rattrapée dans le terminal et le journal, avec le nom de la fonctionnalité concernée. */
+function signalerErreur(nom, erreur) {
+  console.error(`[LoL Companion] Erreur dans « ${nom} » (le reste de l'appli continue) :`, erreur);
+  noter(`ERREUR dans « ${nom} » :`, erreur);
+}
+
+/**
+ * Cloison de sécurité : appelle fonction() dans sa bulle. Une erreur (même dans une promesse) est écrite dans le
+ * terminal au lieu de casser les autres fonctionnalités (voir aussi surveillance.js).
+ */
+function proteger(nom, fonction) {
+  try {
+    const resultat = fonction();
+    if (resultat && typeof resultat.catch === "function") resultat.catch((erreur) => signalerErreur(nom, erreur));
+  } catch (erreur) {
+    signalerErreur(nom, erreur);
+  }
+}
+
+// Filet global : une erreur qui passerait quand même entre les mailles (minuterie, promesse oubliée...) est écrite
+// dans le terminal au lieu de laisser l'appli dans un état bancal.
+process.on("uncaughtException", (erreur) => signalerErreur("erreur non rattrapée", erreur));
+process.on("unhandledRejection", (erreur) => signalerErreur("promesse en erreur", erreur));
+
+/** Transforme une erreur en réponse simple pour la page : { ok: false, erreur, probleme }. */
+function reponseErreur(erreur) {
+  const prevue = [ErreurClient, ErreurStockage, ErreurOpgg, ErreurLolalytics].some((type) => erreur instanceof type);
+  return {
+    ok: false,
+    erreur: prevue ? erreur.message : `Erreur inattendue : ${erreur.message}`,
+    probleme: erreur.probleme || null,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Messages que la page peut envoyer (via preload.js).
+// ---------------------------------------------------------------------------
+
+function brancherMessages() {
+  ipcMain.handle("config:lire", () => ({
+    dossierJeu: stockage.dossierJeu(),
+    dossierJeuParDefaut: DOSSIER_JEU_PAR_DEFAUT,
+    dernierCompte: stockage.dernierCompte(), // pour l'afficher même si le client est fermé
+    ongletActif: stockage.ongletActif(), // pour rouvrir le même onglet
+    lancement, // heure d'ouverture de l'appli (session "depuis l'ouverture")
+  }));
+
+  // Bilan de session : réglages (début de session, alertes de pause).
+  ipcMain.handle("session:lire", () => stockage.reglagesSession());
+  ipcMain.handle("session:enregistrer", (_evenement, reglages) => {
+    try {
+      return { ok: true, reglages: stockage.enregistrerReglagesSession(reglages) };
+    } catch (erreur) {
+      return reponseErreur(erreur);
+    }
+  });
+
+  ipcMain.handle("config:enregistrerOnglet", (_evenement, nom) => {
+    try {
+      stockage.enregistrerOngletActif(nom);
+      return { ok: true };
+    } catch (erreur) {
+      return reponseErreur(erreur);
+    }
+  });
+
+  ipcMain.handle("config:enregistrerDossierJeu", (_evenement, dossier) => {
+    try {
+      stockage.enregistrerDossierJeu(dossier);
+      return { ok: true, dossierJeu: stockage.dossierJeu() };
+    } catch (erreur) {
+      return reponseErreur(erreur);
+    }
+  });
+
+  // Compte connecté (Riot ID, niveau, progression) + stats de ses dernières parties,
+  // lus dans le client League lancé sur ce PC.
+  ipcMain.handle("client:recuperer", () => lireCompte());
+
+  // Onglet Classée : champions possédés, Essence bleue, prix (lecture seule).
+  ipcMain.handle("classee:lire", () => lireClassee());
+
+  // Onglet Missions : missions en cours, XP disponible, récompenses à récupérer (lecture seule).
+  ipcMain.handle("missions:lire", () => lireMissions());
+
+  // Onglet Maîtrise : niveau, points et marques de chaque champion (lecture seule).
+  ipcMain.handle("maitrise:lire", () => lireMaitrise());
+
+  // Points de progression d'un compte (pour le graphique), et effacement de l'historique.
+  ipcMain.handle("progression:lire", (_evenement, compte) => progression.pointsDu(riotIdDe(compte)));
+  ipcMain.handle("progression:effacer", () => {
+    progression.effacer();
+    return { ok: true };
+  });
+
+  // Onglet Stats : parties enregistrées pour un compte (disponibles même client fermé), et effacement.
+  ipcMain.handle("stats:lire", (_evenement, compte) => historiqueParties.partiesDu(riotIdDe(compte)));
+  ipcMain.handle("stats:importer", () => importerHistorique());
+  ipcMain.handle("stats:effacer", () => {
+    historiqueParties.effacer();
+    return { ok: true };
+  });
+
+  // Acceptation automatique : lire et changer les réglages (onglet Paramètres).
+  ipcMain.handle("acceptation:lire", () => stockage.reglagesAcceptation());
+  ipcMain.handle("acceptation:enregistrer", (_evenement, reglages) => {
+    try {
+      const propres = stockage.enregistrerReglagesAcceptation(reglages);
+      mettreAJourMenuIcone(); // la case "Acceptation auto" du menu de l'icône suit le réglage
+      return { ok: true, reglages: propres };
+    } catch (erreur) {
+      return reponseErreur(erreur);
+    }
+  });
+
+  // Pick et ban automatiques : réglages et listes de champions (onglet Sélection).
+  ipcMain.handle("selection:lire", () => stockage.reglagesSelection());
+  ipcMain.handle("selection:enregistrer", (_evenement, reglages) => {
+    try {
+      return { ok: true, reglages: stockage.enregistrerReglagesSelection(reglages) };
+    } catch (erreur) {
+      return reponseErreur(erreur);
+    }
+  });
+  // Noms de tous les champions, pour les listes de l'onglet Sélection (lus dans les fichiers du client).
+  ipcMain.handle("selection:champions", async () => {
+    const noms = await obtenirNomsChampions();
+    if (noms.size === 0) return { ok: false, erreur: "Lance le client League pour charger la liste des champions." };
+    const champions = [...noms]
+      .filter(([id]) => id > 0)
+      .map(([id, nom]) => ({ id, nom }))
+      .sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
+    return { ok: true, champions };
+  });
+
+  // Build automatique : réglages (onglet Build).
+  ipcMain.handle("build:lire", () => stockage.reglagesBuild());
+  ipcMain.handle("build:enregistrer", (_evenement, reglages) => {
+    try {
+      return { ok: true, reglages: stockage.enregistrerReglagesBuild(reglages) };
+    } catch (erreur) {
+      return reponseErreur(erreur);
+    }
+  });
+  // Consulter le build d'un champion à la demande (bouton de l'onglet Build) : lecture seule, rien n'est appliqué.
+  ipcMain.handle("build:consulter", async (_evenement, demande) => {
+    try {
+      const championId = Number(demande && demande.championId);
+      if (!Number.isInteger(championId) || championId <= 0) return { ok: false, erreur: "Choisis un champion." };
+      const role = typeof demande.role === "string" && demande.role ? demande.role : null;
+      const mode = demande.mode === "aram" ? "aram" : "ranked";
+      const contexte = { championId, role, mode };
+      const [opgg, lolalytics] = await Promise.allSettled([analyserOpgg(contexte), analyserLolalytics(contexte)]);
+      if (opgg.status === "rejected" && lolalytics.status === "rejected") throw lolalytics.reason;
+      const { resume } = assemblerBuild({
+        opgg: opgg.status === "fulfilled" ? opgg.value : null,
+        emplacements: lolalytics.status === "fulfilled" ? lolalytics.value : null,
+      });
+      if (!resume) return { ok: false, erreur: "Pas assez de données pour ce champion et ce rôle." };
+      const avertissement = lolalytics.status === "rejected" ? `${lolalytics.reason.message} Objets d'OP.GG affichés.` : null;
+      const noms = await obtenirNomsChampions();
+      return { ok: true, nom: noms.get(championId) || null, role, mode, build: resume, avertissement };
+    } catch (erreur) {
+      return reponseErreur(erreur);
+    }
+  });
+
+  // Arrière-plan : fermer = réduire, lancement au démarrage de Windows (onglet Paramètres).
+  ipcMain.handle("arrierePlan:lire", () => stockage.reglagesArrierePlan());
+  ipcMain.handle("arrierePlan:enregistrer", (_evenement, reglages) => {
+    try {
+      const propres = stockage.enregistrerReglagesArrierePlan(reglages);
+      appliquerDemarrageWindows(propres);
+      return { ok: true, reglages: propres };
+    } catch (erreur) {
+      return reponseErreur(erreur);
+    }
+  });
+
+  // La page demande si la surveillance en direct est branchée (au démarrage).
+  ipcMain.handle("client:etatConnexion", () => clientConnecte);
+  // État de l'appli pour le bandeau « pas encore prête » (au démarrage de la page ; ensuite : "appli:etat").
+  ipcMain.handle("appli:etat", () => etatAppli);
+}
+
+/** Noms des champions, lus une seule fois dans le client (puis gardés en mémoire). */
+async function obtenirNomsChampions() {
+  if (nomsChampions.size === 0) {
+    try {
+      nomsChampions = await lireNomsChampions(stockage.dossierJeu());
+    } catch {
+      // client fermé : on réessaiera à la prochaine lecture
+    }
+  }
+  return nomsChampions;
+}
+
+/** Noms internes des champions (pour OP.GG), lus une seule fois dans le client. */
+async function obtenirAliasChampions() {
+  if (aliasChampions.size === 0) {
+    try {
+      aliasChampions = await lireAliasChampions(stockage.dossierJeu());
+    } catch {
+      // client fermé : on réessaiera
+    }
+  }
+  return aliasChampions;
+}
+
+// Positions des pages recommandées par Riot ("MIDDLE"...) -> rôles du client ("middle"...).
+const ROLE_DEPUIS_POSITION = { TOP: "top", JUNGLE: "jungle", MIDDLE: "middle", BOTTOM: "bottom", UTILITY: "utility" };
+
+/** Noms des objets (langue du client), lus une seule fois dans le client. */
+async function obtenirNomsObjets() {
+  if (nomsObjets.size === 0) {
+    try {
+      nomsObjets = await lireNomsObjets(stockage.dossierJeu());
+    } catch {
+      // client fermé : on réessaiera
+    }
+  }
+  return nomsObjets;
+}
+
+/**
+ * Ce qu'il faut pour lire les stats d'un champion : { alias, role, mode }.
+ * mode : "ranked" / "aram" imposé (consultation), sinon déduit de la partie en cours.
+ * Sans rôle (partie sans rôles), on prend le rôle principal du champion d'après les recommandations de Riot.
+ */
+async function contexteBuild({ championId, role, mode }) {
+  const dossier = stockage.dossierJeu();
+  const modeUtilise = mode || modeOpgg(await lirePartie(dossier).catch(() => null));
+  if (!modeUtilise) throw new ErreurOpgg("Pas de statistiques de build pour ce mode de jeu.");
+  let roleUtilise = role;
+  if (!roleUtilise && modeUtilise !== "aram") {
+    const pages = await lireRecommandations(dossier, championId, null).catch(() => []);
+    roleUtilise = ROLE_DEPUIS_POSITION[String((pages[0] && pages[0].position) || "").toUpperCase()] || "middle";
+  }
+  const alias = (await obtenirAliasChampions()).get(championId);
+  if (!alias) throw new ErreurOpgg("Champion inconnu : lance le client League.");
+  return { alias, role: roleUtilise, mode: modeUtilise };
+}
+
+/** Stats OP.GG d'un champion (runes, sorts, objets en secours). */
+async function analyserOpgg(demande) {
+  const { alias, role, mode } = await contexteBuild(demande);
+  return lecteurOpgg.analyser({ alias, position: positionOpgg(role, mode), mode });
+}
+
+/** Objets emplacement par emplacement (Lolalytics), avec les noms des objets du client. */
+async function analyserLolalytics(demande) {
+  const { alias, role, mode } = await contexteBuild(demande);
+  const noms = await obtenirNomsObjets();
+  return lecteurLolalytics.analyser({ alias, role, mode: mode === "flex" ? "ranked" : mode, nomObjet: (id) => noms.get(id) || `Objet n° ${id}` });
+}
+
+/**
+ * Lit le compte dans le client et, si ça marche, le garde sur le disque :
+ * dernier compte, point de progression, et nouvelles parties (onglet Stats).
+ */
+async function lireCompte() {
+  try {
+    const { parties, ...compte } = await recupererCompteClient(stockage.dossierJeu());
+    try {
+      stockage.enregistrerDernierCompte(compte);
+      progression.ajouter(creerPoint(compte, xpDuCompte(compte))); // un point de plus sur la courbe
+      historiqueParties.ajouter(riotIdDe(compte), parties, await obtenirNomsChampions());
+    } catch (erreur) {
+      console.error("Impossible d'enregistrer le compte :", erreur); // pas grave : on affiche quand même
+    }
+    return { ok: true, ...compte };
+  } catch (erreur) {
+    return reponseErreur(erreur);
+  }
+}
+
+/**
+ * Importe tout l'historique que le client accepte de donner (onglet Stats, bouton "Importer").
+ * Les parties sont enregistrées par paquets (pas à chaque page : ce serait lent sur un gros historique),
+ * et la page est prévenue de la progression.
+ */
+async function importerHistorique() {
+  if (importEnCours) return { ok: false, erreur: "Un import est déjà en cours." };
+  importEnCours = true;
+  const enAttente = [];
+  let nouvelles = 0;
+  let riotId = null;
+  const noms = await obtenirNomsChampions();
+  const enregistrer = () => {
+    if (riotId && enAttente.length) nouvelles += historiqueParties.ajouter(riotId, enAttente.splice(0), noms);
+  };
+  try {
+    const resultat = await lireToutHistorique(stockage.dossierJeu(), {
+      surPage: ({ page, parties, total, compte }) => {
+        riotId = riotIdDe(compte);
+        enAttente.push(...parties);
+        if (page % 10 === 9) enregistrer(); // tous les 10 pages : rien n'est perdu si le client se ferme
+        envoyerALaPage("stats:progression", { pages: page + 1, parties: total });
+      },
+    });
+    enregistrer();
+    return { ok: true, ...resultat, nouvelles };
+  } catch (erreur) {
+    enregistrer(); // client fermé en plein import : on garde quand même les pages déjà lues
+    return { ...reponseErreur(erreur), nouvelles };
+  } finally {
+    importEnCours = false;
+  }
+}
+
+/**
+ * Maîtrise des champions + estimation des points par partie.
+ * À appeler APRÈS lireCompte : les nouvelles parties doivent déjà être dans parties.json
+ * pour être comparées aux points gagnés (voir mettreAJourSuivi dans maitrise.js).
+ */
+async function lireMaitrise() {
+  try {
+    const { compte, maitrises } = await recupererMaitrise(stockage.dossierJeu());
+    const riotId = riotIdDe(compte);
+    const parties = historiqueParties.partiesDu(riotId);
+    let moyennes = new Map();
+    try {
+      const etat = mettreAJourSuivi(suiviMaitrise.lire(riotId), maitrises, parties);
+      suiviMaitrise.enregistrer(riotId, etat);
+      moyennes = moyennesParChampion(etat.echantillons);
+    } catch (erreur) {
+      console.error("Impossible d'enregistrer le suivi de maîtrise :", erreur); // on affiche quand même
+    }
+    const partiesParChampion = new Map();
+    for (const p of parties) partiesParChampion.set(p.championId, (partiesParChampion.get(p.championId) || 0) + 1);
+    const noms = await obtenirNomsChampions();
+    const champions = maitrises.map((m) => {
+      const mesure = moyennes.get(m.championId);
+      return {
+        ...m,
+        nom: noms.get(m.championId) || `Champion n° ${m.championId}`,
+        moyenneParPartie: mesure ? mesure.moyenne : null, // null : pas encore mesurée
+        partiesMesurees: mesure ? mesure.parties : 0,
+        partiesEnregistrees: partiesParChampion.get(m.championId) || 0,
+      };
+    });
+    return { ok: true, compte, champions };
+  } catch (erreur) {
+    return reponseErreur(erreur);
+  }
+}
+
+async function lireClassee() {
+  try {
+    return { ok: true, ...(await recupererClassee(stockage.dossierJeu())) };
+  } catch (erreur) {
+    return reponseErreur(erreur);
+  }
+}
+
+async function lireMissions() {
+  try {
+    return { ok: true, ...(await recupererMissions(stockage.dossierJeu())) };
+  } catch (erreur) {
+    return reponseErreur(erreur);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Icônes des champions : protocole lcu-image://champion/<id>
+// La page affiche <img src="lcu-image://champion/266"> ; main.js va chercher l'image dans le
+// client (avec son mot de passe) et la garde en cache. Seules les icônes de champions passent
+// (voir routeIcone dans classee.js) : la page ne peut pas appeler d'autres routes du client.
+// ---------------------------------------------------------------------------
+
+// À déclarer AVANT que l'appli soit prête (exigence d'Electron).
+protocol.registerSchemesAsPrivileged([{ scheme: PROTOCOLE_ICONES, privileges: { standard: true, secure: true } }]);
+
+function brancherIcones() {
+  const obtenirIcone = creerCacheIcones((route) => chargerImageClient(stockage.dossierJeu(), route));
+  protocol.handle(PROTOCOLE_ICONES, async (requete) => {
+    const route = routeIcone(requete.url);
+    if (!route) return new Response(null, { status: 403 });
+    try {
+      const image = await obtenirIcone(route);
+      if (!image) return new Response(null, { status: 404 });
+      return new Response(image.octets, { headers: { "Content-Type": image.type } });
+    } catch {
+      return new Response(null, { status: 503 }); // client fermé : la page affiche une icône vide
+    }
+  });
+}
+
+/** Envoie un message à la page, si la fenêtre est toujours ouverte. */
+function envoyerALaPage(canal, donnees) {
+  if (fenetre && !fenetre.isDestroyed()) fenetre.webContents.send(canal, donnees);
+}
+
+// ---------------------------------------------------------------------------
+// Partie trouvée : notification Windows et acceptation automatique (acceptation.js)
+// ---------------------------------------------------------------------------
+
+/** Notification "Partie trouvée !", seulement si l'option est cochée et que League n'est pas au premier plan. */
+async function notifierPartieTrouvee({ autoActif, delaiSecondes }) {
+  envoyerALaPage("acceptation:evenement", { type: "trouvee", autoActif, delaiSecondes });
+  if (!stockage.reglagesAcceptation().notifier || !Notification.isSupported()) return;
+  if (await leagueAuPremierPlan()) return; // tu regardes déjà League : pas besoin de te déranger
+  const notification = new Notification({
+    title: "Partie trouvée !",
+    body: autoActif
+      ? `LoL Companion l'accepte dans ${delaiSecondes} s. Retourne dans League si tu veux la refuser.`
+      : "Retourne dans League pour l'accepter.",
+    silent: false, // avec le son de notification de Windows
+  });
+  notification.on("click", afficherFenetre);
+  notification.show();
+}
+
+/**
+ * « LoL Companion est prêt » : League vient d'être détecté. Seulement si la fenêtre est cachée (sinon tu vois déjà
+ * que l'appli marche), une fois par lancement de League, et si l'option est cochée (Paramètres, Arrière-plan).
+ */
+function notifierClientDetecte() {
+  const fenetreVisible = Boolean(fenetre && !fenetre.isDestroyed() && fenetre.isVisible());
+  if (!doitPrevenirClientDetecte({ reglages: stockage.reglagesArrierePlan(), fenetreVisible, dejaPrevenu: clientDejaSignale })) return;
+  clientDejaSignale = true;
+  if (!Notification.isSupported()) return;
+  const selection = stockage.reglagesSelection();
+  const build = stockage.reglagesBuild();
+  const notification = new Notification({
+    title: "LoL Companion est prêt",
+    body: texteClientDetecte({
+      acceptation: stockage.reglagesAcceptation().actif,
+      pick: selection.pickActif,
+      ban: selection.banActif,
+      build: build.stats || build.runes,
+    }),
+    icon: cheminIcone("icon"),
+    silent: true, // une info, pas une urgence
+  });
+  notification.on("click", afficherFenetre);
+  notification.show();
+}
+
+function demarrerAcceptation() {
+  acceptation = creerAcceptation({
+    reglages: () => stockage.reglagesAcceptation(),
+    accepter: () => accepterReadyCheck(stockage.dossierJeu()),
+    partieTrouvee: (info) => {
+      noter("Partie trouvée", info.autoActif ? `(acceptation dans ${info.delaiSecondes} s)` : "(acceptation auto désactivée)");
+      notifierPartieTrouvee(info).catch((erreur) => console.error("Notification impossible :", erreur));
+    },
+    resultat: (info) => {
+      noter("Acceptation :", info.accepte ? "OK" : info.erreur ? `ERREUR ${info.erreur}` : `annulée (${info.annule})`);
+      envoyerALaPage("acceptation:evenement", { type: "resultat", ...info });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Sélection des champions : pick et ban automatiques (selection.js), désactivés par défaut
+// ---------------------------------------------------------------------------
+
+function demarrerSelection() {
+  selectionAuto = creerSelectionAuto({
+    reglages: () => stockage.reglagesSelection(),
+    champsAutorises: (type) => lireChampionsAutorises(stockage.dossierJeu(), type),
+    agir: (actionId, championId) => effectuerAction(stockage.dossierJeu(), actionId, championId),
+    resultat: async (info) => {
+      // On ajoute le nom du champion pour l'afficher dans l'appli.
+      const noms = info.championId ? await obtenirNomsChampions() : new Map();
+      envoyerALaPage("selection:evenement", { ...info, nom: noms.get(info.championId) || null });
+    },
+  });
+  // Build automatique quand ton champion est verrouillé : stats OP.GG, runes, set d'objets (désactivé par défaut).
+  buildAuto = creerBuildAuto({
+    reglages: () => stockage.reglagesBuild(),
+    analyser: ({ championId, role }) => analyserOpgg({ championId, role }),
+    analyserEmplacements: ({ championId, role }) => analyserLolalytics({ championId, role }),
+    runesRiot: ({ championId, role }) => lireRecommandations(stockage.dossierJeu(), championId, role),
+    appliquerRunes: (page) => appliquerPage(stockage.dossierJeu(), page),
+    appliquerObjets: (set) => appliquerSet(stockage.dossierJeu(), set),
+    nomChampion: async (championId) => (await obtenirNomsChampions()).get(championId) || `Champion n° ${championId}`,
+    carte: async () => {
+      const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
+      return (partie && partie.map && partie.map.id) || 11;
+    },
+    resultat: async (info) => {
+      const noms = await obtenirNomsChampions();
+      envoyerALaPage("build:evenement", { ...info, nom: noms.get(info.championId) || null });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Augments ARAM Mayhem : stats sous chaque carte, sur l'écran du jeu (augments.js, ocr.js)
+// Seulement pendant une ARAM Mayhem et si la case de l'onglet Build est cochée (désactivé par défaut).
+// ---------------------------------------------------------------------------
+
+/** Écran du jeu (l'écran principal) : taille en pixels réels et échelle de Windows (100 %, 125 %...). */
+function ecranJeu() {
+  const ecran = screen.getPrimaryDisplay();
+  return {
+    largeur: Math.round(ecran.bounds.width * ecran.scaleFactor),
+    hauteur: Math.round(ecran.bounds.height * ecran.scaleFactor),
+    echelle: ecran.scaleFactor,
+  };
+}
+
+/** Fenêtre transparente par-dessus le jeu : elle laisse passer les clics et ne prend jamais la main (focus). */
+function creerFenetreAugments() {
+  const { bounds } = screen.getPrimaryDisplay();
+  fenetreAugments = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    transparent: true,
+    backgroundColor: "#00000000",
+    frame: false,
+    resizable: false,
+    movable: false,
+    minimizable: false,
+    maximizable: false,
+    skipTaskbar: true,
+    focusable: false, // ne vole jamais le clavier au jeu
+    hasShadow: false,
+    show: false,
+    webPreferences: {
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, "preload-overlay.js"),
+    },
+  });
+  fenetreAugments.setIgnoreMouseEvents(true); // les clics passent au jeu
+  fenetreAugments.setAlwaysOnTop(true, "screen-saver"); // au-dessus du jeu en mode « Sans bordure »
+  fenetreAugments.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  fenetreAugments.loadFile(path.join(__dirname, "src", "overlay.html"));
+  fenetreAugments.on("closed", () => {
+    fenetreAugments = null;
+  });
+}
+
+/** Affiche les étiquettes sous les cartes (liste), ou cache la fenêtre (null). */
+function afficherAugments(liste) {
+  if (!liste) {
+    if (fenetreAugments && !fenetreAugments.isDestroyed()) fenetreAugments.hide();
+    return;
+  }
+  if (!fenetreAugments || fenetreAugments.isDestroyed()) creerFenetreAugments();
+  const envoyer = () => {
+    if (!fenetreAugments || fenetreAugments.isDestroyed()) return;
+    fenetreAugments.webContents.send("augments:etiquettes", { echelle: ecranJeu().echelle, liste });
+    fenetreAugments.showInactive(); // visible sans prendre la main
+    fenetreAugments.setAlwaysOnTop(true, "screen-saver");
+  };
+  if (fenetreAugments.webContents.isLoading()) fenetreAugments.webContents.once("did-finish-load", envoyer);
+  else envoyer();
+}
+
+async function obtenirLangueJeu() {
+  if (!langueJeu) langueJeu = await lireLangueJeu(stockage.dossierJeu()).catch(() => "en_US");
+  return langueJeu;
+}
+
+async function obtenirIndexAugments() {
+  if (!indexAugments || indexAugments.size === 0) indexAugments = indexNoms(await lireNomsAugments(stockage.dossierJeu()));
+  return indexAugments;
+}
+
+function obtenirLecteurEcran() {
+  if (!lecteurEcran) lecteurEcran = creerLecteurEcran({ langue: langueJeu || "en_US" });
+  return lecteurEcran;
+}
+
+function demarrerAugments() {
+  suiviAugments = creerSuiviAugments({
+    actif: () => stockage.reglagesBuild().augments,
+    ecran: ecranJeu,
+    lireEcran: (zone) => obtenirLecteurEcran().lire(zone),
+    nomsAugments: obtenirIndexAugments,
+    // Taux de victoire d'arammayhem.com (arammayhem.js) : avec ton champion, sinon tous champions.
+    statsAugments: async () => {
+      const alias = championPartie ? (await obtenirAliasChampions()).get(championPartie) : null;
+      return alias ? indexStats(await lecteurArammayhem.augments({ alias })) : null;
+    },
+    afficher: afficherAugments,
+    arreterLecture: () => {
+      if (lecteurEcran) lecteurEcran.arreter();
+      lecteurEcran = null;
+    },
+    journal: (...morceaux) => console.error("[LoL Companion]", ...morceaux),
+  });
+}
+
+/** Phase de jeu : on lit l'écran seulement pendant une partie ARAM Mayhem, et on arrête tout le reste du temps. */
+async function surPhase(phase) {
+  if (!suiviAugments) return;
+  if (phase !== "InProgress") return suiviAugments.arreter();
+  const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
+  if (!estMayhem(partie)) return suiviAugments.arreter();
+  await obtenirLangueJeu();
+  suiviAugments.demarrer();
+}
+
+// ---------------------------------------------------------------------------
+// Bilan de session : alertes douces (défaites d'affilée, temps de jeu), session.js
+// Le message s'affiche toujours dans l'appli (la page le calcule elle-même) ; ici, on envoie
+// en plus une notification Windows, seulement si l'option est cochée. Jamais de blocage.
+// ---------------------------------------------------------------------------
+
+function notifierAlertesSession(compte, { silencieux }) {
+  try {
+    const reglages = stockage.reglagesSession();
+    const { alertes } = alertesDuCompte({
+      parties: historiqueParties.partiesDu(riotIdDe(compte)),
+      reglages,
+      lancement,
+      niveau: compte.niveau,
+    });
+    const aNotifier = suiviAlertes.aNotifier(alertes, { silencieux: silencieux || !reglages.notifier });
+    if (!Notification.isSupported()) return;
+    for (const alerte of aNotifier) {
+      const notification = new Notification({ title: alerte.titre, body: alerte.message, silent: true }); // sans son : c'est un conseil, pas une urgence
+      notification.on("click", afficherFenetre);
+      notification.show();
+    }
+  } catch (erreur) {
+    console.error("Alertes de session impossibles :", erreur); // pas grave : le message reste visible dans l'appli
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Surveillance en direct : le client prévient quand une partie se termine.
+// ---------------------------------------------------------------------------
+
+/**
+ * Sélection des champions (connexion en direct OU sondage) : pick/ban, build, et ton champion pour les augments.
+ * Chacun dans sa bulle : si le pick/ban plante, le build continue (et inversement).
+ */
+function surSelection(session) {
+  proteger("pick et ban automatiques", () => selectionAuto.surSession(session));
+  proteger("build automatique", () => buildAuto.surSession(session));
+  proteger("augments en jeu", () => {
+    const moi = session && monChampion(session);
+    if (moi) championPartie = moi.championId; // pour les stats d'augments de TON champion
+  });
+}
+
+// --- État de l'appli (bandeau « pas encore prête ») et chien de garde de la connexion en direct ---------------
+
+let sondage = null; // deuxième canal (sondage.js)
+let etatClient = { clientLance: false, clientRepond: false, phase: null }; // vu par le sondage
+let etatAppli = { pret: false, message: null }; // envoyé à la page (bandeau)
+let phaseDirecte = null; // dernière phase reçue par la connexion en direct
+let chienDeGarde = null;
+let sourdDepuis = null; // depuis quand le client répond mais la connexion en direct est absente ou muette
+
+/** Recalcule l'état (sondage.js, etatPreparation) et prévient la page s'il a changé. */
+function publierEtatAppli() {
+  const nouveau = etatPreparation({ ...etatClient, directConnecte: clientConnecte });
+  if (nouveau.pret === etatAppli.pret && nouveau.message === etatAppli.message) return;
+  etatAppli = nouveau;
+  noter("État :", nouveau.pret ? "prêt" : nouveau.message || "League fermé");
+  envoyerALaPage("appli:etat", etatAppli);
+}
+
+/**
+ * Chien de garde (toutes les 5 s) : si le client répond au sondage mais que la connexion en direct est absente,
+ * ou qu'elle n'a pas transmis le dernier changement de phase, depuis plus de 15 s, on la refait.
+ */
+function surveillerConnexionDirecte() {
+  const s = sondage ? sondage.etat() : etatClient;
+  const sourde = s.clientRepond && (!clientConnecte || (s.phase && phaseDirecte !== null && phaseDirecte !== s.phase));
+  if (!sourde) {
+    sourdDepuis = null;
+    return;
+  }
+  if (sourdDepuis === null) sourdDepuis = Date.now();
+  if (Date.now() - sourdDepuis < 15000) return;
+  noter("Chien de garde : connexion en direct", clientConnecte ? `muette (phase ${phaseDirecte} au lieu de ${s.phase})` : "absente", "-> reconnexion");
+  sourdDepuis = Date.now();
+  phaseDirecte = null;
+  surveillance.reconnecter();
+}
+
+function demarrerSurveillance() {
+  surveillance = surveillerClient({
+    dossierJeu: () => stockage.dossierJeu(),
+    aErreur: signalerErreur,
+    aChangementConnexion: (connecte) => {
+      clientConnecte = connecte;
+      noter("Connexion en direct au client :", connecte ? "établie" : "perdue");
+      // À la connexion, on suppose la phase à jour (celle vue par le sondage) ; ensuite elle doit suivre.
+      phaseDirecte = connecte ? (sondage ? sondage.etat().phase : null) : null;
+      envoyerALaPage("client:connexion", connecte);
+      publierEtatAppli();
+      if (connecte) proteger("notification « LoL Companion est prêt »", notifierClientDetecte);
+      else clientDejaSignale = false; // League fermé : on préviendra au prochain lancement
+      // Appli lancée en pleine partie : on regarde tout de suite si c'est une ARAM Mayhem.
+      if (connecte) proteger("augments en jeu", async () => surPhase(((await lirePartie(stockage.dossierJeu())) || {}).phase));
+    },
+    aReadyCheck: (etat) => acceptation.surReadyCheck(etat), // partie trouvée : tout de suite, sans attendre
+    aPhase: (phase) => {
+      phaseDirecte = phase;
+      proteger("augments en jeu", () => surPhase(phase));
+    },
+    aSelection: surSelection,
+    aRafraichir: async (raison) => {
+      const tout = raison !== "classee" && raison !== "missions"; // après une partie ou au lancement du client
+      if (tout) {
+        const reponse = await lireCompte();
+        if (reponse.ok) {
+          envoyerALaPage("client:miseAJour", { ...reponse, raison });
+          // Alertes de pause : notification seulement après une partie (pas au lancement du client).
+          notifierAlertesSession(reponse, { silencieux: raison !== "fin-de-partie" });
+        }
+      }
+      if (tout || raison === "classee") {
+        const classee = await lireClassee();
+        if (classee.ok) envoyerALaPage("classee:miseAJour", classee);
+      }
+      if (tout || raison === "missions") {
+        const missions = await lireMissions();
+        if (missions.ok) envoyerALaPage("missions:miseAJour", missions);
+      }
+      if (tout) {
+        const maitrise = await lireMaitrise(); // après lireCompte : les nouvelles parties sont déjà enregistrées
+        if (maitrise.ok) envoyerALaPage("maitrise:miseAJour", maitrise);
+      }
+    },
+  });
+
+  // Deuxième canal (sondage.js) : partie trouvée et sélection vues même si la connexion en direct est en retard.
+  sondage = creerSondage({
+    dossierJeu: () => stockage.dossierJeu(),
+    aEtat: (etat) => {
+      etatClient = etat;
+      noter("Client :", etat.clientRepond ? `répond (phase ${etat.phase})` : etat.clientLance ? "lancé, ne répond pas encore" : "fermé");
+      publierEtatAppli();
+    },
+    aPhase: (phase) => proteger("augments en jeu", () => surPhase(phase)),
+    aReadyCheck: (etat) => acceptation.surReadyCheck(etat),
+    aSelection: surSelection,
+    aErreur: signalerErreur,
+  });
+  sondage.demarrer();
+  chienDeGarde = setInterval(() => proteger("chien de garde", surveillerConnexionDirecte), 5000);
+}
+
+// ---------------------------------------------------------------------------
+// Fenêtre
+// ---------------------------------------------------------------------------
+
+/** Icône de l'appli : .ico sous Windows (plusieurs tailles nettes), .png ailleurs. */
+const cheminIcone = (nom) => path.join(DOSSIER_ASSETS, process.platform === "win32" && nom === "icon" ? "icon.ico" : `${nom}.png`);
+
+function creerFenetre({ visible = true } = {}) {
+  fenetre = new BrowserWindow({
+    width: 900,
+    height: 950,
+    minWidth: 420,
+    minHeight: 600,
+    show: visible, // démarrage de Windows "réduit" : la fenêtre existe mais reste cachée
+    icon: cheminIcone("icon"),
+    backgroundColor: "#0a1428",
+    title: "LoL Companion",
+    webPreferences: {
+      // Sécurité : la page n'a pas accès à Node.js, seulement au HTML/JS classique,
+      // plus les quelques fonctions exposées par preload.js.
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      preload: path.join(__dirname, "preload.js"),
+    },
+  });
+
+  // La page n'a pas besoin d'ouvrir de nouvelles fenêtres : on les bloque toutes.
+  fenetre.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+
+  // La croix : cacher la fenêtre (l'appli continue en arrière-plan) ou quitter, selon le réglage.
+  fenetre.on("close", (evenement) => {
+    const action = actionFermeture(stockage.reglagesArrierePlan(), { quitteEnCours, iconeDisponible: Boolean(icone) });
+    if (action !== "cacher") return; // on laisse la fenêtre se fermer : l'appli quitte
+    evenement.preventDefault();
+    fenetre.hide();
+    if (doitPrevenirReduction({ action, dejaPrevenu: stockage.dejaPrevenuReduction() })) prevenirReduction();
+  });
+  // Arrêt ou déconnexion de Windows : la croix ne doit pas empêcher l'appli de se fermer.
+  fenetre.on("session-end", () => {
+    quitteEnCours = true;
+  });
+  fenetre.on("closed", () => {
+    fenetre = null;
+    // Fenêtre principale vraiment fermée : la fenêtre des augments ne doit pas garder l'appli ouverte.
+    if (fenetreAugments && !fenetreAugments.isDestroyed()) fenetreAugments.destroy();
+  });
+
+  fenetre.loadFile(path.join(__dirname, "src", "index.html"));
+}
+
+/** Réaffiche la fenêtre (menu de l'icône, clic sur une notification, appli relancée). */
+function afficherFenetre() {
+  if (!fenetre || fenetre.isDestroyed()) creerFenetre();
+  if (fenetre.isMinimized()) fenetre.restore();
+  fenetre.show();
+  fenetre.focus();
+}
+
+// ---------------------------------------------------------------------------
+// Arrière-plan : icône dans la zone de notification, démarrage de Windows, quitter
+// (les décisions sont des fonctions pures, testées, dans arriere-plan.js)
+// ---------------------------------------------------------------------------
+
+/** La première fois que la croix cache la fenêtre, on explique que l'appli tourne toujours. */
+function prevenirReduction() {
+  if (!Notification.isSupported()) return; // pas de notification possible : on réessaiera la prochaine fois
+  const notification = new Notification({
+    title: "LoL Companion tourne toujours",
+    body: "L'appli reste dans la zone de notification (à côté de l'horloge) et continue de surveiller le client. " +
+      "Clic droit sur son icône pour la quitter. Tu peux changer ça dans les Paramètres.",
+    icon: cheminIcone("icon"),
+    silent: true,
+  });
+  notification.on("click", afficherFenetre);
+  notification.show();
+  stockage.noterPrevenuReduction();
+}
+
+/** Le menu de l'icône, reconstruit quand l'acceptation auto change (case à cocher). */
+function mettreAJourMenuIcone() {
+  if (!icone || icone.isDestroyed()) return;
+  const actions = {
+    ouvrir: afficherFenetre,
+    acceptation: (element) => {
+      const reglages = stockage.enregistrerReglagesAcceptation({ ...stockage.reglagesAcceptation(), actif: element.checked });
+      envoyerALaPage("acceptation:reglages", reglages); // l'onglet Paramètres se met à jour
+      mettreAJourMenuIcone();
+    },
+    quitter: quitter,
+  };
+  const modele = modeleMenuIcone({ acceptationActive: stockage.reglagesAcceptation().actif }).map((element) =>
+    element.id ? { ...element, click: (menuElement) => actions[element.id](menuElement) } : element
+  );
+  icone.setContextMenu(Menu.buildFromTemplate(modele));
+}
+
+function creerIcone() {
+  try {
+    const image = nativeImage.createFromPath(path.join(DOSSIER_ASSETS, process.platform === "win32" ? "icon.ico" : "tray.png"));
+    icone = new Tray(image.isEmpty() ? nativeImage.createFromPath(path.join(DOSSIER_ASSETS, "icon.png")) : image);
+    icone.setToolTip("LoL Companion");
+    icone.on("click", afficherFenetre); // clic gauche : ouvrir ; clic droit : le menu
+    icone.on("double-click", afficherFenetre);
+    mettreAJourMenuIcone();
+  } catch (erreur) {
+    // Pas de zone de notification (rare) : la croix quittera l'appli, comme avant.
+    console.error("Icône de la zone de notification impossible :", erreur);
+    icone = null;
+  }
+}
+
+/** Lancement au démarrage de Windows (rien à faire sur les autres systèmes). */
+function appliquerDemarrageWindows(reglages) {
+  if (process.platform !== "win32" && process.platform !== "darwin") return;
+  // Seule l'appli INSTALLÉE s'inscrit au démarrage de Windows. Lancée depuis le projet (npm start, VS Code),
+  // elle s'inscrivait aussi : deux lancements au démarrage, et parfois une ancienne version qui prenait la place
+  // de la nouvelle (une seule copie à la fois). Vu le 02/10/2026.
+  if (!app.isPackaged) return;
+  app.setLoginItemSettings(
+    parametresDemarrageWindows(reglages, { executable: process.execPath, dossierAppli: app.getAppPath(), emballee: app.isPackaged })
+  );
+}
+
+/** Quitter vraiment (menu de l'icône) : la croix ne cache plus la fenêtre, tout s'arrête. */
+function quitter() {
+  quitteEnCours = true;
+  app.quit();
+}
+
+// Pas de barre de menu (Fichier, Édition...) : l'appli n'en a pas besoin.
+Menu.setApplicationMenu(null);
+
+// Copie de développement (dossier du projet) lancée AUTOMATIQUEMENT (--reduit : démarrage de Windows, ou Windows qui
+// rouvre les applis après un redémarrage) : elle s'arrête tout de suite, sans prendre la place de l'appli installée.
+// Vu le 02/10/2026 : une ancienne copie relancée par Windows bloquait l'appli installée et ne se connectait pas au client.
+// (Lancée à la main depuis le projet, npm start, elle marche normalement.)
+const copieDeveloppementAutomatique = !app.isPackaged && estDemarrageReduit(process.argv);
+
+// Une seule instance à la fois : si l'appli tourne déjà, la nouvelle s'arrête tout de suite
+// et l'ancienne réaffiche sa fenêtre (event "second-instance").
+const instanceUnique = !copieDeveloppementAutomatique && app.requestSingleInstanceLock();
+if (!instanceUnique) {
+  app.quit();
+} else {
+  app.on("second-instance", (_evenement, argv) => {
+    if (!estDemarrageReduit(argv)) afficherFenetre();
+  });
+
+  app.whenReady().then(() => {
+    stockage = creerStockage({ dossier: app.getPath("userData") });
+    journal = creerJournal({ fichier: path.join(app.getPath("userData"), "journal.txt") });
+    noter(`--- LoL Companion démarre (${app.isPackaged ? "appli installée" : "projet, npm start"}, version ${app.getVersion()})`);
+    progression = creerProgression({ dossier: app.getPath("userData") });
+    historiqueParties = creerHistoriqueParties({ dossier: app.getPath("userData") });
+    suiviMaitrise = creerSuiviMaitrise({ dossier: app.getPath("userData") });
+    stockage.nettoyerAnciensReglages(); // efface l'ancienne clé API si elle était enregistrée
+    // Appli installée : nom et icône de l'appli dans les notifications Windows (même identifiant que l'installateur).
+    if (process.platform === "win32" && app.isPackaged) app.setAppUserModelId("com.lolcalculator.app");
+    brancherMessages();
+    brancherIcones();
+    creerIcone();
+    appliquerDemarrageWindows(stockage.reglagesArrierePlan()); // garde Windows d'accord avec le réglage
+    // Lancée par le démarrage de Windows avec "démarrer réduit" : la fenêtre reste cachée
+    // (seulement si l'icône existe, sinon on ne pourrait plus l'ouvrir).
+    creerFenetre({ visible: !(estDemarrageReduit(process.argv) && icone) });
+    demarrerAcceptation();
+    demarrerSelection();
+    demarrerAugments();
+    demarrerSurveillance();
+
+    // Sur Mac, on réaffiche la fenêtre quand on clique sur l'icône du dock.
+    app.on("activate", afficherFenetre);
+  });
+}
+
+// Quitter : on arrête proprement la surveillance (WebSocket, minuteries), l'acceptation et l'icône,
+// pour que rien ne garde l'appli en mémoire.
+app.on("before-quit", () => {
+  quitteEnCours = true;
+  if (surveillance) surveillance.arreter();
+  if (sondage) sondage.arreter();
+  clearInterval(chienDeGarde);
+  if (acceptation) acceptation.arreter();
+  if (selectionAuto) selectionAuto.arreter();
+  if (suiviAugments) suiviAugments.arreter(); // arrête aussi la lecture d'écran
+  if (fenetreAugments && !fenetreAugments.isDestroyed()) fenetreAugments.destroy();
+  if (icone && !icone.isDestroyed()) icone.destroy();
+  icone = null;
+});
+
+// Toutes les fenêtres fermées (réglage "fermer = réduire" désactivé, ou "Quitter") : l'appli s'arrête.
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin") app.quit();
+});

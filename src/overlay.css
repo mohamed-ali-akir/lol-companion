@@ -1,0 +1,52 @@
+/* Fenêtre transparente des augments : seules les étiquettes sont visibles, le reste laisse voir le jeu. */
+html,
+body {
+  background: transparent;
+  margin: 0;
+  overflow: hidden;
+  user-select: none;
+}
+
+.etiquette {
+  background: rgba(10, 20, 40, 0.88);
+  border: 2px solid #5b5a56;
+  border-radius: 8px;
+  color: #f0e6d2;
+  font-family: "Segoe UI", sans-serif;
+  padding: 6px 14px;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%); /* centrée sous la carte */
+  white-space: nowrap;
+}
+
+.etiquette strong {
+  display: block;
+  font-size: 22px;
+}
+
+.etiquette small {
+  color: #a09b8c;
+  font-size: 14px;
+}
+
+.etiquette.inconnu strong {
+  color: #a09b8c;
+  font-size: 18px;
+}
+
+/* Taux tous champions (l'augment n'est pas dans les meilleurs de ton champion) : plus discret */
+.etiquette.global strong {
+  color: #cdbe91;
+  font-size: 19px;
+}
+
+/* La carte la plus prise avec ton champion parmi les 3 */
+.etiquette.meilleur {
+  border-color: #c8aa6e;
+  box-shadow: 0 0 12px rgba(200, 170, 110, 0.7);
+}
+
+.etiquette.meilleur strong {
+  color: #f0c75e;
+}

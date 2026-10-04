@@ -1,0 +1,58 @@
+# LoL Companion : règles du projet
+
+Appli de bureau Electron qui lit le client League of Legends via son API locale (LCU), sans clé API.
+Ces règles s'appliquent à **toutes** les modifications du projet.
+
+## Sécurité et architecture
+- Toute lecture/écriture de fichiers et tout appel au client League se font dans le **processus principal**
+  (`main.js` et les modules Node à la racine), jamais dans la page.
+- La page (`src/`) passe **uniquement** par `preload.js` (`contextBridge`, objet `window.appli`).
+- Garder `contextIsolation: true`, `nodeIntegration: false`, `sandbox: true` et la Content-Security-Policy de `src/index.html`.
+- L'appli ne se connecte **jamais à Internet** : uniquement l'API locale du client (`127.0.0.1`).
+  Le certificat auto-signé du client n'est accepté que pour ces appels (agent HTTPS / option WebSocket dédiés),
+  jamais globalement (`NODE_TLS_REJECT_UNAUTHORIZED` interdit).
+- **Seules exceptions (décidées par le propriétaire le 02/10/2026)** : les statistiques de builds, parce que le client
+  ne fournit aucune statistique d'objets.
+  - OP.GG : serveur public prévu pour les applis (`https://mcp-api.op.gg/mcp`, `opgg.js`) : runes, sorts, objets en secours ;
+  - Lolalytics : page publique du build (`https://lolalytics.com/lol/<champion>/build/`, `lolalytics.js`) : objets
+    emplacement par emplacement. Pas d'accès prévu pour les applis (aucune autre source trouvée) : identification
+    honnête (User-Agent), une page par champion / voie / mode toutes les 3 h au plus, et retour à OP.GG si la page change.
+  - arammayhem.com : taux de victoire des augments ARAM Mayhem (`arammayhem.js`, pages publiques, robots.txt
+    « Allow: / »), avec les mêmes règles que Lolalytics (User-Agent honnête, cache 3 h, seul le nom du champion dans
+    l'adresse). La lecture des cartes à l'écran (`ocr.js`, OCR de Windows) reste 100 % locale, et seulement pendant
+    une ARAM Mayhem ; l'overlay n'affiche que des stats, il ne choisit jamais.
+  Conditions à garder : désactivé par défaut (case de l'onglet Build), lecture seule, appels uniquement depuis le
+  processus principal, certificats vérifiés normalement, et on n'envoie QUE champion / rôle / mode / langue
+  (jamais Riot ID, puuid, ni aucune donnée personnelle). Aucune autre adresse Internet.
+
+## Client League (LCU)
+- Avant de coder sur un endpoint que l'appli n'utilise pas encore, vérifier son existence et le format de sa
+  réponse (sur le client lancé si possible, sinon dans la documentation de la communauté).
+- Lectures **tolérantes** : un champ manquant ou inattendu ne doit jamais faire planter l'appli
+  (valeur ignorée, message clair, ou valeur par défaut).
+- Toute action qui **modifie** quelque chose dans le client (accepter une partie, désenchanter du butin...) :
+  désactivée par défaut, activable dans l'onglet Paramètres, et appliquée uniquement au compte connecté.
+- **Interdit** (règles de Riot) : révéler les pseudos en sélection des champions, donner une information en jeu
+  que les joueurs n'ont pas normalement.
+- **Exception décidée par le propriétaire (02/10/2026)** : pick et ban automatiques (`selection.js`), contraires aux
+  règles de Riot, acceptés en connaissance du risque pour son compte. Garde-fous à conserver : désactivés par défaut,
+  délai avant d'agir, uniquement l'action du joueur connecté, rien si le joueur survole ou choisit lui-même,
+  jamais un champion survolé ou déclaré par un coéquipier.
+
+## Code de la page
+- `src/calculs.js` : fonctions pures uniquement (aucun accès à `document` ni à `window.appli`),
+  importables dans Node (`module.exports` en bas du fichier) et chargées dans la page par un `<script>` classique.
+- Un fichier par onglet dans `src/onglets/`, chargés dans l'ordre par `src/index.html`,
+  puis `src/app.js` qui démarre l'appli. Voir le commentaire en haut de `src/app.js`.
+
+## Tests
+- Les calculs sont des fonctions pures exportées et testées avec `node:test`, cas limites compris
+  (liste vide, données abîmées, valeurs manquantes).
+- Les appels au client sont testés avec un **faux client** HTTPS/WebSocket sur 127.0.0.1
+  (voir `test/lcu.test.js` et `test/surveillance.test.js`, certificat dans `test/fixtures/`).
+- `npm test` doit passer à la fin de chaque changement. Lancer l'appli (`npm start`) pour vérifier le résultat.
+
+## Dépendances et documentation
+- **Aucune nouvelle dépendance** sans l'accord explicite du propriétaire du projet.
+- Mettre à jour le `README.md` à chaque fonctionnalité (fonctionnalités, structure, données enregistrées).
+- Expliquer chaque changement simplement, **en français** : le propriétaire doit pouvoir l'expliquer en entretien.

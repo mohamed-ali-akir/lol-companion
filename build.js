@@ -1,0 +1,444 @@
+/*
+ * Build automatique : objets et runes d'après les vraies statistiques (onglet "Build")
+ * ------------------------------------------------------------------------------------
+ * Tourne dans le processus principal (Node).
+ *
+ * Quand ton champion est verrouillé (ou attribué en ARAM), l'appli :
+ *  1. lit en parallèle les statistiques de Lolalytics (lolalytics.js : objets emplacement par emplacement)
+ *     et d'OP.GG (opgg.js : runes, sorts, et objets en secours) pour ce champion, ton rôle et le mode ;
+ *  2. compose le build : avec Lolalytics, Départ, Objet 1, Bottes, Objet 2 à 5, chacun avec 3 choix
+ *     (composerParEmplacement) ; sinon, avec OP.GG, départ, objets principaux, bottes, 4e, 5e et 6e objet ;
+ *  3. crée la page de runes "LoL Companion" (runes d'OP.GG, ou celles recommandées par Riot si OP.GG ne répond pas) ;
+ *  4. crée le set d'objets "LoL Companion - Champion (Rôle)", visible dans la boutique en jeu.
+ * Chaque étape a sa case dans l'onglet Build, toutes désactivées par défaut. Autorisé par Riot
+ * (comme Blitz, Porofessor ou u.gg) : ce sont des infos publiques, et rien n'est choisi à ta place en jeu.
+ *
+ * Classement "taux de victoire + taux de sélection" (pour le 4e, 5e et 6e objet, où OP.GG propose 3 options ;
+ * pour les objets 1 à 3, OP.GG ne donne qu'une combinaison, vérifié le 02/10/2026) :
+ *  - une option n'est retenue que si elle est FIABLE : prise dans au moins 10 % des parties ET sur 200 parties ;
+ *  - on classe par taux de victoire PRUDENT (borne basse de Wilson, à 95 %) : on retire une marge
+ *    d'autant plus grande qu'il y a peu de parties. Un objet à 59 % sur 9 000 parties passe devant un objet
+ *    à 60 % sur 24 parties ;
+ *  - si aucune option d'un emplacement n'est fiable (souvent le 6e), on prend le meilleur objet fiable restant
+ *    parmi les options des emplacements précédents ;
+ *  - on ne propose jamais un objet déjà dans le build ; 3 choix par emplacement sont affichés pour s'adapter.
+ *
+ * Sets d'objets (vérifié sur le client le 02/10/2026) :
+ *   GET/PUT /lol-item-sets/v1/item-sets/{summonerId}/sets -> { accountId, itemSets: [...], timestamp }
+ *   Le PUT remplace TOUTE la liste : on renvoie tes sets (Porofessor...) exactement comme on les a lus,
+ *   et on remplace seulement le set "LoL Companion" du même champion.
+ */
+const { lireLockfile, lireJson, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
+const { monChampion, pageDepuisRecommandation } = require("./runes.js");
+
+const PREFIXE_SET = "LoL Companion";
+// Une option est FIABLE si elle est prise dans au moins 10 % des parties ET sur au moins 200 parties.
+// (Avec 5 % seulement, le 6e objet de Hwei était une Ceinture-roquette sur... 4 parties.)
+const SELECTION_MIN = 0.1;
+const PARTIES_MIN = 200;
+const Z_95 = 1.96;
+
+const LIBELLES_ROLES = { top: "Haut", jungle: "Jungle", middle: "Milieu", bottom: "Bas", utility: "Support" };
+
+// Sorts d'invocateur (OP.GG ne donne que leurs numéros).
+const SORTS = {
+  1: "Purge", 3: "Fatigue", 4: "Saut éclair", 6: "Fantôme", 7: "Soins", 11: "Châtiment",
+  12: "Téléportation", 13: "Clarté", 14: "Embrasement", 21: "Barrière", 32: "Marque",
+};
+
+/** Réglages lisibles et tous désactivés par défaut. ancienRunes : ancien réglage "runesAuto" (migration). */
+function normaliserReglagesBuild(brut, ancienRunes) {
+  const r = brut && typeof brut === "object" ? brut : {};
+  const runesAvant = Boolean(ancienRunes && ancienRunes.actif === true);
+  return {
+    stats: r.stats === true,
+    runes: brut && typeof brut === "object" ? r.runes === true : runesAvant,
+    objets: r.objets === true,
+    augments: r.augments === true, // stats des augments ARAM Mayhem affichées en jeu (augments.js)
+  };
+}
+
+// --- Classement et composition (fonctions pures, testées) ----------------------------------
+
+/** Taux de victoire prudent : borne basse de l'intervalle de Wilson à 95 %. 0 sans parties. */
+function scorePrudent(victoires, parties) {
+  if (!(parties > 0)) return 0;
+  const p = Math.min(1, Math.max(0, victoires / parties));
+  const z2 = Z_95 * Z_95;
+  const centre = p + z2 / (2 * parties);
+  const marge = Z_95 * Math.sqrt((p * (1 - p)) / parties + z2 / (4 * parties * parties));
+  return (centre - marge) / (1 + z2 / parties);
+}
+
+const tauxVictoire = (o) => (o && o.parties > 0 ? o.victoires / o.parties : 0);
+
+/** Option assez jouée pour qu'on s'y fie (voir SELECTION_MIN et PARTIES_MIN). */
+const estFiable = (o) => Boolean(o) && o.selection >= SELECTION_MIN && o.parties >= PARTIES_MIN;
+
+/**
+ * Options classées, de la meilleure à la moins bonne, sans celles déjà dans le build.
+ * Les options fiables d'abord (par score prudent), puis les autres (gardées seulement s'il n'y a rien d'autre).
+ */
+function classerOptions(options, dejaPris = new Set()) {
+  const nouvelles = (Array.isArray(options) ? options : []).filter((o) => o && o.ids.some((id) => !dejaPris.has(id)));
+  const parScore = (a, b) => scorePrudent(b.victoires, b.parties) - scorePrudent(a.victoires, a.parties);
+  return [...nouvelles.filter(estFiable).sort(parScore), ...nouvelles.filter((o) => !estFiable(o)).sort(parScore)];
+}
+
+/** Une seule option par objet (la mieux notée), pour la réserve des emplacements précédents. */
+function sansDoublons(options) {
+  const parObjet = new Map();
+  for (const o of options) {
+    const cle = o.ids.join("+");
+    const avant = parObjet.get(cle);
+    if (!avant || scorePrudent(o.victoires, o.parties) > scorePrudent(avant.victoires, avant.parties)) parObjet.set(cle, o);
+  }
+  return [...parObjet.values()];
+}
+
+const NB_CHOIX = 3; // choix affichés par emplacement (le retenu + 2 autres) pour s'adapter en partie
+
+/**
+ * Le build complet : [{ cle, titre, option, autres, fiable, note }] dans l'ordre d'achat.
+ *  - autres : les 2 autres meilleurs choix pour cet emplacement (pour s'adapter en partie) ;
+ *  - si aucune option d'un emplacement n'est fiable (souvent le 6e objet), on prend le meilleur objet fiable qui
+ *    reste parmi les options des emplacements précédents (note l'explique) ;
+ *  - fiable : false si même ça n'a rien donné (l'appli affiche « peu de données »).
+ */
+function composerBuild(analyse) {
+  if (!analyse) return [];
+  const etapes = [];
+  const pris = new Set();
+  const ajouter = (cle, titre, option, autres = [], note = null) => {
+    if (!option) return;
+    option.ids.forEach((id) => pris.add(id));
+    etapes.push({ cle, titre, option, autres, fiable: estFiable(option), note });
+  };
+  ajouter("depart", "Départ", analyse.depart);
+  ajouter("principaux", "Objets principaux", analyse.principaux);
+  ajouter("bottes", "Bottes", analyse.bottes);
+  const precedentes = []; // options des emplacements déjà traités (réserve)
+  for (const [cle, titre] of [["quatrieme", "4e objet"], ["cinquieme", "5e objet"], ["sixieme", "6e objet"]]) {
+    const classees = classerOptions(analyse[cle], pris);
+    let choix = classees;
+    let note = null;
+    if (classees.length > 0 && !estFiable(classees[0])) {
+      const reserve = classerOptions(sansDoublons(precedentes), pris).filter(estFiable);
+      if (reserve.length > 0) {
+        choix = [...reserve, ...classees];
+        note = `Pas assez de parties pour le ${titre} : meilleur objet fiable restant des emplacements précédents.`;
+      }
+    }
+    if (choix.length > 0) ajouter(cle, titre, choix[0], choix.slice(1, NB_CHOIX), note);
+    precedentes.push(...(Array.isArray(analyse[cle]) ? analyse[cle] : []));
+  }
+  return etapes;
+}
+
+const SELECTION_PROPOSABLE = 0.02; // en dessous de 2 % des achats d'un emplacement, une option passe en dernier
+
+/**
+ * Les 3 meilleurs choix d'un emplacement (Lolalytics), sans les objets déjà retenus avant (exclus) :
+ * d'abord les options fiables (≥ 10 % et ≥ 200 parties), puis celles jouées sur au moins 200 parties et 2 % des
+ * achats, puis le reste ; chaque groupe classé par taux de victoire prudent. Le 1er est le choix recommandé.
+ */
+function troisChoix(options, exclus = new Set()) {
+  const candidates = (Array.isArray(options) ? options : []).filter((o) => o && o.ids.some((id) => !exclus.has(id)));
+  const parScore = (a, b) => scorePrudent(b.victoires, b.parties) - scorePrudent(a.victoires, a.parties);
+  const proposable = (o) => o.parties >= PARTIES_MIN && o.selection >= SELECTION_PROPOSABLE;
+  const fiables = candidates.filter(estFiable).sort(parScore);
+  const proposables = candidates.filter((o) => !estFiable(o) && proposable(o)).sort(parScore);
+  const reste = candidates.filter((o) => !estFiable(o) && !proposable(o)).sort(parScore);
+  return [...fiables, ...proposables, ...reste].slice(0, NB_CHOIX);
+}
+
+/**
+ * Build emplacement par emplacement (données de Lolalytics) : Départ, Objet 1, Bottes, Objet 2 à 5,
+ * chacun avec son choix recommandé et 2 autres choix. Un objet recommandé à un emplacement n'est plus proposé ensuite.
+ */
+function composerParEmplacement(analyse) {
+  if (!analyse || !Array.isArray(analyse.emplacements)) return [];
+  const etapes = [];
+  const pris = new Set();
+  const ajouter = (cle, titre, choix, { retenir = true } = {}) => {
+    if (choix.length === 0) return;
+    const [option, ...autres] = choix;
+    if (retenir) option.ids.forEach((id) => pris.add(id));
+    // « Fiable » = assez de parties. (Aux derniers emplacements, les achats sont si variés qu'aucun objet n'atteint
+    // 10 % : ce n'est pas un manque de données, donc pas d'avertissement pour ça.)
+    etapes.push({ cle, titre, option, autres, fiable: option.parties >= PARTIES_MIN, note: null });
+  };
+  ajouter("depart", "Départ", troisChoix(analyse.depart), { retenir: false });
+  analyse.emplacements.forEach((options, i) => {
+    ajouter(`objet${i + 1}`, `Objet ${i + 1}`, troisChoix(options, pris));
+    if (i === 0) ajouter("bottes", "Bottes", troisChoix(analyse.bottes, pris)); // achetées en général après le 1er objet
+  });
+  return etapes;
+}
+
+/** Page de runes "LoL Companion" à partir des runes d'OP.GG, ou null si elles sont incomplètes. */
+function pageDepuisOpgg(runes) {
+  if (!runes) return null;
+  const ids = [...runes.runesPrincipales, ...runes.runesSecondaires, ...runes.fragments];
+  if (ids.length !== 9 || !Number.isInteger(runes.stylePrincipal) || !Number.isInteger(runes.styleSecondaire)) return null;
+  return { name: PREFIXE_SET, primaryStyleId: runes.stylePrincipal, subStyleId: runes.styleSecondaire, selectedPerkIds: ids, current: true };
+}
+
+const pourcent = (x) => `${Math.round(x * 100)} %`;
+
+/** Identifiant stable du set d'un champion et d'un rôle (même forme que ceux de Porofessor). */
+function uidSet(championId, role) {
+  const n = championId * 10 + Math.max(0, Object.keys(LIBELLES_ROLES).indexOf(role) + 1);
+  return `1c0a9a10-0000-4000-8000-${String(n).padStart(12, "0")}`;
+}
+
+/**
+ * Set d'objets pour la boutique en jeu (format du client).
+ * troisParBloc : chaque emplacement montre ses 3 choix (le recommandé d'abord) — build de Lolalytics ;
+ * sinon (build d'OP.GG), un objet par emplacement et un bloc « Pour t'adapter » avec les autres choix.
+ */
+function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisParBloc = false }) {
+  const blocs = etapes.map(({ cle, titre, option, autres }) => {
+    const compte = new Map();
+    for (const id of option.ids) compte.set(id, (compte.get(id) || 0) + 1); // ex. 2 potions
+    // Les autres choix d'un objet ou des bottes (pas du départ, où chaque choix est une combinaison).
+    if (troisParBloc && cle !== "depart") for (const o of autres) for (const id of o.ids) if (!compte.has(id)) compte.set(id, 1);
+    return {
+      type: `${titre} · ${pourcent(tauxVictoire(option))} V · ${pourcent(option.selection)} choix`,
+      items: [...compte].map(([id, count]) => ({ id: String(id), count })),
+      hideIfSummonerSpell: "",
+      showIfSummonerSpell: "",
+    };
+  });
+  // Les autres choix des emplacements 4 à 6, dans un bloc à part : pour s'adapter en pleine partie.
+  const dejaDansLeBuild = new Set(etapes.flatMap((e) => e.option.ids));
+  const autres = [...new Set(etapes.flatMap((e) => e.autres.flatMap((o) => o.ids)))].filter((id) => !dejaDansLeBuild.has(id));
+  if (!troisParBloc && autres.length > 0) {
+    blocs.push({
+      type: "Pour t'adapter (autres choix)",
+      items: autres.map((id) => ({ id: String(id), count: 1 })),
+      hideIfSummonerSpell: "",
+      showIfSummonerSpell: "",
+    });
+  }
+  return {
+    title: `${PREFIXE_SET} - ${nomChampion}${role ? ` (${LIBELLES_ROLES[role] || role})` : ""}`,
+    type: "custom",
+    map: "any",
+    mode: "any",
+    associatedChampions: [championId],
+    associatedMaps: [carte],
+    blocks: blocs,
+    preferredItemSlots: [],
+    sortrank: 0,
+    startedFrom: "blank",
+    uid: uidSet(championId, role),
+  };
+}
+
+/** Tes sets inchangés + le nouveau set ; seul l'ancien set "LoL Companion" du même champion est remplacé. */
+function fusionnerSets(existants, nouveau) {
+  const champion = nouveau.associatedChampions[0];
+  const estLeNotre = (s) =>
+    s && typeof s.title === "string" && s.title.startsWith(`${PREFIXE_SET} - `) &&
+    Array.isArray(s.associatedChampions) && s.associatedChampions.includes(champion);
+  return [...(Array.isArray(existants) ? existants.filter((s) => !estLeNotre(s)) : []), nouveau];
+}
+
+/**
+ * Ce que la page affiche : étapes avec taux, runes, sorts.
+ * analyse : celle d'OP.GG (runes, sorts) ou null ; stats : statistiques générales à afficher ; source : d'où viennent les objets.
+ */
+function resumeBuild({ analyse, etapes, stats = analyse ? analyse.stats : null, source = "OP.GG" }) {
+  const option = (o) => ({ noms: o.noms, parties: o.parties, tauxVictoire: tauxVictoire(o), selection: o.selection, minute: o.minute || null });
+  const r = analyse && analyse.runes;
+  return {
+    source,
+    stats,
+    etapes: etapes.map((e) => ({ titre: e.titre, ...option(e.option), fiable: e.fiable, note: e.note, autres: e.autres.map(option) })),
+    runes: r ? { styles: [r.nomStylePrincipal, r.nomStyleSecondaire].filter(Boolean), noms: r.noms, parties: r.parties, tauxVictoire: tauxVictoire(r) } : null,
+    sorts: analyse && analyse.sorts ? { noms: analyse.sorts.ids.map((id) => SORTS[id] || `Sort n° ${id}`), tauxVictoire: tauxVictoire(analyse.sorts) } : null,
+  };
+}
+
+/**
+ * Le build à appliquer et à afficher : objets de Lolalytics (3 choix par emplacement) si disponibles,
+ * sinon ceux d'OP.GG ; runes et sorts d'OP.GG. Renvoie { etapes, troisParBloc, resume } (resume null si rien).
+ */
+function assemblerBuild({ opgg = null, emplacements = null }) {
+  let etapes = emplacements ? composerParEmplacement(emplacements) : [];
+  const parEmplacement = etapes.length > 0;
+  if (!parEmplacement) etapes = composerBuild(opgg);
+  if (etapes.length === 0) return { etapes, troisParBloc: false, resume: null };
+  const resume = resumeBuild({
+    analyse: opgg,
+    etapes,
+    stats: parEmplacement ? emplacements.stats : opgg.stats,
+    source: parEmplacement ? "Lolalytics" : "OP.GG",
+  });
+  return { etapes, troisParBloc: parEmplacement, resume };
+}
+
+// --- Logique automatique (testée sans client ni Internet) ------------------------------------
+
+/**
+ *  - reglages()                             : { stats, runes, objets } ;
+ *  - analyser({ championId, role })         : analyse OP.GG (promesse) ; rejetée si indisponible ;
+ *  - analyserEmplacements({ championId, role }) : (facultatif) objets par emplacement de Lolalytics (promesse) ;
+ *                                             s'il échoue, les objets viennent d'OP.GG ;
+ *  - runesRiot({ championId, role })        : pages recommandées par Riot (promesse, secours) ;
+ *  - appliquerRunes(page), appliquerObjets(set) : écrivent dans le client (promesses) ;
+ *  - nomChampion(championId)                : nom affiché (promesse) ;
+ *  - carte()                                : carte de la partie (promesse, 11 ou 12) ;
+ *  - resultat(info)                         : { championId, role, build, runes, objets, erreurs } ;
+ *  - journal(...)                           : (facultatif) diagnostic.
+ * Une seule fois par champion et par sélection (en ARAM, une relance de champion refait tout).
+ */
+function creerBuildAuto({
+  reglages,
+  analyser,
+  analyserEmplacements = null,
+  runesRiot,
+  appliquerRunes,
+  appliquerObjets,
+  nomChampion,
+  carte,
+  resultat = () => {},
+  journal = () => {},
+}) {
+  let deja = null;
+  let enCours = false;
+
+  async function surSession(session) {
+    if (!session) {
+      deja = null;
+      return;
+    }
+    const champion = monChampion(session);
+    if (!champion) return;
+    const r = reglages();
+    if (!r.stats && !r.runes) return; // rien à faire (le set d'objets a besoin des stats)
+    const cle = `${session.gameId}:${champion.championId}`;
+    if (cle === deja || enCours) return;
+    deja = cle;
+    enCours = true;
+    try {
+      await traiter(champion, r);
+    } finally {
+      enCours = false;
+    }
+  }
+
+  async function traiter({ championId, role }, r) {
+    const erreurs = {};
+    let analyse = null; // OP.GG : runes, sorts, et objets en secours
+    let emplacements = null; // Lolalytics : objets emplacement par emplacement
+    if (r.stats) {
+      const [opgg, lolalytics] = await Promise.allSettled([
+        analyser({ championId, role }),
+        analyserEmplacements ? analyserEmplacements({ championId, role }) : Promise.resolve(null),
+      ]);
+      if (opgg.status === "fulfilled") analyse = opgg.value;
+      else erreurs.stats = opgg.reason.message;
+      if (lolalytics.status === "fulfilled") emplacements = lolalytics.value;
+      else erreurs.emplacements = lolalytics.reason.message;
+    }
+    const { etapes, troisParBloc, resume } = assemblerBuild({ opgg: analyse, emplacements });
+
+    let runes = null;
+    if (r.runes) {
+      try {
+        let page = analyse ? pageDepuisOpgg(analyse.runes) : null;
+        let source = "OP.GG";
+        if (!page) {
+          const pages = await runesRiot({ championId, role });
+          const reco = Array.isArray(pages) ? pages.find((p) => pageDepuisRecommandation(p)) : null;
+          page = reco ? pageDepuisRecommandation(reco) : null;
+          source = "Riot";
+          if (page) runes = { source, noms: (reco.perks || []).slice(0, 6).map((p) => (p && p.name) || "?") };
+        } else {
+          runes = { source, noms: analyse.runes.noms };
+        }
+        if (!page) throw new ErreurClient("Pas de runes disponibles pour ce champion.");
+        await appliquerRunes(page);
+      } catch (erreur) {
+        runes = null;
+        erreurs.runes = erreur.message;
+      }
+    }
+
+    let objets = false;
+    if (r.objets && etapes.length > 0) {
+      try {
+        const set = setObjets({ etapes, championId, nomChampion: await nomChampion(championId), role, carte: await carte(), troisParBloc });
+        await appliquerObjets(set);
+        objets = true;
+      } catch (erreur) {
+        erreurs.objets = erreur.message;
+      }
+    }
+
+    journal("build", championId, role, { runes: Boolean(runes), objets, erreurs });
+    resultat({ championId, role, build: resume, runes, objets, erreurs });
+  }
+
+  return { surSession };
+}
+
+// --- Appels au client ------------------------------------------------------------------------
+
+/** Carte et mode de la partie en cours (session du "gameflow"), ou null hors partie. */
+async function lirePartie(dossierJeu) {
+  return lireJsonOuNull(lireLockfile(dossierJeu), "/lol-gameflow/v1/session");
+}
+
+/** Noms des objets dans la langue du client : Map id -> nom (pour les données de Lolalytics, qui n'ont que les numéros). */
+async function lireNomsObjets(dossierJeu) {
+  const objets = await lireJsonOuNull(lireLockfile(dossierJeu), "/lol-game-data/assets/v1/items.json");
+  const noms = new Map();
+  if (Array.isArray(objets)) for (const o of objets) if (o && Number.isInteger(o.id) && typeof o.name === "string") noms.set(o.id, o.name);
+  return noms;
+}
+
+/** Alias des champions (nom interne, ex. "MonkeyKing"), pour OP.GG : Map id -> alias. */
+async function lireAliasChampions(dossierJeu) {
+  const resume = await lireJsonOuNull(lireLockfile(dossierJeu), "/lol-game-data/assets/v1/champion-summary.json");
+  const alias = new Map();
+  if (Array.isArray(resume)) for (const c of resume) if (c && Number.isInteger(c.id) && typeof c.alias === "string") alias.set(c.id, c.alias);
+  return alias;
+}
+
+/** Ajoute (ou remplace) le set "LoL Companion" de ce champion, sans toucher à tes autres sets. */
+async function appliquerSet(dossierJeu, set) {
+  const connexion = lireLockfile(dossierJeu);
+  const moi = await lireJson(connexion, "/lol-summoner/v1/current-summoner");
+  const route = `/lol-item-sets/v1/item-sets/${moi.summonerId}/sets`;
+  const actuels = await lireJson(connexion, route);
+  if (!actuels || !Array.isArray(actuels.itemSets)) throw new ErreurClient("Sets d'objets illisibles dans le client.");
+  const corps = { ...actuels, itemSets: fusionnerSets(actuels.itemSets, set), timestamp: Date.now() };
+  const { status } = await appelerClient(connexion, route, { methode: "PUT", corps });
+  if (status < 200 || status >= 300) throw new ErreurClient(`Le client a refusé le set d'objets (code ${status}).`);
+}
+
+module.exports = {
+  PREFIXE_SET,
+  SELECTION_MIN,
+  PARTIES_MIN,
+  LIBELLES_ROLES,
+  normaliserReglagesBuild,
+  scorePrudent,
+  classerOptions,
+  composerBuild,
+  troisChoix,
+  composerParEmplacement,
+  assemblerBuild,
+  pageDepuisOpgg,
+  setObjets,
+  fusionnerSets,
+  resumeBuild,
+  creerBuildAuto,
+  lirePartie,
+  lireNomsObjets,
+  lireAliasChampions,
+  appliquerSet,
+};

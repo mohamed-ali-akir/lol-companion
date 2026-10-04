@@ -1,0 +1,11 @@
+node_modules/
+dist/
+
+# Fichiers qui pourraient contenir un mot de passe : jamais dans Git.
+# (L'appli n'utilise pas de clé API ; ses réglages sont dans %APPDATA%, hors du projet.)
+.env
+.env.*
+config.json
+*.key
+*.pem
+lockfile
