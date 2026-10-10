@@ -449,6 +449,23 @@
 
       <!-- Onglet Sélection : pick et ban automatiques (onglets/selection.js) -->
       <section class="panneau" id="panneau-selection" role="tabpanel" aria-labelledby="onglet-selection" tabindex="0" hidden>
+        <!-- Conseiller de draft (draft.js) : propose, ne choisit jamais -->
+        <div class="card parametres">
+          <h2>Conseiller de draft</h2>
+          <p class="aide">
+            Pendant la sélection, l'appli classe les champions que tu peux jouer à ton poste : leur taux de victoire
+            (Lolalytics, Émeraude et plus), corrigé par les champions déjà verrouillés en face (matchups) et dans ton
+            équipe (synergies), plus un petit bonus selon tes propres parties. Elle ne fait que proposer.
+          </p>
+          <form id="formConseil" class="reglages-acceptation">
+            <label class="check">
+              <input type="checkbox" id="conseilDraft">
+              <span>Conseiller le meilleur champion pour la draft (lit Lolalytics : champions et postes seulement)</span>
+            </label>
+          </form>
+          <div id="conseilDraftResultat" class="conseil-draft" aria-live="polite" hidden></div>
+        </div>
+
         <div class="card parametres">
           <h2>Sélection des champions</h2>
           <p class="aide">
@@ -486,7 +503,10 @@
             <div class="listes-selection" id="listesPicks"></div>
 
             <h3>Bans <small>(1er, 2e, 3e choix)</small></h3>
-            <p class="aide">Jamais un champion déjà banni, ni un champion survolé ou déclaré par un coéquipier.</p>
+            <p class="aide">
+              Comme pour les picks : la liste de ton rôle d'abord, puis « Par défaut ».
+              Jamais un champion déjà banni, ni un champion survolé ou déclaré par un coéquipier.
+            </p>
             <div class="listes-selection" id="listesBans"></div>
           </form>
           <p id="etatSelection" class="etat" hidden></p>
@@ -523,14 +543,35 @@
               <span>Créer le set d'objets dans la boutique en jeu <small>(3 choix par emplacement ; nécessite le build)</small></span>
             </label>
             <label class="check">
+              <input type="checkbox" id="buildSortsAuto">
+              <span>Choisir mes sorts d'invocateur <small>(les plus joués d'après OP.GG ; Flash reste sur ta touche habituelle ; nécessite le build)</small></span>
+            </label>
+            <label class="check">
               <input type="checkbox" id="buildAugments">
               <span>Afficher les stats des augments en jeu <small>(ARAM Mayhem : taux de victoire de chaque augment, avec ton champion si possible, sous chaque carte ; arammayhem.com)</small></span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="buildObjectifs">
+              <span>Prévenir avant les objectifs en jeu <small>(Faille : bandeau 30 s avant le premier dragon, les larves, le Héraut et le Baron ; chrono du jeu, sans Internet)</small></span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="buildReapparitions">
+              <span>Aussi avant les réapparitions du dragon, du Baron et des inhibiteurs <small>(⚠ chrono que Riot juge contraire à l'esprit de ses règles : risque faible, mais pas nul)</small></span>
+            </label>
+            <label class="check">
+              <input type="checkbox" id="buildSorts">
+              <span>Chronos des sorts d'invocateur adverses <small>(Faille : panneau en haut à gauche ; clique sur un sort quand l'adversaire l'utilise ; ⚠ même risque)</small></span>
             </label>
           </form>
           <p class="aide">
             Augments : Riot ne dit pas quels augments te sont proposés, l'appli lit donc leurs noms à l'écran (OCR de Windows,
             rien ne quitte ton PC), seulement pendant une ARAM Mayhem. Mets le jeu en mode « Sans bordure » (Options → Vidéo) :
             en plein écran, rien ne peut s'afficher par-dessus. L'appli ne choisit jamais à ta place.
+            Objectifs : leur première apparition, à heure fixe (Carapateurs 2:55, dragon 5:00, larves 8:00, Héraut 15:00,
+            Baron 20:00). En option, les réapparitions : dragon 5:00 après sa mort (dragon ancestral 6:00 après l'âme),
+            Baron 6:00, inhibiteurs 5:00. Sorts adverses : c'est toi qui cliques quand tu vois un sort utilisé, l'appli
+            compte le temps de recharge (bottes de lucidité comprises). Jamais les ultimes : Riot les interdit depuis 2025.
+            Riot juge injuste un chrono qui n'existe que dans une appli : à activer en connaissance de cause.
           </p>
           <p id="etatBuild" class="etat" hidden></p>
 

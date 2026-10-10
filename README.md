@@ -20,8 +20,8 @@ publiques (Lolalytics, OP.GG).*
 | **Missions** | Tes missions en cours et l'XP de compte qu'elles rapportent |
 | **Stats** | Taux de victoire et KDA par champion et par mode, meilleurs champions, moments où tu gagnes le plus, sur 30 jours ou depuis le début |
 | **Maîtrise** | Les champions les plus proches du niveau de maîtrise suivant, tes plus joués, la liste complète |
-| **Sélection** | Pick et ban automatiques (désactivés par défaut) : 3 champions dans l'ordre par rôle, 3 bans dans l'ordre |
-| **Build** | Build de ton champion d'après les statistiques de Lolalytics et d'OP.GG (3 choix par emplacement avec taux de victoire et de sélection, runes, sorts), page de runes et set d'objets créés automatiquement, consultation du build de n'importe quel champion |
+| **Sélection** | Conseiller de draft : les 5 meilleurs champions pour la draft en cours, avec la raison (matchups, synergies). Pick et ban automatiques (désactivés par défaut) : 3 champions et 3 bans dans l'ordre, par rôle |
+| **Build** | Build de ton champion d'après les statistiques de Lolalytics et d'OP.GG (3 choix par emplacement avec taux de victoire et de sélection, runes, sorts), page de runes et set d'objets créés automatiquement, consultation du build de n'importe quel champion ; en jeu : stats des augments (ARAM Mayhem) et alerte avant les objectifs (Faille) |
 | **Paramètres** | Acceptation automatique, session et pauses, arrière-plan, dossier du jeu, effacement des historiques |
 
 <details>
@@ -90,11 +90,17 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   l'appli après tes parties. Recherche et tri (par points ou par proximité du niveau suivant)
 - **Acceptation automatique** de la partie trouvée (désactivée par défaut) : après un délai réglable, jamais si tu as
   déjà répondu, jamais deux fois la même. Notification « Partie trouvée ! » si League n'est pas au premier plan
+- **Conseiller de draft** (onglet Sélection, désactivé par défaut, comme iTero.gg en plus simple) : pendant la
+  sélection, l'appli classe **les champions que tu peux jouer** à ton poste et affiche les 5 meilleurs, mis à jour à
+  chaque champion verrouillé : « Nasus 57,6 % · +3,1 contre Zed · +2,1 contre Yasuo · +0,7 avec Lee Sin ». Le score
+  part du taux de victoire du champion à ton poste (Lolalytics, Émeraude et plus), corrigé par chaque **adversaire**
+  verrouillé (matchup) et chaque **allié** verrouillé (synergie), plus un petit bonus selon **tes** parties sur ce
+  champion (± 2 points au plus). Jamais un champion banni ou déjà pris. Il ne fait que proposer, il ne choisit jamais
 - **Pick et ban automatiques** (onglet Sélection, désactivés par défaut, ⚠ contraires aux règles de Riot : voir
   Sécurité). Quand c'est **ton** tour, l'appli verrouille ton champion après **10 s** (ban : **5 s**), réglables.
   3 choix dans l'ordre : si le 1er est banni ou déjà pris, elle prend le 2e, puis le 3e. Une liste par rôle (Haut,
-  Jungle, Milieu, Bas, Support), choisie d'après le rôle attribué en sélection, plus une liste « Par défaut » (partie
-  sans rôles, ou liste du rôle vide ou indisponible). Jamais un champion banni, déjà pris, survolé ou déclaré par un
+  Jungle, Milieu, Bas, Support), **pour les picks comme pour les bans**, choisie d'après le rôle attribué en sélection,
+  plus une liste « Par défaut » (partie sans rôles, ou liste du rôle vide ou indisponible). Jamais un champion banni, déjà pris, survolé ou déclaré par un
   coéquipier. Si tu survoles ou verrouilles un champion toi-même pendant le délai, elle ne fait rien
 - **Build** (onglet Build, chaque option désactivée par défaut, autorisé par Riot comme Blitz ou Porofessor) : quand ton
   champion est verrouillé (ou attribué en ARAM), l'appli lit les **vraies statistiques** de **Lolalytics** (objets
@@ -104,8 +110,11 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
     recommandé + 2 pour t'adapter en partie) ; chaque choix affiche son taux de victoire, sa part des achats, son
     nombre de parties et la minute d'achat (« ⚠ peu de données » sous 200 parties). Si Lolalytics ne répond pas,
     le build d'OP.GG prend le relais (objets principaux, bottes, 4e à 6e objet) ;
-  - crée la page de runes « LoL Companion » (runes d'OP.GG, ou celles **recommandées par Riot** si OP.GG ne répond
-    pas ou si les stats sont désactivées) ;
+  - crée la page de runes « Hwei · Mid · LoL Companion » (champion et poste ; runes d'OP.GG, ou celles **recommandées
+    par Riot** si OP.GG ne répond pas ou si les stats sont désactivées). Si le client refuse ou coupe ce nom (la
+    longueur maximale n'est documentée nulle part), l'appli essaie « Hwei · Mid · LoLC », puis « LoL Companion » ;
+  - choisit tes **sorts d'invocateur** (case séparée) : les plus joués d'après OP.GG, en gardant chaque sort sur ta
+    touche habituelle (si Flash est sur F, il y reste). Route du client : `PATCH /lol-champ-select/v1/session/my-selection` ;
   - crée le set d'objets « LoL Companion - Champion (Rôle) », visible dans la boutique en jeu : un bloc par
     emplacement avec ses 3 choix, le recommandé en premier.
   Tes pages de runes et tes sets (Porofessor...) ne sont jamais modifiés. Tu peux aussi consulter le build de
@@ -116,6 +125,16 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   tous champions confondus. La carte au meilleur taux est mise en avant (cadre doré), comme le font Porofessor ou
   Blitz, sauf égalité (moins de 1 point d'écart) ou augment trop rare (moins de 3 %). Le jeu doit être en mode
   **« Sans bordure »**. L'appli ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png))
+- **Alerte avant les objectifs** (onglet Build, désactivée par défaut, Faille de l'invocateur) : un bandeau discret en
+  haut à droite du jeu, sous le chrono, **30 s avant la première apparition** des Carapateurs (2:55), du dragon (5:00),
+  des Larves du Néant (8:00), du Héraut (15:00) et du Baron (20:00), avec compte à rebours (liseré doré les 10
+  dernières secondes) ; il disparaît à l'apparition, et chaque objectif a sa ligne s'il y en a plusieurs. Le chrono
+  vient de l'API officielle du jeu, sur ton PC. **En option** (case séparée, ⚠ voir Sécurité) : les réapparitions,
+  dragon 5:00 après sa mort (dragon ancestral 6:00 après l'âme), Baron 6:00, inhibiteurs 5:00 (« allié » / « ennemi »)
+- **Chronos des sorts d'invocateur adverses** (onglet Build, désactivé par défaut, ⚠ voir Sécurité) : un petit panneau
+  en haut à gauche du jeu avec les 5 adversaires (icône du champion) et leurs 2 sorts. Quand tu vois un adversaire
+  utiliser un sort, **tu cliques dessus** : le compte à rebours démarre (bottes de lucidité visibles comptées, TP
+  déchaînée après 10:00) ; un 2e clic l'annule. Le reste de l'écran laisse passer les clics au jeu. Mode « Sans bordure » requis
 - **Arrière-plan** : une icône dans la zone de notification de Windows (Ouvrir, Acceptation auto à cocher, Quitter).
   La croix **cache** la fenêtre au lieu de quitter (réglable) : la surveillance continue (acceptation auto,
   notifications, mise à jour après chaque partie), et la première fois une notification l'explique. Option
@@ -155,7 +174,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (312) |
+| `npm test` | Lance les tests (356) |
 | `npm run build` | Crée l'installateur dans `dist/` |
 
 ## Technologies
@@ -207,6 +226,11 @@ certificats vérifiés normalement et les réponses gardées 3 h en mémoire :
   (`User-Agent: LoLCompanion/1.0`), et au plus une fois par champion / voie / mode toutes les 3 h. Son `robots.txt`
   n'interdit rien et aucune condition d'utilisation trouvée ne vise l'accès automatique. Si le site change, l'appli
   revient au build d'OP.GG et le signale.
+- le **conseiller de draft** (case de l'onglet Sélection) lit aussi Lolalytics, avec les mêmes règles :
+  la tier list de ton poste (`/lol/tierlist/?lane=<voie>` : taux de victoire et parties de chaque champion), la page
+  de chaque adversaire verrouillé (son tableau `enemy` : ses matchups par voie) et, pour chaque allié verrouillé,
+  `GET https://a1.lolalytics.com/mega/?ep=build-team&patch=<patch>&c=<champion>&lane=<voie>…` (ses synergies).
+  Seuls des noms de champions, de postes et le patch sont envoyés ; aucun pseudo n'est lu.
 
 En plus, l'appli s'abonne en **WebSocket** (`wss://127.0.0.1:<port>/`, protocole WAMP) aux événements du client :
 phase de jeu (`EndOfGame` = une partie vient de finir), compte, champions possédés, portefeuille, missions,
@@ -250,6 +274,34 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   marqué « en cours » mais le client ignore un ban envoyé à ce moment-là, donc l'appli attend la phase `BAN_PICK`.
   Le client a aussi répondu « OK » à un verrouillage sans verrouiller : l'appli relit donc la session pour vérifier,
   essaie l'autre méthode si besoin, et sinon affiche une erreur au lieu d'un faux « OK ».
+- **Conseiller de draft** (`draft.js`) : pour chaque champion C que tu peux choisir (`pickable-champion-ids` :
+  possédés + rotation gratuite), score = taux de victoire de C à ton poste + Σ effets des champions **verrouillés**
+  (un survol ne compte pas, il peut changer) + confort. L'effet d'un duo est le « delta 2 » de Lolalytics : l'écart
+  du duo par rapport à ce qu'on attendrait des deux champions seuls (contre un adversaire, on prend l'opposé de son
+  delta, puisqu'il est vu de son côté). Prudence : chaque effet est multiplié par n / (n + 1 000) (n = parties du
+  duo), et le taux de base est ramené vers 50 % par n / (n + 5 000), sinon un champion joué par quelques spécialistes
+  passe devant (Fiddlesticks milieu : 1 670 parties à 54 %, devant Ahri à 52,5 % sur 199 182 parties). Les champions
+  à moins de 1 000 parties à ce poste ne sont pas proposés. Confort : ton taux de victoire sur le champion, lissé
+  par 5 victoires + 5 défaites fictives, + 0,05 point par partie jouée (20 au plus), borné à ± 2 points. Recalcul
+  seulement quand la draft change (nouveau pick, ban) ; un calcul plus ancien et plus lent n'écrase jamais le
+  nouveau. Si les données d'un adversaire manquent, il n'est pas compté et l'appli le dit.
+- **Alerte des objectifs** (`objectifs.js`) : pendant une partie sur la Faille (carte 11 dans
+  `/lol-gameflow/v1/session`), l'appli lit le chrono toutes les secondes avec l'API officielle « Live Client Data »
+  que le jeu ouvre sur ton PC (`GET https://127.0.0.1:2999/liveclientdata/allgamedata` → `gameData.gameTime`,
+  `allPlayers` et `events`, sans mot de passe ; certificat de Riot accepté seulement pour cet appel, comme pour le
+  client). Le bandeau ne change que quand son texte change. Réapparitions : l'appli relit les événements `DragonKill`
+  et `BaronKill` (annoncés à tous les joueurs, les deux équipes comprises) ; l'équipe du tueur, retrouvée par son nom
+  dans `allPlayers`, sert à savoir quand une équipe a 4 dragons (l'âme : ensuite, dragons ancestraux à 6:00). Si un
+  nom est introuvable, 7 dragons tués suffisent à savoir que l'âme est prise. Inhibiteurs : événement `InhibKilled`
+  (`Barracks_T2_C1` = inhibiteur du milieu de l'équipe 2). Plus d'Atakhan ni de chute des plaques à 14:00 en 2026.
+- **Chronos des sorts** (`sorts.js`) : temps de recharge vérifiés le 10/10/2026 (Flash 300 s, Ignite 180, TP 300 puis
+  330 → 240 selon le niveau après 10:00, Heal/Exhaust/Ghost/Cleanse 240, Barrière 180) ; accélération : Bottes
+  ioniennes de lucidité +10, Lucidité pourpre +20 (la rune Perspicacité cosmique est invisible pour l'adversaire,
+  donc pas comptée) ; temps = base / (1 + accélération / 100). Le temps de jeu entre deux lectures est estimé avec
+  l'horloge du PC, pour qu'un clic tombe à la bonne seconde. La fenêtre transparente laisse passer les clics
+  (`setIgnoreMouseEvents(true, { forward: true })`) et ne les prend que quand la souris est sur le panneau ; elle ne
+  prend jamais le clavier au jeu (`focusable: false`). Heures d'apparition vérifiées le 10/10/2026 sur le wiki officiel (patch 26.x) ; Riot les change parfois
+  d'une saison à l'autre. Le bandeau partage la fenêtre transparente des augments, cachée quand il n'y a rien.
 - **Build** (`build.js`, `lolalytics.js`, `opgg.js`, `runes.js`) : l'appli attend que ton pick soit verrouillé
   (`completed`) ; en ARAM, où il n'y a pas d'action « pick », le champion attribué suffit, et une relance de champion
   refait tout. Une seule fois par champion et par sélection. Sans rôle attribué, elle prend le rôle principal du
@@ -351,13 +403,23 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
 - L'appli parle au client League sur `127.0.0.1`. Le certificat auto-signé du client est accepté **seulement** pour
   ces appels (agent HTTPS dédié), jamais pour le reste.
 - **Seules connexions à Internet** (décision du propriétaire, 02/10/2026) : les statistiques de builds d'OP.GG et de
-  Lolalytics, si tu l'actives (désactivé par défaut). Lecture seule, depuis le processus principal, certificats vérifiés
+  Lolalytics, celles du conseiller de draft (Lolalytics) et des augments (arammayhem.com), chacune seulement si tu
+  l'actives (désactivé par défaut). Lecture seule, depuis le processus principal, certificats vérifiés
   normalement, et seuls le champion, le rôle, le mode et la langue sont envoyés : jamais ton Riot ID ni rien de
   personnel. La page web de l'appli, elle, ne se connecte à rien (Content-Security-Policy inchangée).
-- Ce qui modifie le client (accepter une partie, pick et ban automatiques, page de runes, set d'objets) est désactivé
+- Ce qui modifie le client (accepter une partie, pick et ban automatiques, page de runes, set d'objets, sorts
+  d'invocateur) est désactivé
   par défaut et ne s'applique qu'au compte connecté.
 - Interdit par les règles de Riot, donc absent : révéler les pseudos en sélection des champions, donner une info en
   jeu que les joueurs n'ont pas normalement.
+- **Alerte des objectifs** : les premières apparitions sont à heure fixe et connues de tous (un réveil réglé sur le
+  chrono du jeu). Les **réapparitions** (option séparée, désactivée par défaut) sont une exception décidée par le
+  propriétaire (10/10/2026) : en 2014, Riot a jugé injuste un chrono qui n'existe que dans une appli tierce, même si
+  la mort des objectifs est annoncée à tous. Risque jugé faible (lecture de l'API officielle, rien d'injecté, aucun
+  cas de sanction connu pour un chrono), mais pas nul.
+- **Chronos des sorts adverses** : exception décidée par le propriétaire (10/10/2026), comme Porofessor ou Blitz. C'est
+  le joueur qui clique quand il voit un sort utilisé ; l'appli ne fait que compter. Les chronos des **ultimes**
+  adverses sont absents : Riot les interdit depuis le 13/03/2025, même manuels.
 - **Pick et ban automatiques** : les règles de Riot interdisent aussi de choisir ou bannir à la place du joueur. Le
   propriétaire du projet a choisi de l'ajouter quand même (02/10/2026), en connaissance du risque pour son compte
   (faible mais pas nul). Garde-fous : désactivé par défaut, délai avant d'agir, seulement ton action, et rien si tu
@@ -370,7 +432,7 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | Fichier | Contenu |
 |---|---|
 | `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
-| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de champions par rôle et bans), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set d'objets), de la session et de l'arrière-plan |
+| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set d'objets, sorts d'invocateur, augments, alerte des objectifs et réapparitions, chronos des sorts), de la session et de l'arrière-plan |
 | `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, sans doublons, 25 000 au maximum par compte |
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |
@@ -403,15 +465,18 @@ lol-level-calculator/
 ├── session.js         # Session : quelles alertes de pause notifier (une seule fois chacune)
 ├── acceptation.js     # Acceptation automatique + détection du premier plan
 ├── selection.js       # Pick et ban automatiques (rôle, listes, champions disponibles, délais)
+├── draft.js           # Conseiller de draft : picks verrouillés, score (matchups, synergies, confort), suivi
 ├── build.js           # Build : classement des objets, page de runes, set d'objets, logique automatique
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
-├── lolalytics.js      # Objets emplacement par emplacement de Lolalytics (Internet) : lecture de la page, cache
+├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies ; cache
+├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
+├── objectifs.js       # Alerte avant les objectifs en jeu : heures d'apparition, chrono du jeu (API locale), bandeau
 ├── augments.js        # Augments ARAM Mayhem : reconnaissance des cartes, étiquettes, surveillance pendant la partie
 ├── ocr.js             # Lecture de texte à l'écran (OCR de Windows, via PowerShell)
 ├── arammayhem.js      # Taux de victoire des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »
 ├── journal.js         # Journal sur le disque (journal.txt), taille limitée
-├── preload-overlay.js # Pont de la fenêtre transparente des augments (src/overlay.html)
+├── preload-overlay.js # Pont de la fenêtre transparente par-dessus le jeu : augments, objectifs (src/overlay.html)
 ├── runes.js           # Runes : page « LoL Companion », runes recommandées par Riot (secours)
 ├── arriere-plan.js    # Arrière-plan : la croix, le démarrage de Windows, le menu de l'icône (fonctions pures)
 ├── assets/            # Icône de l'appli (icon.ico, icon.png, tray.png) : fenêtre, zone de notification, installateur

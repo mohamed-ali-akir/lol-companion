@@ -28,6 +28,7 @@ contextBridge.exposeInMainWorld("appli", {
   lireSelection: () => ipcRenderer.invoke("selection:lire"),
   enregistrerSelection: (reglages) => ipcRenderer.invoke("selection:enregistrer", reglages),
   lireChampionsSelection: () => ipcRenderer.invoke("selection:champions"),
+  lireConseilDraft: () => ipcRenderer.invoke("draft:lire"),
   lireBuild: () => ipcRenderer.invoke("build:lire"),
   enregistrerBuild: (reglages) => ipcRenderer.invoke("build:enregistrer", reglages),
   consulterBuild: (demande) => ipcRenderer.invoke("build:consulter", demande),
@@ -44,6 +45,8 @@ contextBridge.exposeInMainWorld("appli", {
   surProgressionImport: (rappel) => ipcRenderer.on("stats:progression", (_evenement, info) => rappel(info)),
   surAcceptation: (rappel) => ipcRenderer.on("acceptation:evenement", (_evenement, info) => rappel(info)),
   surSelection: (rappel) => ipcRenderer.on("selection:evenement", (_evenement, info) => rappel(info)),
+  // Conseiller de draft : { etat, role, propositions, message } ou null (sélection finie).
+  surConseilDraft: (rappel) => ipcRenderer.on("draft:conseil", (_evenement, conseil) => rappel(conseil)),
   surBuild: (rappel) => ipcRenderer.on("build:evenement", (_evenement, info) => rappel(info)),
   // Acceptation auto cochée / décochée depuis le menu de l'icône (zone de notification).
   surReglagesAcceptation: (rappel) => ipcRenderer.on("acceptation:reglages", (_evenement, reglages) => rappel(reglages)),

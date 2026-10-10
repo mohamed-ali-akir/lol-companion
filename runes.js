@@ -18,12 +18,17 @@
  *   POST   /lol-perks/v1/pages { name, primaryStyleId, subStyleId, selectedPerkIds, current: true }
  *   DELETE /lol-perks/v1/pages/{id}
  *
- * Règle : l'appli ne touche QU'À SA page (nom "LoL Companion"). Tes autres pages ne sont jamais modifiées.
+ * Règle : l'appli ne touche QU'À SA page. Tes autres pages ne sont jamais modifiées.
+ * Nom de sa page (10/10/2026) : « Hwei · Mid · LoL Companion ». La longueur maximale d'un nom de page n'est documentée
+ * nulle part : si le client refuse ou raccourcit le nom, l'appli essaie « Hwei · Mid · LoLC », puis « LoL Companion ».
+ * Elle reconnaît sa page à cette fin de nom (et l'ancien nom « LoL Companion » tout court).
  */
 const { lireLockfile, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
 const { monRole } = require("./selection.js");
 
 const NOM_PAGE = "LoL Companion";
+const MARQUE_COURTE = "LoLC";
+const POSTES_COURTS = { top: "Top", jungle: "Jungle", middle: "Mid", bottom: "ADC", utility: "Support" };
 const NB_RUNES = 9; // 1 clé de voûte + 3 principales + 2 secondaires + 3 fragments
 const CARTE_PAR_DEFAUT = 11; // Faille de l'invocateur
 
@@ -43,6 +48,19 @@ function monChampion(session) {
   const mesPicks = actions.filter((a) => a.actorCellId === cellule && a.type === "pick");
   if (mesPicks.length > 0 && !mesPicks.some((a) => a.completed === true)) return null; // seulement survolé
   return { championId: moi.championId, role: monRole(session) };
+}
+
+/** Noms à essayer pour la page, du plus joli au plus court : ["Hwei · Mid · LoL Companion", "Hwei · Mid · LoLC", "LoL Companion"]. */
+function nomsPage(nomChampion, role) {
+  const debut = [String(nomChampion || "").trim(), POSTES_COURTS[role]].filter(Boolean).join(" · ");
+  const noms = debut ? [`${debut} · ${NOM_PAGE}`, `${debut} · ${MARQUE_COURTE}`, NOM_PAGE] : [NOM_PAGE];
+  return noms.filter((n, i) => noms.indexOf(n) === i);
+}
+
+/** Cette page a-t-elle été créée par l'appli ? (d'après la fin de son nom) */
+function estPageAppli(nom) {
+  const n = String(nom || "");
+  return n === NOM_PAGE || n.endsWith(` · ${NOM_PAGE}`) || n.endsWith(` · ${MARQUE_COURTE}`);
 }
 
 /** Page de runes prête à envoyer, à partir d'une recommandation de Riot, ou null si elle est incomplète. */
@@ -74,26 +92,50 @@ async function lireRecommandations(dossierJeu, championId, role) {
   return Array.isArray(pages) ? pages : [];
 }
 
-/** Remplace la page "LoL Companion" (et seulement elle) par la nouvelle, et la sélectionne. */
-async function appliquerPage(dossierJeu, page) {
+/**
+ * Remplace la page de l'appli (et seulement elle) par la nouvelle, et la sélectionne.
+ * noms : noms à essayer dans l'ordre (voir nomsPage) ; renvoie le nom finalement gardé par le client.
+ */
+async function appliquerPage(dossierJeu, page, { noms = [page.name || NOM_PAGE] } = {}) {
   const connexion = lireLockfile(dossierJeu);
   const pages = await lireJsonOuNull(connexion, "/lol-perks/v1/pages");
-  const ancienne = Array.isArray(pages) ? pages.find((p) => p && p.name === NOM_PAGE && p.isEditable !== false) : null;
-  if (ancienne) {
-    const { status } = await appelerClient(connexion, `/lol-perks/v1/pages/${ancienne.id}`, { methode: "DELETE" });
-    if (!reussi(status)) throw new ErreurClient(`Impossible de remplacer la page « ${NOM_PAGE} » (code ${status}).`);
+  const anciennes = Array.isArray(pages) ? pages.filter((p) => p && estPageAppli(p.name) && p.isEditable !== false) : [];
+  if (anciennes.length > 0) {
+    for (const ancienne of anciennes) {
+      const { status } = await appelerClient(connexion, `/lol-perks/v1/pages/${ancienne.id}`, { methode: "DELETE" });
+      if (!reussi(status)) throw new ErreurClient(`Impossible de remplacer la page « ${ancienne.name} » (code ${status}).`);
+    }
   } else {
     const inventaire = await lireJsonOuNull(connexion, "/lol-perks/v1/inventory");
     if (inventaire && inventaire.canAddCustomPage === false) {
       throw new ErreurClient("Plus de place pour une page de runes : supprime une de tes pages dans le client.");
     }
   }
-  const { status } = await appelerClient(connexion, "/lol-perks/v1/pages", { methode: "POST", corps: page });
-  if (!reussi(status)) throw new ErreurClient(`Le client a refusé la page de runes (code ${status}).`);
+  let dernierStatut = null;
+  for (const nom of noms) {
+    const reponse = await appelerClient(connexion, "/lol-perks/v1/pages", { methode: "POST", corps: { ...page, name: nom } });
+    dernierStatut = reponse.status;
+    if (!reussi(reponse.status)) continue; // nom refusé (trop long ?) : on essaie le suivant
+    let creee = null;
+    try {
+      creee = JSON.parse(reponse.corps);
+    } catch {
+      // pas de réponse lisible : on considère que le nom est accepté tel quel
+    }
+    if (creee && typeof creee.name === "string" && creee.name !== nom && Number.isInteger(creee.id)) {
+      // Le client a raccourci le nom : on ne la reconnaîtrait plus la prochaine fois. On la retire et on essaie plus court.
+      await appelerClient(connexion, `/lol-perks/v1/pages/${creee.id}`, { methode: "DELETE" });
+      continue;
+    }
+    return nom;
+  }
+  throw new ErreurClient(`Le client a refusé la page de runes (code ${dernierStatut}).`);
 }
 
 module.exports = {
   NOM_PAGE,
+  nomsPage,
+  estPageAppli,
   monChampion,
   pageDepuisRecommandation,
   lireRecommandations,

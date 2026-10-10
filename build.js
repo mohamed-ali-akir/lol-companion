@@ -29,7 +29,7 @@
  *   et on remplace seulement le set "LoL Companion" du même champion.
  */
 const { lireLockfile, lireJson, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
-const { monChampion, pageDepuisRecommandation } = require("./runes.js");
+const { monChampion, pageDepuisRecommandation, nomsPage } = require("./runes.js");
 
 const PREFIXE_SET = "LoL Companion";
 // Une option est FIABLE si elle est prise dans au moins 10 % des parties ET sur au moins 200 parties.
@@ -55,7 +55,27 @@ function normaliserReglagesBuild(brut, ancienRunes) {
     runes: brut && typeof brut === "object" ? r.runes === true : runesAvant,
     objets: r.objets === true,
     augments: r.augments === true, // stats des augments ARAM Mayhem affichées en jeu (augments.js)
+    objectifs: r.objectifs === true, // bandeau avant la 1re apparition des objectifs, en jeu (objectifs.js)
+    reapparitions: r.objectifs === true && r.reapparitions === true, // + réapparitions dragon / Baron / inhibiteurs (exception, voir objectifs.js)
+    sorts: r.sorts === true, // chronos des sorts d'invocateur adverses, cliquables en jeu (sorts.js)
+    sortsAuto: r.sortsAuto === true, // choisir mes sorts d'invocateur (les plus joués d'après OP.GG ; nécessite les stats)
   };
+}
+
+/**
+ * Ordre des sorts d'invocateur à mettre : on garde chaque sort recommandé sur la touche où tu l'as déjà
+ * (Flash reste sur D ou sur F comme tu en as l'habitude), puis on complète avec les autres dans l'ordre d'OP.GG.
+ * recommandes : [id, id] d'OP.GG ; actuels : [spell1Id, spell2Id] de ta sélection. -> [id, id] ou null.
+ */
+function ordreSorts(recommandes, actuels) {
+  const reco = (Array.isArray(recommandes) ? recommandes : []).filter((id) => Number.isInteger(id) && id > 0);
+  if (reco.length !== 2 || reco[0] === reco[1]) return null;
+  const places = [null, null];
+  (Array.isArray(actuels) ? actuels : []).slice(0, 2).forEach((id, i) => {
+    if (reco.includes(id) && !places.includes(id)) places[i] = id;
+  });
+  const restants = reco.filter((id) => !places.includes(id));
+  return places.map((id) => id || restants.shift());
 }
 
 // --- Classement et composition (fonctions pures, testées) ----------------------------------
@@ -287,7 +307,8 @@ function assemblerBuild({ opgg = null, emplacements = null }) {
  *  - analyserEmplacements({ championId, role }) : (facultatif) objets par emplacement de Lolalytics (promesse) ;
  *                                             s'il échoue, les objets viennent d'OP.GG ;
  *  - runesRiot({ championId, role })        : pages recommandées par Riot (promesse, secours) ;
- *  - appliquerRunes(page), appliquerObjets(set) : écrivent dans le client (promesses) ;
+ *  - appliquerRunes(page, noms), appliquerObjets(set) : écrivent dans le client (promesses) ;
+ *  - appliquerSorts([id, id])               : (facultatif) choisit tes sorts d'invocateur (promesse) ;
  *  - nomChampion(championId)                : nom affiché (promesse) ;
  *  - carte()                                : carte de la partie (promesse, 11 ou 12) ;
  *  - resultat(info)                         : { championId, role, build, runes, objets, erreurs } ;
@@ -301,6 +322,7 @@ function creerBuildAuto({
   runesRiot,
   appliquerRunes,
   appliquerObjets,
+  appliquerSorts = null,
   nomChampion,
   carte,
   resultat = () => {},
@@ -322,14 +344,17 @@ function creerBuildAuto({
     if (cle === deja || enCours) return;
     deja = cle;
     enCours = true;
+    // Tes sorts actuels : pour garder Flash sur la même touche.
+    const moi = (Array.isArray(session.myTeam) ? session.myTeam : []).find((j) => j && j.cellId === session.localPlayerCellId);
+    const sortsActuels = moi ? [moi.spell1Id, moi.spell2Id] : [];
     try {
-      await traiter(champion, r);
+      await traiter({ ...champion, sortsActuels }, r);
     } finally {
       enCours = false;
     }
   }
 
-  async function traiter({ championId, role }, r) {
+  async function traiter({ championId, role, sortsActuels = [] }, r) {
     const erreurs = {};
     let analyse = null; // OP.GG : runes, sorts, et objets en secours
     let emplacements = null; // Lolalytics : objets emplacement par emplacement
@@ -360,7 +385,8 @@ function creerBuildAuto({
           runes = { source, noms: analyse.runes.noms };
         }
         if (!page) throw new ErreurClient("Pas de runes disponibles pour ce champion.");
-        await appliquerRunes(page);
+        const nom = await appliquerRunes(page, nomsPage(await nomChampion(championId), role));
+        if (typeof nom === "string") runes.nomPage = nom;
       } catch (erreur) {
         runes = null;
         erreurs.runes = erreur.message;
@@ -378,8 +404,20 @@ function creerBuildAuto({
       }
     }
 
-    journal("build", championId, role, { runes: Boolean(runes), objets, erreurs });
-    resultat({ championId, role, build: resume, runes, objets, erreurs });
+    let sortsChoisis = null; // noms des 2 sorts mis, ou null
+    if (r.sortsAuto && appliquerSorts) {
+      try {
+        const ids = analyse && analyse.sorts ? ordreSorts(analyse.sorts.ids, sortsActuels) : null;
+        if (!ids) throw new ErreurClient("Pas de sorts d'invocateur dans les stats d'OP.GG pour ce champion.");
+        await appliquerSorts(ids);
+        sortsChoisis = ids.map((id) => SORTS[id] || `Sort n° ${id}`);
+      } catch (erreur) {
+        erreurs.sortsAuto = erreur.message;
+      }
+    }
+
+    journal("build", championId, role, { runes: Boolean(runes), objets, sorts: sortsChoisis, erreurs });
+    resultat({ championId, role, build: resume, runes, objets, sortsChoisis, erreurs });
   }
 
   return { surSession };
@@ -409,6 +447,18 @@ async function lireAliasChampions(dossierJeu) {
 }
 
 /** Ajoute (ou remplace) le set "LoL Companion" de ce champion, sans toucher à tes autres sets. */
+/**
+ * Choisit tes 2 sorts d'invocateur pendant la sélection des champions (route vérifiée dans lcu-schema) :
+ *   PATCH /lol-champ-select/v1/session/my-selection { spell1Id, spell2Id } -> 204
+ */
+async function appliquerSorts(dossierJeu, [spell1Id, spell2Id]) {
+  const { status } = await appelerClient(lireLockfile(dossierJeu), "/lol-champ-select/v1/session/my-selection", {
+    methode: "PATCH",
+    corps: { spell1Id, spell2Id },
+  });
+  if (status < 200 || status >= 300) throw new ErreurClient(`Le client a refusé les sorts d'invocateur (code ${status}).`);
+}
+
 async function appliquerSet(dossierJeu, set) {
   const connexion = lireLockfile(dossierJeu);
   const moi = await lireJson(connexion, "/lol-summoner/v1/current-summoner");
@@ -441,4 +491,6 @@ module.exports = {
   lireNomsObjets,
   lireAliasChampions,
   appliquerSet,
+  appliquerSorts,
+  ordreSorts,
 };

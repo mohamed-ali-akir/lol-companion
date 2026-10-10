@@ -3,8 +3,8 @@
 // Il surveille aussi le client en direct (surveillance.js) pour mettre la page à jour
 // toute seule après chaque partie.
 // Tout passe par l'API locale du client (lcu.js). Seules exceptions : les statistiques de builds d'OP.GG
-// (opgg.js) et de Lolalytics (lolalytics.js), lues seulement si tu l'actives dans l'onglet Build,
-// sans aucune donnée personnelle.
+// (opgg.js) et de Lolalytics (lolalytics.js), lues seulement si tu l'actives dans l'onglet Build (ou Sélection
+// pour le conseiller de draft, draft.js), sans aucune donnée personnelle.
 // La page, elle, n'a accès à ces fonctions qu'à travers preload.js.
 // En arrière-plan (fenêtre cachée), l'appli reste dans la zone de notification de Windows
 // et continue de surveiller le client (voir la partie "Arrière-plan" en bas de ce fichier).
@@ -24,10 +24,13 @@ const { creerLecteurEcran } = require("./ocr.js");
 const { creerLecteurArammayhem } = require("./arammayhem.js");
 const { creerSondage, etatPreparation } = require("./sondage.js");
 const { creerJournal } = require("./journal.js");
-const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireNomsObjets, appliquerSet } = require("./build.js");
+const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireNomsObjets, appliquerSet, appliquerSorts } = require("./build.js");
 const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg.js");
 const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
+const { creerConseillerDraft } = require("./draft.js");
+const { creerSuiviObjectifs, estFaille } = require("./objectifs.js");
+const { creerSuiviSorts } = require("./sorts.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { alertesDuCompte, creerSuiviAlertes } = require("./session.js");
 const { recupererClassee, lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./classee.js");
@@ -53,6 +56,8 @@ let clientConnecte = false;
 let clientDejaSignale = false; // notification « LoL Companion est prêt » déjà montrée pour ce lancement de League
 let acceptation = null;
 let selectionAuto = null; // pick et ban automatiques (selection.js)
+let conseillerDraft = null; // meilleurs champions pour la draft en cours (draft.js), désactivé par défaut
+let dernierConseil = null; // dernier conseil envoyé (pour la page qui s'ouvre en pleine sélection)
 let buildAuto = null; // build automatique : stats OP.GG, runes, set d'objets (build.js)
 // Seules connexions à Internet de l'appli (onglet Build, désactivées par défaut) : OP.GG et Lolalytics.
 const lecteurOpgg = creerLecteurOpgg();
@@ -67,6 +72,9 @@ let langueJeu = null; // "en_US"...
 let lecteurEcran = null; // lecture d'écran (ocr.js), lancée seulement pendant une ARAM Mayhem
 let fenetreAugments = null; // fenêtre transparente par-dessus le jeu
 let suiviAugments = null;
+let suiviObjectifs = null; // bandeau « Larves du Néant dans 30 s » en jeu (objectifs.js), désactivé par défaut
+let suiviSorts = null; // chronos des sorts d'invocateur adverses, cliquables en jeu (sorts.js), désactivé par défaut
+const contenuOverlay = { augments: null, objectif: null, sorts: null }; // ce qu'affiche la fenêtre transparente
 const lancement = Date.now(); // ouverture de l'appli : début de session en mode "depuis l'ouverture"
 const suiviAlertes = creerSuiviAlertes(); // alertes de pause déjà notifiées
 let icone = null; // icône dans la zone de notification (Tray)
@@ -215,6 +223,19 @@ function brancherMessages() {
       .sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
     return { ok: true, champions };
   });
+
+  // Fenêtre transparente du jeu : la souris est sur le panneau des sorts (cliquable) ou ailleurs (tout passe au jeu).
+  // On ne prend ces messages que de la fenêtre transparente elle-même.
+  const depuisOverlay = (evenement) => fenetreAugments && !fenetreAugments.isDestroyed() && evenement.sender === fenetreAugments.webContents;
+  ipcMain.on("overlay:souris", (evenement, dessus) => {
+    if (depuisOverlay(evenement)) fenetreAugments.setIgnoreMouseEvents(dessus !== true || !contenuOverlay.sorts, { forward: true });
+  });
+  ipcMain.on("sorts:clic", (evenement, id) => {
+    if (depuisOverlay(evenement) && typeof id === "string" && suiviSorts) proteger("chronos des sorts", () => suiviSorts.clic(id));
+  });
+
+  // Conseiller de draft : dernier conseil (si la page s'ouvre pendant une sélection).
+  ipcMain.handle("draft:lire", () => dernierConseil);
 
   // Build automatique : réglages (onglet Build).
   ipcMain.handle("build:lire", () => stockage.reglagesBuild());
@@ -550,13 +571,39 @@ function demarrerSelection() {
       envoyerALaPage("selection:evenement", { ...info, nom: noms.get(info.championId) || null });
     },
   });
+  // Conseiller de draft (lecture seule) : stats Lolalytics de la draft visible + tes parties enregistrées.
+  conseillerDraft = creerConseillerDraft({
+    actif: () => stockage.reglagesSelection().conseilActif,
+    lecteur: lecteurLolalytics,
+    alias: obtenirAliasChampions,
+    jouables: async () => {
+      const ids = await lireChampionsAutorises(stockage.dossierJeu(), "pick").catch(() => null);
+      return ids && ids.length ? new Set(ids) : null;
+    },
+    parties: () => {
+      const compte = stockage.dernierCompte();
+      return compte ? historiqueParties.partiesDu(riotIdDe(compte)) : [];
+    },
+    envoyer: async (conseil) => {
+      const noms = conseil ? await obtenirNomsChampions() : new Map();
+      const nom = (id) => noms.get(id) || `Champion n° ${id}`;
+      dernierConseil = conseil && {
+        ...conseil,
+        propositions: conseil.propositions.map((p) => ({ ...p, nom: nom(p.id), raisons: p.raisons.map((r) => ({ ...r, nom: nom(r.id) })) })),
+        manquants: (conseil.manquants || []).map(nom),
+      };
+      envoyerALaPage("draft:conseil", dernierConseil);
+    },
+    journal: noter,
+  });
   // Build automatique quand ton champion est verrouillé : stats OP.GG, runes, set d'objets (désactivé par défaut).
   buildAuto = creerBuildAuto({
     reglages: () => stockage.reglagesBuild(),
     analyser: ({ championId, role }) => analyserOpgg({ championId, role }),
     analyserEmplacements: ({ championId, role }) => analyserLolalytics({ championId, role }),
     runesRiot: ({ championId, role }) => lireRecommandations(stockage.dossierJeu(), championId, role),
-    appliquerRunes: (page) => appliquerPage(stockage.dossierJeu(), page),
+    appliquerRunes: (page, noms) => appliquerPage(stockage.dossierJeu(), page, { noms }),
+    appliquerSorts: (ids) => appliquerSorts(stockage.dossierJeu(), ids),
     appliquerObjets: (set) => appliquerSet(stockage.dossierJeu(), set),
     nomChampion: async (championId) => (await obtenirNomsChampions()).get(championId) || `Champion n° ${championId}`,
     carte: async () => {
@@ -611,7 +658,9 @@ function creerFenetreAugments() {
       preload: path.join(__dirname, "preload-overlay.js"),
     },
   });
-  fenetreAugments.setIgnoreMouseEvents(true); // les clics passent au jeu
+  // Les clics passent au jeu ; "forward" laisse quand même la page voir la souris, pour rendre cliquable
+  // le seul panneau des sorts quand la souris passe dessus (voir "overlay:souris").
+  fenetreAugments.setIgnoreMouseEvents(true, { forward: true });
   fenetreAugments.setAlwaysOnTop(true, "screen-saver"); // au-dessus du jeu en mode « Sans bordure »
   fenetreAugments.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   fenetreAugments.loadFile(path.join(__dirname, "src", "overlay.html"));
@@ -620,21 +669,56 @@ function creerFenetreAugments() {
   });
 }
 
-/** Affiche les étiquettes sous les cartes (liste), ou cache la fenêtre (null). */
-function afficherAugments(liste) {
-  if (!liste) {
-    if (fenetreAugments && !fenetreAugments.isDestroyed()) fenetreAugments.hide();
+const overlayVide = () => !contenuOverlay.augments && !contenuOverlay.objectif && !contenuOverlay.sorts;
+
+/**
+ * Met à jour la fenêtre transparente : étiquettes des augments (ARAM Mayhem), bandeau des objectifs et panneau des
+ * sorts (Faille). Elle est cachée quand il n'y a rien à montrer.
+ */
+function majOverlay() {
+  if (overlayVide()) {
+    if (fenetreAugments && !fenetreAugments.isDestroyed()) {
+      fenetreAugments.setIgnoreMouseEvents(true, { forward: true }); // plus de panneau : tout repasse au jeu
+      fenetreAugments.hide();
+    }
     return;
   }
   if (!fenetreAugments || fenetreAugments.isDestroyed()) creerFenetreAugments();
   const envoyer = () => {
     if (!fenetreAugments || fenetreAugments.isDestroyed()) return;
-    fenetreAugments.webContents.send("augments:etiquettes", { echelle: ecranJeu().echelle, liste });
+    // Contenu relu au moment d'envoyer : jamais un état plus ancien que le dernier demandé.
+    fenetreAugments.webContents.send("augments:etiquettes", { echelle: ecranJeu().echelle, liste: contenuOverlay.augments || [] });
+    fenetreAugments.webContents.send("objectifs:alerte", contenuOverlay.objectif);
+    fenetreAugments.webContents.send("sorts:etat", contenuOverlay.sorts);
+    if (!contenuOverlay.sorts) fenetreAugments.setIgnoreMouseEvents(true, { forward: true });
+    if (overlayVide()) return fenetreAugments.hide();
     fenetreAugments.showInactive(); // visible sans prendre la main
     fenetreAugments.setAlwaysOnTop(true, "screen-saver");
   };
   if (fenetreAugments.webContents.isLoading()) fenetreAugments.webContents.once("did-finish-load", envoyer);
   else envoyer();
+}
+
+/** Affiche les étiquettes sous les cartes (liste), ou les retire (null). */
+function afficherAugments(liste) {
+  contenuOverlay.augments = liste || null;
+  majOverlay();
+}
+
+/** Affiche le bandeau des objectifs ([{ texte, restantS }]), ou le retire (null). */
+function afficherObjectif(lignes) {
+  contenuOverlay.objectif = lignes || null;
+  majOverlay();
+}
+
+/** Affiche le panneau des sorts adverses (avec l'icône de chaque champion), ou le retire (null). */
+async function afficherSorts(panneau) {
+  if (panneau) {
+    const ids = new Map([...(await obtenirAliasChampions())].map(([id, alias]) => [String(alias).toLowerCase(), id]));
+    panneau = panneau.map((a) => ({ ...a, championId: ids.get(String(a.alias).toLowerCase()) || null }));
+  }
+  contenuOverlay.sorts = panneau || null;
+  majOverlay();
 }
 
 async function obtenirLangueJeu() {
@@ -670,6 +754,44 @@ function demarrerAugments() {
     },
     journal: (...morceaux) => console.error("[LoL Companion]", ...morceaux),
   });
+}
+
+function demarrerObjectifs() {
+  suiviSorts = creerSuiviSorts({
+    reglages: () => stockage.reglagesBuild(), // case « sorts »
+    afficher: (panneau) => proteger("chronos des sorts", () => afficherSorts(panneau)),
+    journal: noter,
+  });
+  suiviObjectifs = creerSuiviObjectifs({
+    reglages: () => stockage.reglagesBuild(), // cases « objectifs » et « réapparitions »
+    afficher: afficherObjectif,
+    journal: noter,
+  });
+}
+
+/** Phase de jeu : le chrono des objectifs n'est lu que pendant une partie sur la Faille de l'invocateur. */
+async function surPhaseObjectifs(phase) {
+  if (!suiviObjectifs) return;
+  if (phase !== "InProgress") return suiviObjectifs.arreter();
+  const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
+  if (estFaille(partie)) suiviObjectifs.demarrer();
+  else suiviObjectifs.arreter();
+}
+
+/** Phase de jeu : panneau des sorts seulement pendant une partie sur la Faille. */
+async function surPhaseSorts(phase) {
+  if (!suiviSorts) return;
+  if (phase !== "InProgress") return suiviSorts.arreter();
+  const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
+  if (estFaille(partie)) suiviSorts.demarrer();
+  else suiviSorts.arreter();
+}
+
+/** Phase de jeu pour tout ce qui s'affiche en jeu, chacun dans sa bulle (augments, objectifs). */
+function surPhaseEnJeu(phase) {
+  proteger("augments en jeu", () => surPhase(phase));
+  proteger("alerte des objectifs", () => surPhaseObjectifs(phase));
+  proteger("chronos des sorts", () => surPhaseSorts(phase));
 }
 
 /** Phase de jeu : on lit l'écran seulement pendant une partie ARAM Mayhem, et on arrête tout le reste du temps. */
@@ -720,6 +842,7 @@ function notifierAlertesSession(compte, { silencieux }) {
 function surSelection(session) {
   proteger("pick et ban automatiques", () => selectionAuto.surSession(session));
   proteger("build automatique", () => buildAuto.surSession(session));
+  proteger("conseiller de draft", () => conseillerDraft.surSession(session));
   proteger("augments en jeu", () => {
     const moi = session && monChampion(session);
     if (moi) championPartie = moi.championId; // pour les stats d'augments de TON champion
@@ -776,13 +899,13 @@ function demarrerSurveillance() {
       publierEtatAppli();
       if (connecte) proteger("notification « LoL Companion est prêt »", notifierClientDetecte);
       else clientDejaSignale = false; // League fermé : on préviendra au prochain lancement
-      // Appli lancée en pleine partie : on regarde tout de suite si c'est une ARAM Mayhem.
-      if (connecte) proteger("augments en jeu", async () => surPhase(((await lirePartie(stockage.dossierJeu())) || {}).phase));
+      // Appli lancée en pleine partie : on regarde tout de suite (ARAM Mayhem, Faille).
+      if (connecte) proteger("phase en jeu", async () => surPhaseEnJeu(((await lirePartie(stockage.dossierJeu())) || {}).phase));
     },
     aReadyCheck: (etat) => acceptation.surReadyCheck(etat), // partie trouvée : tout de suite, sans attendre
     aPhase: (phase) => {
       phaseDirecte = phase;
-      proteger("augments en jeu", () => surPhase(phase));
+      surPhaseEnJeu(phase);
     },
     aSelection: surSelection,
     aRafraichir: async (raison) => {
@@ -818,7 +941,7 @@ function demarrerSurveillance() {
       noter("Client :", etat.clientRepond ? `répond (phase ${etat.phase})` : etat.clientLance ? "lancé, ne répond pas encore" : "fermé");
       publierEtatAppli();
     },
-    aPhase: (phase) => proteger("augments en jeu", () => surPhase(phase)),
+    aPhase: surPhaseEnJeu,
     aReadyCheck: (etat) => acceptation.surReadyCheck(etat),
     aSelection: surSelection,
     aErreur: signalerErreur,
@@ -996,6 +1119,7 @@ if (!instanceUnique) {
     demarrerAcceptation();
     demarrerSelection();
     demarrerAugments();
+    demarrerObjectifs();
     demarrerSurveillance();
 
     // Sur Mac, on réaffiche la fenêtre quand on clique sur l'icône du dock.

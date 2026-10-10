@@ -67,7 +67,7 @@ test("réglages : tout désactivé par défaut, délais 10 s (pick) et 5 s (ban)
   assert.strictEqual(r.banActif, false);
   assert.strictEqual(r.delaiPickSecondes, 10);
   assert.strictEqual(r.delaiBanSecondes, 5);
-  assert.deepStrictEqual(r.bans, []);
+  assert.deepStrictEqual(r.bans, { defaut: [], top: [], jungle: [], middle: [], bottom: [], utility: [] });
   assert.deepStrictEqual(Object.keys(r.picks), ["defaut", "top", "jungle", "middle", "bottom", "utility"]);
 });
 
@@ -84,8 +84,19 @@ test("réglages : 3 champions max, sans doublon ni valeur bizarre, délais born�
   assert.strictEqual(r.delaiBanSecondes, 0);
   assert.deepStrictEqual(r.picks.middle, [AHRI, ZED, YASUO]);
   assert.strictEqual(r.picks.inconnu, undefined);
-  assert.deepStrictEqual(r.bans, []);
+  assert.deepStrictEqual(r.bans, { defaut: [], top: [], jungle: [], middle: [], bottom: [], utility: [] });
   assert.strictEqual(S.normaliserReglagesSelection({ delaiPickSecondes: "" }).delaiPickSecondes, 10);
+});
+
+test("bans : une liste par rôle ; l'ancienne liste unique devient « Par défaut »", () => {
+  const ancien = S.normaliserReglagesSelection({ bans: [YONE, LEESIN, YONE] });
+  assert.deepStrictEqual(ancien.bans.defaut, [YONE, LEESIN]);
+  assert.deepStrictEqual(ancien.bans.middle, []);
+  const r = { bans: { defaut: [YONE], middle: [ZED, YONE], top: "?" } };
+  assert.deepStrictEqual(S.listePourAction(r, "ban", "middle"), [ZED, YONE]); // rôle d'abord, sans doublon
+  assert.deepStrictEqual(S.listePourAction(r, "ban", "top"), [YONE]); // liste du rôle abîmée : "Par défaut"
+  assert.deepStrictEqual(S.listePourAction(r, "ban", null), [YONE]); // partie sans rôles
+  assert.deepStrictEqual(S.listePourAction({ picks: { defaut: [LUX] }, bans: { defaut: [YONE] } }, "pick", null), [LUX]);
 });
 
 // --- Lecture de la session --------------------------------------------------------------------
@@ -181,6 +192,17 @@ test("mon tour de bannir : 1er ban, sauf s'il est survolé par un coéquipier", 
   }));
   await attendre(30);
   assert.deepStrictEqual(journal.actions, [[2, LEESIN]]);
+});
+
+test("mon tour de bannir : la liste de mon rôle passe avant « Par défaut »", async () => {
+  const { journal, selection } = logique({ ...REGLAGES, bans: { defaut: [YONE], middle: [ZED] } });
+  selection.surSession(session({ role: "middle", mesActions: [{ id: 2, type: "ban" }] }));
+  await attendre(30);
+  assert.deepStrictEqual(journal.actions, [[2, ZED]]);
+  const autre = logique({ ...REGLAGES, bans: { defaut: [YONE], middle: [ZED] } });
+  autre.selection.surSession(session({ role: "top", mesActions: [{ id: 2, type: "ban" }] }));
+  await attendre(30);
+  assert.deepStrictEqual(autre.journal.actions, [[2, YONE]]);
 });
 
 test("phase de préparation (PLANNING) : ban marqué en cours mais on attend BAN_PICK (vu en vrai)", async () => {

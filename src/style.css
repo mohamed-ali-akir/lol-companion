@@ -1403,6 +1403,53 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
   font-size: 0.85rem;
 }
 
+/* Onglet Sélection : conseiller de draft (meilleurs champions, score et raisons) */
+.conseil-draft {
+  border-top: 1px solid var(--border);
+  margin-top: 12px;
+  padding-top: 10px;
+}
+
+.conseil-titre {
+  color: var(--gold);
+  font-weight: 600;
+  margin: 0 0 8px;
+}
+
+.conseil-erreur .conseil-titre {
+  color: var(--danger);
+}
+
+.conseil-liste {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding-left: 22px;
+}
+
+.conseil-liste li {
+  align-items: baseline;
+  column-gap: 10px;
+  display: flex;
+  flex-wrap: wrap;
+}
+
+.conseil-liste strong {
+  color: var(--gold-light);
+}
+
+.conseil-score {
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+}
+
+.conseil-raisons {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
 /* Onglet Sélection : une ligne par liste (rôle), trois menus déroulants dans l'ordre */
 .selection-risque {
   color: var(--danger);

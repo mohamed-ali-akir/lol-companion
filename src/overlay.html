@@ -2,12 +2,14 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <!-- Fenêtre transparente par-dessus le jeu (augments ARAM Mayhem). Même règle de sécurité que l'appli. -->
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'">
-  <title>LoL Companion - augments</title>
+  <!-- Fenêtre transparente par-dessus le jeu (augments ARAM Mayhem, objectifs, sorts adverses). Même règle de sécurité que l'appli. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' lcu-image:">
+  <title>LoL Companion - en jeu</title>
   <link rel="stylesheet" href="overlay.css">
 </head>
 <body>
+  <div id="sorts" hidden></div>
+  <div id="alerteObjectif" hidden></div>
   <div id="etiquettes"></div>
   <script src="overlay.js"></script>
 </body>

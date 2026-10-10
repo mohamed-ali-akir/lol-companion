@@ -138,3 +138,76 @@ test("erreurs : messages clairs (pas d'Internet, champion inconnu, code HTTP, pa
   }
   await assert.rejects(L.creerLecteurLolalytics({ appeler: fauxSite([]).appeler }).analyser({ ...DEMANDE, alias: "" }), /inconnu/);
 });
+
+// --- Conseiller de draft : tier list, matchups, synergies ---------------------------------------------
+
+/** Encode n'importe quelle valeur (objets compris) dans "objs", comme Qwik ; renvoie le numéro de la case. */
+function encoderQwik(objs, v) {
+  const ranger = (x) => {
+    objs.push(x);
+    return (objs.length - 1).toString(36);
+  };
+  if (Array.isArray(v)) return ranger(v.map((x) => encoderQwik(objs, x)));
+  if (v && typeof v === "object") return ranger(Object.fromEntries(Object.entries(v).map(([k, x]) => [k, encoderQwik(objs, x)])));
+  return ranger(v);
+}
+
+/** Fausse tier list (format vérifié le 04/10/2026) : objets { cid, row } + objet de navigation { page, lane, patch }. */
+function tierlistQwik(lignes, patch = "16.19") {
+  const objs = [];
+  objs.push({ page: encoderQwik(objs, "tierlist"), lane: encoderQwik(objs, "middle"), patch: encoderQwik(objs, patch) });
+  for (const [cid, row] of lignes) objs.push({ cid: encoderQwik(objs, cid), row: encoderQwik(objs, row) });
+  return `<script type="qwik/json">${JSON.stringify({ objs })}</script>`;
+}
+
+const LIGNE = (wr, games) => ({ rank: 1, tier: "S", lane: "middle", defaultLane: "middle", wr, games, pr: 5 });
+
+test("tier list : taux de victoire, parties et patch de chaque champion ; lignes abîmées ignorées", () => {
+  const tl = L.lignesTierlist(tierlistQwik([[103, LIGNE(52.45, 199182)], [910, LIGNE(52.47, 85046)], [7, { wr: "?" }]]));
+  assert.strictEqual(tl.patch, "16.19");
+  assert.strictEqual(tl.lignes.size, 2);
+  assert.ok(Math.abs(tl.lignes.get(103).tauxVictoire - 0.5245) < 1e-9);
+  assert.strictEqual(tl.lignes.get(910).parties, 85046);
+  assert.strictEqual(L.lignesTierlist("<html></html>"), null);
+  assert.strictEqual(L.lignesTierlist(tierlistQwik([])), null);
+});
+
+test("duels : delta 2 de Lolalytics en fraction, avec le nombre de parties ; lignes abîmées ignorées", () => {
+  const t = L.tableDuels([[266, 54.85, 6.33, 1.96, 3.18, 2071], [1, 50, 0, "?", 1, 10], [2, 50, 0, 1, 1, 0], "x", null]);
+  assert.strictEqual(t.size, 1);
+  assert.ok(Math.abs(t.get(266).delta - 0.0196) < 1e-9);
+  assert.strictEqual(t.get(266).parties, 2071);
+  assert.strictEqual(L.tableDuels(undefined).size, 0);
+});
+
+test("matchups : lus dans la page de l'adversaire (sa voie habituelle), contre la voie demandée", async () => {
+  const site = fauxSite([{ status: 200, texte: pageQwik({ ...HWEI, enemy: { middle: [[103, 48, -1, -1.5, 3, 4000]], top: [] } }) }]);
+  const lecteur = L.creerLecteurLolalytics({ appeler: site.appeler });
+  const m = await lecteur.matchups({ alias: "Zed", role: "middle" });
+  assert.strictEqual(site.appels[0].url, "https://lolalytics.com/lol/zed/build/");
+  assert.ok(Math.abs(m.get(103).delta + 0.015) < 1e-9);
+  await assert.rejects(lecteur.matchups({ alias: "Zed", role: "jungle" }), /Matchups introuvables/); // même page (cache)
+  assert.strictEqual(site.appels.length, 1);
+});
+
+test("synergies : API build-team avec le patch et la voie de l'allié, rien de personnel", async () => {
+  const site = fauxSite([{ status: 200, texte: JSON.stringify({ team_h: [], team: { middle: [[103, 53, 1, 0.8, 4, 7637]] } }) }]);
+  const lecteur = L.creerLecteurLolalytics({ appeler: site.appeler });
+  const s = await lecteur.synergies({ alias: "Leona", roleAllie: "utility", role: "middle", patch: "16.19" });
+  assert.strictEqual(
+    site.appels[0].url,
+    "https://a1.lolalytics.com/mega/?ep=build-team&v=1&patch=16.19&c=leona&lane=support&tier=emerald_plus&queue=ranked&region=all"
+  );
+  assert.strictEqual(site.appels[0].options.headers["User-Agent"], L.IDENTITE);
+  assert.ok(Math.abs(s.get(103).delta - 0.008) < 1e-9);
+  await assert.rejects(lecteur.synergies({ alias: "Leona", roleAllie: "utility", role: "middle", patch: "<script>" }), /impossible/);
+});
+
+test("tier list : un échec n'est pas gardé en cache (on réessaie à la prochaine sélection)", async () => {
+  const site = fauxSite([{ status: 503, texte: "" }, { status: 200, texte: tierlistQwik([[103, LIGNE(52, 5000)]]) }]);
+  const lecteur = L.creerLecteurLolalytics({ appeler: site.appeler });
+  await assert.rejects(lecteur.tierlist("middle"), /code 503/);
+  const tl = await lecteur.tierlist("middle");
+  assert.strictEqual(site.appels[1].url, "https://lolalytics.com/lol/tierlist/?lane=middle");
+  assert.strictEqual(tl.lignes.size, 1);
+});

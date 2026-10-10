@@ -55,7 +55,7 @@ test("page depuis une recommandation : 9 runes, styles, nom LoL Companion, séle
 // --- Avec un faux client HTTPS -----------------------------------------------------------------
 
 /** Faux client : pages existantes, place disponible, carte de la partie. */
-async function fauxClient({ pages = [], place = true, carte = 11 } = {}) {
+async function fauxClient({ pages = [], place = true, carte = 11, longueurMax = null, raccourcit = false } = {}) {
   const requetes = [];
   const serveur = https.createServer(certificat, (req, res) => {
     let corps = "";
@@ -70,6 +70,13 @@ async function fauxClient({ pages = [], place = true, carte = 11 } = {}) {
       if (req.method === "GET" && req.url === "/lol-perks/v1/inventory") return json({ canAddCustomPage: place });
       if (req.method === "GET" && req.url === "/lol-gameflow/v1/session") return json({ map: { id: carte } });
       if (req.method === "GET" && req.url.startsWith("/lol-perks/v1/recommended-pages/")) return json([RECO]);
+      if (req.method === "POST" && req.url === "/lol-perks/v1/pages" && longueurMax) {
+        const nom = JSON.parse(corps).name;
+        if (nom.length <= longueurMax) return json({ id: 99, name: nom });
+        if (raccourcit) return json({ id: 98, name: nom.slice(0, longueurMax) }); // accepté mais coupé
+        res.writeHead(400);
+        return res.end();
+      }
       res.writeHead(req.method === "GET" ? 404 : 204);
       res.end();
     });
@@ -122,6 +129,60 @@ test("faux client : plus de place -> erreur claire, rien de supprimé", async ()
   try {
     await assert.rejects(R.appliquerPage(client.dossier, PAGE), /Plus de place/);
     assert.deepStrictEqual(client.ecritures(), []);
+  } finally {
+    await client.fermer();
+  }
+});
+
+// --- Nom de la page (10/10/2026) -----------------------------------------------------------------
+
+test("noms de page : champion · poste · LoL Companion, puis plus court ; reconnaissance de nos pages", () => {
+  assert.deepStrictEqual(R.nomsPage("Hwei", "middle"), ["Hwei · Mid · LoL Companion", "Hwei · Mid · LoLC", "LoL Companion"]);
+  assert.deepStrictEqual(R.nomsPage("Jinx", "bottom")[0], "Jinx · ADC · LoL Companion");
+  assert.deepStrictEqual(R.nomsPage("Lux", null)[0], "Lux · LoL Companion"); // ARAM : pas de poste
+  assert.deepStrictEqual(R.nomsPage("", null), ["LoL Companion"]);
+  for (const nom of ["LoL Companion", "Hwei · Mid · LoL Companion", "Aurelion Sol · Support · LoLC"]) assert.ok(R.estPageAppli(nom), nom);
+  for (const nom of ["Ma page", "LoL Companion 2", "Page LoL Companion", "", undefined]) assert.ok(!R.estPageAppli(nom), String(nom));
+});
+
+const NOMS = R.nomsPage("Hwei", "middle");
+
+test("faux client : anciennes pages de l'appli (ancien et nouveau nom) remplacées, les tiennes intactes", async () => {
+  const client = await fauxClient({
+    pages: [{ id: 5, name: "Ma page" }, { id: 8, name: "LoL Companion" }, { id: 9, name: "Ahri · Mid · LoL Companion" }],
+  });
+  try {
+    const nom = await R.appliquerPage(client.dossier, PAGE, { noms: NOMS });
+    assert.strictEqual(nom, "Hwei · Mid · LoL Companion");
+    assert.deepStrictEqual(client.ecritures().map((r) => `${r.methode} ${r.url}`), [
+      "DELETE /lol-perks/v1/pages/8",
+      "DELETE /lol-perks/v1/pages/9",
+      "POST /lol-perks/v1/pages",
+    ]);
+    assert.strictEqual(client.ecritures()[2].corps.name, "Hwei · Mid · LoL Companion");
+  } finally {
+    await client.fermer();
+  }
+});
+
+test("faux client : nom trop long refusé -> nom plus court essayé", async () => {
+  const client = await fauxClient({ longueurMax: 20 });
+  try {
+    assert.strictEqual(await R.appliquerPage(client.dossier, PAGE, { noms: NOMS }), "Hwei · Mid · LoLC");
+  } finally {
+    await client.fermer();
+  }
+});
+
+test("faux client : nom coupé par le client -> page retirée, nom plus court (sinon on ne la reconnaîtrait plus)", async () => {
+  const client = await fauxClient({ longueurMax: 20, raccourcit: true });
+  try {
+    assert.strictEqual(await R.appliquerPage(client.dossier, PAGE, { noms: NOMS }), "Hwei · Mid · LoLC");
+    assert.deepStrictEqual(client.ecritures().map((r) => `${r.methode} ${r.url}`), [
+      "POST /lol-perks/v1/pages",
+      "DELETE /lol-perks/v1/pages/98",
+      "POST /lol-perks/v1/pages",
+    ]);
   } finally {
     await client.fermer();
   }

@@ -21,7 +21,10 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
     « Allow: / »), avec les mêmes règles que Lolalytics (User-Agent honnête, cache 3 h, seul le nom du champion dans
     l'adresse). La lecture des cartes à l'écran (`ocr.js`, OCR de Windows) reste 100 % locale, et seulement pendant
     une ARAM Mayhem ; l'overlay n'affiche que des stats, il ne choisit jamais.
-  Conditions à garder : désactivé par défaut (case de l'onglet Build), lecture seule, appels uniquement depuis le
+  - Conseiller de draft (`draft.js`, décidé le 04/10/2026) : Lolalytics encore (tier list du poste, page de chaque
+    adversaire verrouillé pour ses matchups, API `a1.lolalytics.com/mega/?ep=build-team` pour les synergies des
+    alliés), mêmes règles. Case de l'onglet Sélection ; il propose seulement, ne choisit jamais.
+  Conditions à garder : désactivé par défaut (case de l'onglet Build, ou Sélection pour le conseiller), lecture seule, appels uniquement depuis le
   processus principal, certificats vérifiés normalement, et on n'envoie QUE champion / rôle / mode / langue
   (jamais Riot ID, puuid, ni aucune donnée personnelle). Aucune autre adresse Internet.
 
@@ -38,6 +41,16 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
   règles de Riot, acceptés en connaissance du risque pour son compte. Garde-fous à conserver : désactivés par défaut,
   délai avant d'agir, uniquement l'action du joueur connecté, rien si le joueur survole ou choisit lui-même,
   jamais un champion survolé ou déclaré par un coéquipier.
+- **Alerte des objectifs en jeu** (`objectifs.js`, 10/10/2026) : première apparition de chaque objectif, à heure
+  fixe, d'après l'API officielle Live Client Data (`127.0.0.1:2999`, lecture seule).
+- **Exception décidée par le propriétaire (10/10/2026)** : chrono des réapparitions (dragon, Baron), que Riot juge
+  injuste quand il vient d'une appli tierce, accepté en connaissance du risque. Garde-fous : case séparée désactivée
+  par défaut, seulement les morts annoncées à tous (événements de l'API officielle : dragon, Baron, inhibiteurs).
+- **Exception décidée par le propriétaire (10/10/2026)** : chronos des sorts d'invocateur adverses (`sorts.js`),
+  comme Porofessor ou Blitz. Garde-fous : case désactivée par défaut, le joueur CLIQUE lui-même quand il voit un sort
+  utilisé (l'appli ne le devine jamais), seuls les objets visibles comptent (bottes de lucidité), aucun pseudo affiché.
+- **Toujours interdit** : chronos des ULTIMES adverses (interdits par Riot depuis le 13/03/2025, même manuels),
+  camps de la jungle adverse, et tout ce qui n'est pas annoncé ou visible dans le jeu.
 
 ## Code de la page
 - `src/calculs.js` : fonctions pures uniquement (aucun accès à `document` ni à `window.appli`),

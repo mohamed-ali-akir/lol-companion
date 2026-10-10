@@ -33,12 +33,12 @@ const ANALYSE = {
 };
 
 test("réglages : tout désactivé par défaut ; reprise de l'ancien réglage des runes", () => {
-  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined), { stats: false, runes: false, objets: false, augments: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false });
   assert.deepStrictEqual(B.normaliserReglagesBuild({ stats: "oui", runes: 1, objets: true, augments: "oui" }), {
-    stats: false, runes: false, objets: true, augments: false,
+    stats: false, runes: false, objets: true, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false,
   });
-  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined, { actif: true }), { stats: false, runes: true, objets: false, augments: false });
-  assert.deepStrictEqual(B.normaliserReglagesBuild({ runes: false }, { actif: true }), { stats: false, runes: false, objets: false, augments: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined, { actif: true }), { stats: false, runes: true, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild({ runes: false }, { actif: true }), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false });
   assert.strictEqual(B.normaliserReglagesBuild({ augments: true }).augments, true);
 });
 
@@ -228,11 +228,11 @@ test("résumé pour l'appli : étapes avec taux, runes, sorts nommés", () => {
 // --- Logique automatique --------------------------------------------------------------------
 
 /** Session : je suis la cellule 2 (Milieu). verrouille : ma sélection est-elle verrouillée ? */
-function session({ verrouille = true, gameId = 1, champion = AHRI } = {}) {
+function session({ verrouille = true, gameId = 1, champion = AHRI, sorts = [4, 12] } = {}) {
   return {
     gameId,
     localPlayerCellId: 2,
-    myTeam: [{ cellId: 2, championId: champion, assignedPosition: "middle" }],
+    myTeam: [{ cellId: 2, championId: champion, assignedPosition: "middle", spell1Id: sorts[0], spell2Id: sorts[1] }],
     actions: [[{ id: 7, actorCellId: 2, type: "pick", completed: verrouille, isInProgress: !verrouille }]],
   };
 }
@@ -243,7 +243,7 @@ const RECO_RIOT = {
 };
 
 function logique({ reglages = { stats: true, runes: true, objets: true }, analyse = ANALYSE, emplacements, echecs = {} } = {}) {
-  const journal = { analyses: [], runes: [], sets: [], resultats: [] };
+  const journal = { analyses: [], runes: [], nomsPages: [], sets: [], sorts: [], resultats: [] };
   const auto = B.creerBuildAuto({
     reglages: () => reglages,
     analyser: async (demande) => {
@@ -259,9 +259,15 @@ function logique({ reglages = { stats: true, runes: true, objets: true }, analys
           return emplacements;
         },
     runesRiot: async () => [RECO_RIOT],
-    appliquerRunes: async (page) => {
+    appliquerRunes: async (page, noms) => {
       if (echecs.runes) throw new Error(echecs.runes);
       journal.runes.push(page);
+      journal.nomsPages.push(noms);
+      return noms ? noms[0] : undefined;
+    },
+    appliquerSorts: async (ids) => {
+      if (echecs.sorts) throw new Error(echecs.sorts);
+      journal.sorts.push(ids);
     },
     appliquerObjets: async (set) => {
       if (echecs.objets) throw new Error(echecs.objets);
@@ -338,7 +344,7 @@ test("tout désactivé (par défaut) : rien du tout, aucune connexion", async ()
   const { journal, auto } = logique({ reglages: B.normaliserReglagesBuild(undefined) });
   auto.surSession(session());
   await attendre(20);
-  assert.deepStrictEqual(journal, { analyses: [], runes: [], sets: [], resultats: [] });
+  assert.deepStrictEqual(journal, { analyses: [], runes: [], nomsPages: [], sets: [], sorts: [], resultats: [] });
 });
 
 test("erreurs du client (runes, set) : signalées, le reste continue", async () => {
@@ -412,4 +418,52 @@ test("faux client : set refusé -> erreur claire", async () => {
   } finally {
     await client.fermer();
   }
+});
+
+// --- Nom de la page et sorts d'invocateur (10/10/2026) -------------------------------------------
+
+test("page de runes nommée d'après le champion et le poste : « Ahri · Mid · LoL Companion »", async () => {
+  const { journal, auto } = logique();
+  auto.surSession(session());
+  await attendre(20);
+  assert.deepStrictEqual(journal.nomsPages[0], ["Ahri · Mid · LoL Companion", "Ahri · Mid · LoLC", "LoL Companion"]);
+  assert.strictEqual(journal.resultats[0].runes.nomPage, "Ahri · Mid · LoL Companion");
+});
+
+test("ordre des sorts : chaque sort garde ta touche (Flash sur D ou F), le reste dans l'ordre d'OP.GG", () => {
+  assert.deepStrictEqual(B.ordreSorts([4, 14], [12, 4]), [14, 4]); // Flash était sur F : il y reste
+  assert.deepStrictEqual(B.ordreSorts([4, 14], [4, 12]), [4, 14]);
+  assert.deepStrictEqual(B.ordreSorts([4, 14], [14, 4]), [14, 4]); // déjà les bons : rien ne bouge
+  assert.deepStrictEqual(B.ordreSorts([4, 14], [7, 21]), [4, 14]); // aucun en commun : ordre d'OP.GG
+  assert.deepStrictEqual(B.ordreSorts([4, 14], undefined), [4, 14]);
+  assert.strictEqual(B.ordreSorts([4], [4, 12]), null);
+  assert.strictEqual(B.ordreSorts([4, 4], [4, 12]), null);
+  assert.strictEqual(B.ordreSorts(null, [4, 12]), null);
+});
+
+test("sorts d'invocateur : les plus joués d'OP.GG, Flash gardé sur sa touche ; seulement si la case est cochée", async () => {
+  const avec = logique({ reglages: { stats: true, runes: false, objets: false, sortsAuto: true } });
+  avec.auto.surSession(session({ sorts: [12, 4] })); // Téléportation sur D, Flash sur F
+  await attendre(20);
+  assert.deepStrictEqual(avec.journal.sorts, [[14, 4]]); // Embrasement sur D, Flash reste sur F
+  assert.deepStrictEqual(avec.journal.resultats[0].sortsChoisis, ["Embrasement", "Saut éclair"]);
+
+  const sans = logique({ reglages: { stats: true, runes: false, objets: false } });
+  sans.auto.surSession(session());
+  await attendre(20);
+  assert.deepStrictEqual(sans.journal.sorts, []);
+  assert.strictEqual(sans.journal.resultats[0].sortsChoisis, null);
+});
+
+test("sorts d'invocateur : OP.GG sans sorts ou client qui refuse -> erreur signalée, le reste continue", async () => {
+  const vide = logique({ reglages: { stats: true, runes: true, objets: false, sortsAuto: true }, analyse: { ...ANALYSE, sorts: null } });
+  vide.auto.surSession(session());
+  await attendre(20);
+  assert.match(vide.journal.resultats[0].erreurs.sortsAuto, /Pas de sorts/);
+  assert.strictEqual(vide.journal.runes.length, 1);
+
+  const refus = logique({ reglages: { stats: true, runes: false, objets: false, sortsAuto: true }, echecs: { sorts: "code 500" } });
+  refus.auto.surSession(session());
+  await attendre(20);
+  assert.strictEqual(refus.journal.resultats[0].erreurs.sortsAuto, "code 500");
 });

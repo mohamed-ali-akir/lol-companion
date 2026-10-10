@@ -29,7 +29,7 @@
 const { lireLockfile, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
 
 const ROLES = ["top", "jungle", "middle", "bottom", "utility"];
-const LISTES_PICKS = ["defaut", ...ROLES]; // "defaut" : partie sans rôles, ou liste du rôle vide/indisponible
+const LISTES_PICKS = ["defaut", ...ROLES]; // "defaut" : partie sans rôles, ou liste du rôle vide/indisponible (picks ET bans)
 const NB_CHOIX = 3;
 const DELAI_MAX_SECONDES = 25; // un tour de sélection dure environ 30 s
 const MARGE_FIN_DE_TOUR_S = 2; // si le délai dépasse le temps restant, on agit 2 s avant la fin
@@ -63,19 +63,30 @@ function delaiBorne(valeur, parDefaut) {
   return Number.isFinite(n) ? Math.min(DELAI_MAX_SECONDES, Math.max(0, Math.round(n * 10) / 10)) : parDefaut;
 }
 
-/** Réglages lisibles et bornés, quoi qu'il y ait dans le fichier (tout désactivé par défaut). */
+/** Une liste par rôle + "Par défaut" (mêmes clés pour les picks et les bans). */
+function listesParRole(brut) {
+  const listes = {};
+  const source = brut && typeof brut === "object" && !Array.isArray(brut) ? brut : {};
+  for (const nom of LISTES_PICKS) listes[nom] = listeChampions(source[nom]);
+  return listes;
+}
+
+/**
+ * Réglages lisibles et bornés, quoi qu'il y ait dans le fichier (tout désactivé par défaut).
+ * Bans : jusqu'au 10/10/2026, une seule liste (tableau) ; elle devient la liste "Par défaut".
+ */
 function normaliserReglagesSelection(brut) {
   const r = brut && typeof brut === "object" ? brut : {};
-  const picksBruts = r.picks && typeof r.picks === "object" ? r.picks : {};
-  const picks = {};
-  for (const nom of LISTES_PICKS) picks[nom] = listeChampions(picksBruts[nom]);
+  const picks = listesParRole(r.picks);
+  const bans = Array.isArray(r.bans) ? listesParRole({ defaut: r.bans }) : listesParRole(r.bans);
   return {
     pickActif: r.pickActif === true,
     banActif: r.banActif === true,
+    conseilActif: r.conseilActif === true, // conseiller de draft (draft.js) : lit Lolalytics, donc désactivé par défaut
     delaiPickSecondes: delaiBorne(r.delaiPickSecondes, 10),
     delaiBanSecondes: delaiBorne(r.delaiBanSecondes, 5),
     picks,
-    bans: listeChampions(r.bans),
+    bans,
   };
 }
 
@@ -141,12 +152,16 @@ function championsIndisponibles(session) {
   return ids;
 }
 
-/** Liste des picks à essayer : celle du rôle d'abord, puis "Par défaut". */
-function listePourPick(reglages, role) {
+/** Liste à essayer ("pick" ou "ban") : celle du rôle d'abord, puis "Par défaut". */
+function listePourAction(reglages, type, role) {
   const r = normaliserReglagesSelection(reglages);
-  const liste = [...(role ? r.picks[role] : []), ...r.picks.defaut];
+  const listes = type === "ban" ? r.bans : r.picks;
+  const liste = [...(role ? listes[role] : []), ...listes.defaut];
   return liste.filter((id, i) => liste.indexOf(id) === i);
 }
+
+/** Liste des picks à essayer : celle du rôle d'abord, puis "Par défaut". */
+const listePourPick = (reglages, role) => listePourAction(reglages, "pick", role);
 
 /** Premier champion de la liste ni indisponible, ni refusé par le client (autorises : Set ou null). */
 function choisirChampion(liste, indisponibles, autorises = null) {
@@ -217,7 +232,7 @@ function creerSelectionAuto({ reglages, champsAutorises = async () => null, agir
     }
 
     const r = normaliserReglagesSelection(reglages());
-    const liste = type === "pick" ? listePourPick(r, monRole(derniere)) : r.bans;
+    const liste = listePourAction(r, type, monRole(derniere)); // liste du rôle, puis "Par défaut"
     if (liste.length === 0) return resultat({ type, fait: false, raison: "liste-vide" });
 
     let autorises = null;
@@ -347,6 +362,7 @@ module.exports = {
   monActionEnCours,
   championsIndisponibles,
   listePourPick,
+  listePourAction,
   choisirChampion,
   delaiEffectif,
   creerSelectionAuto,
