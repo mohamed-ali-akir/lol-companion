@@ -25,6 +25,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+      # On crée la Release AVANT electron-builder : sinon il envoie ses fichiers en parallèle et chaque envoi crée sa
+      # propre Release (vu le 11/10/2026 : deux « v1.1.0 », le lien public tombait sur celle qui n'avait que le .blockmap).
+      - name: Créer la Release
+        if: github.ref_type == 'tag'
+        run: gh release create "${{ github.ref_name }}" --title "LoL Companion ${{ github.ref_name }}" --notes "Télécharge LoL-Companion-Setup-*.exe ci-dessous. Les applis déjà installées se mettent à jour toutes seules."
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Fabriquer et publier l'installateur
         run: npx electron-builder --win --publish always
         env:
