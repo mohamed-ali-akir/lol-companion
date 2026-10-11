@@ -19,6 +19,10 @@
 
     <!-- Bandeau « pas encore prête » (onglets/compte.js) : visible tant que l'appli se connecte à League -->
     <p id="bandeauPreparation" class="bandeau-preparation" role="status" aria-live="polite" hidden></p>
+    <div id="bandeauMaj" class="bandeau-maj" role="status" aria-live="polite" hidden>
+      <span id="bandeauMajTexte"></span>
+      <button type="button" id="installerMaj">Redémarrer et mettre à jour</button>
+    </div>
 
     <!-- Carte "Ton compte" : toujours visible, au-dessus des onglets -->
     <section class="card">
@@ -700,6 +704,23 @@
             </label>
           </form>
           <p id="etatArrierePlan" class="etat" hidden></p>
+
+          <h3>Mises à jour</h3>
+          <p class="aide">
+            L'appli regarde sur GitHub (Releases du dépôt public) s'il existe une version plus récente, la télécharge en
+            arrière-plan et vérifie qu'elle n'a pas été abîmée. Elle s'installe quand tu cliques sur « Redémarrer et
+            mettre à jour », ou quand tu quittes l'appli. Rien de personnel n'est envoyé.
+          </p>
+          <form id="formMaj" class="reglages-session">
+            <label class="check">
+              <input type="checkbox" id="majAuto">
+              <span>Chercher les mises à jour automatiquement <small>(au démarrage, puis toutes les 6 h)</small></span>
+            </label>
+            <div class="ligne-reglage">
+              <span id="majVersion"></span>
+              <button type="button" id="majVerifier" class="bouton-secondaire">Vérifier maintenant</button>
+            </div>
+          </form>
 
           <h3>Dossier du jeu</h3>
           <p class="aide">

@@ -32,6 +32,9 @@ contextBridge.exposeInMainWorld("appli", {
   lireBuild: () => ipcRenderer.invoke("build:lire"),
   enregistrerBuild: (reglages) => ipcRenderer.invoke("build:enregistrer", reglages),
   consulterBuild: (demande) => ipcRenderer.invoke("build:consulter", demande),
+  lireMaj: () => ipcRenderer.invoke("maj:lire"),
+  verifierMaj: () => ipcRenderer.invoke("maj:verifier"),
+  installerMaj: () => ipcRenderer.invoke("maj:installer"),
 
   // Messages envoyés par main.js sans que la page les demande (surveillance en direct).
   // On ne transmet que les données, jamais l'objet "événement" d'Electron.
@@ -47,6 +50,8 @@ contextBridge.exposeInMainWorld("appli", {
   surSelection: (rappel) => ipcRenderer.on("selection:evenement", (_evenement, info) => rappel(info)),
   // Conseiller de draft : { etat, role, propositions, message } ou null (sélection finie).
   surConseilDraft: (rappel) => ipcRenderer.on("draft:conseil", (_evenement, conseil) => rappel(conseil)),
+  // Mise à jour de l'appli : { etape, version, nouvelle, pourcentage, message } (mise-a-jour.js).
+  surMaj: (rappel) => ipcRenderer.on("maj:etat", (_evenement, etat) => rappel(etat)),
   surBuild: (rappel) => ipcRenderer.on("build:evenement", (_evenement, info) => rappel(info)),
   // Acceptation auto cochée / décochée depuis le menu de l'icône (zone de notification).
   surReglagesAcceptation: (rappel) => ipcRenderer.on("acceptation:reglages", (_evenement, reglages) => rappel(reglages)),

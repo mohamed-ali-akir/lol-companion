@@ -1,6 +1,6 @@
 {
   "name": "lol-level-calculator",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "LoL Companion : appli de bureau qui lit le client League of Legends (sans clé API) pour suivre ton niveau, ta progression et plus encore.",
   "main": "main.js",
   "scripts": {
@@ -48,6 +48,7 @@
       "arammayhem.js",
       "sondage.js",
       "journal.js",
+      "mise-a-jour.js",
       "preload-overlay.js",
       "assets/**/*",
       "src/**/*"
@@ -66,13 +67,22 @@
     "linux": {
       "target": "AppImage",
       "icon": "assets/icon.png"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "mohamed-ali-akir",
+        "repo": "lol-companion",
+        "releaseType": "release"
+      }
+    ]
   },
   "allowScripts": {
     "electron@38.8.6": true,
     "electron-winstaller@5.4.0": true
   },
   "dependencies": {
+    "electron-updater": "6.8.9",
     "ws": "^8.22.0"
   }
 }

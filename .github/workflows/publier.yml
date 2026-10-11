@@ -1,0 +1,31 @@
+# Publication d'une nouvelle version de LoL Companion
+# ---------------------------------------------------
+# Déclenchée quand une étiquette de version (ex. v1.1.0) est envoyée sur GitHub, ou à la main (onglet Actions).
+# Sur un PC Windows de GitHub : installe les dépendances, lance les tests, fabrique l'installateur et le publie
+# dans les Releases du dépôt (avec latest.yml, que lit la mise à jour automatique de l'appli : mise-a-jour.js).
+# Le jeton GITHUB_TOKEN est fourni par GitHub pour cette seule exécution : aucun secret à créer.
+name: Publier une version
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write # créer la Release et y déposer les fichiers
+
+jobs:
+  publier:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - name: Fabriquer et publier l'installateur
+        run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

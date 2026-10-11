@@ -18,6 +18,7 @@ const REGLAGES_ARRIERE_PLAN_PAR_DEFAUT = {
   demarrerReduit: false, // au démarrage de Windows : sans ouvrir la fenêtre
   prevenirClientDetecte: true, // notification « LoL Companion est prêt » quand League est détecté (fenêtre cachée)
   ouvrirAvecLeague: false, // ouvrir la fenêtre quand League se lance (fenêtre cachée ; désactivé par défaut)
+  majAuto: true, // chercher les mises à jour de l'appli sur GitHub (mise-a-jour.js ; activé par défaut, décidé le 11/10/2026)
 };
 
 /** Réglages toujours valides : une valeur absente ou abîmée prend la valeur par défaut. */
@@ -33,6 +34,7 @@ function normaliserReglagesArrierePlan(r) {
     demarrerReduit: lancerAuDemarrage && booleen(s.demarrerReduit, d.demarrerReduit),
     prevenirClientDetecte: booleen(s.prevenirClientDetecte, d.prevenirClientDetecte),
     ouvrirAvecLeague: booleen(s.ouvrirAvecLeague, d.ouvrirAvecLeague),
+    majAuto: booleen(s.majAuto, d.majAuto),
   };
 }
 

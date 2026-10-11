@@ -10,7 +10,7 @@ const { creerStockage } = require("../stockage.js");
 
 test("réglages par défaut : la croix réduit, pas de démarrage avec Windows", () => {
   assert.deepStrictEqual(A.normaliserReglagesArrierePlan(undefined), {
-    fermerReduit: true, lancerAuDemarrage: false, demarrerReduit: false, prevenirClientDetecte: true, ouvrirAvecLeague: false,
+    fermerReduit: true, lancerAuDemarrage: false, demarrerReduit: false, prevenirClientDetecte: true, ouvrirAvecLeague: false, majAuto: true,
   });
   assert.deepStrictEqual(A.normaliserReglagesArrierePlan({ fermerReduit: "non", lancerAuDemarrage: 1, prevenirClientDetecte: "?" }), {
     fermerReduit: true, // pas un booléen : valeur par défaut
@@ -18,6 +18,7 @@ test("réglages par défaut : la croix réduit, pas de démarrage avec Windows",
     demarrerReduit: false,
     prevenirClientDetecte: true,
     ouvrirAvecLeague: false,
+    majAuto: true,
   });
   assert.strictEqual(A.normaliserReglagesArrierePlan({ prevenirClientDetecte: false }).prevenirClientDetecte, false);
   assert.strictEqual(A.normaliserReglagesArrierePlan({ ouvrirAvecLeague: true }).ouvrirAvecLeague, true);

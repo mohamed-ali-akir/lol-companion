@@ -1387,6 +1387,25 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
   text-align: center;
 }
 
+/* Bandeau « Mise à jour prête » (en haut de la fenêtre) */
+.bandeau-maj {
+  align-items: center;
+  background: rgba(10, 200, 185, 0.1);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  color: var(--gold-light);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  justify-content: space-between;
+  margin: 0 0 12px;
+  padding: 8px 14px;
+}
+
+.bandeau-maj[hidden] {
+  display: none;
+}
+
 /* Onglet Build */
 .build-resultat h3 {
   margin-top: 18px;

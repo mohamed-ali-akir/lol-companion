@@ -151,7 +151,12 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 
 ## Installation
 
-Il faut [Node.js](https://nodejs.org) (version 22 ou plus) et League of Legends installé sur le même PC.
+**Pour simplement utiliser l'appli** : télécharge `LoL-Companion-Setup-x.y.z.exe` sur la page
+[Releases](https://github.com/mohamed-ali-akir/lol-companion/releases/latest) et lance-le. Windows affiche « Windows a
+protégé votre ordinateur » (l'appli n'est pas signée) : « Informations complémentaires » puis « Exécuter quand même ».
+Ensuite, les nouvelles versions arrivent toutes seules (voir « Mises à jour » plus bas).
+
+**Pour travailler sur le code**, il faut [Node.js](https://nodejs.org) (version 22 ou plus) et League of Legends installé sur le même PC.
 
 ```bash
 git clone https://github.com/mohamed-ali-akir/lol-companion.git
@@ -164,7 +169,7 @@ Lance le client League et connecte-toi : l'appli récupère tout automatiquement
 être lancé (l'appli ne devine pas ton niveau). Le jeu est installé ailleurs que `C:\Riot Games\League of Legends` ?
 Change le dossier dans **Paramètres**.
 
-**Au quotidien, utilise l'appli installée** : `npm run build` crée `dist\LoL Companion Setup 1.0.0.exe` ; une fois
+**Au quotidien, utilise l'appli installée** : `npm run build` crée `dist\LoL Companion Setup <version>.exe` ; une fois
 installée (dans `%LOCALAPPDATA%\Programs\lol-level-calculator`), c'est **elle seule** qui se lance au démarrage de
 Windows. Lancée depuis le projet (`npm start`, VS Code), l'appli ne s'inscrit jamais au démarrage de Windows (sinon
 deux versions se lançaient en même temps, et une ancienne pouvait prendre la place de la nouvelle) ; et si Windows la
@@ -180,16 +185,34 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (359) |
-| `npm run build` | Crée l'installateur dans `dist/` |
+| `npm test` | Lance les tests (365) |
+| `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
+
+### Mises à jour
+
+L'appli installée regarde sur GitHub (dernière Release du dépôt public) s'il existe une version plus récente :
+15 s après le démarrage, puis toutes les 6 h (`mise-a-jour.js`, avec **electron-updater**). Si oui, elle la télécharge en
+arrière-plan, vérifie son empreinte (sha512 du fichier `latest.yml`), puis affiche le bandeau **« Redémarrer et mettre
+à jour »**. Si tu l'ignores, elle s'installe quand tu quittes l'appli : jamais de redémarrage forcé. Désactivable dans
+**Paramètres → Mises à jour** (bouton « Vérifier maintenant » à côté de la version).
+
+**Publier une nouvelle version** :
+1. changer `"version"` dans `package.json` (ex. `1.1.0` → `1.2.0`), puis `npm install --package-lock-only` ;
+2. commit et push, puis envoyer l'étiquette : `git tag v1.2.0` et `git push origin v1.2.0` ;
+3. GitHub Actions (`.github/workflows/publier.yml`) lance les tests sur un PC Windows, fabrique l'installateur et le
+   publie dans les Releases avec `latest.yml`. Aucun secret à créer : GitHub fournit un jeton pour cette exécution.
+
+Les applis déjà installées voient la nouvelle version au plus tard 6 h après (ou tout de suite avec « Vérifier
+maintenant »). Une version 1.0.0 (sans mise à jour automatique) doit être remplacée une fois à la main.
 
 ## Technologies
 
 - **Electron** : l'interface web devient une appli de bureau
 - **HTML / CSS / JavaScript** sans framework ; graphiques en **SVG dessinés à la main**
-- **ws** : connexion WebSocket au client League (seule dépendance de l'appli)
+- **ws** : connexion WebSocket au client League
+- **electron-updater** : mise à jour automatique depuis les Releases GitHub (ajoutée le 11/10/2026 avec l'accord du propriétaire)
 - **node:test** : tests intégrés à Node.js, avec un faux client League (HTTPS + WebSocket) sur `127.0.0.1`
-- **electron-builder** : installateur
+- **electron-builder** : installateur ; **GitHub Actions** : publication des versions
 
 ## Comment l'appli parle au client League
 
@@ -413,6 +436,10 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   l'actives (désactivé par défaut). Lecture seule, depuis le processus principal, certificats vérifiés
   normalement, et seuls le champion, le rôle, le mode et la langue sont envoyés : jamais ton Riot ID ni rien de
   personnel. La page web de l'appli, elle, ne se connecte à rien (Content-Security-Policy inchangée).
+- **Mise à jour automatique** (décision du propriétaire, 11/10/2026) : l'appli installée lit la dernière Release de
+  github.com/mohamed-ali-akir/lol-companion (activé par défaut, désactivable). Elle ne fait que télécharger des fichiers
+  publics, et refuse un fichier dont l'empreinte sha512 ne correspond pas à `latest.yml`. La sécurité repose sur le
+  compte GitHub du propriétaire : double authentification (2FA) indispensable.
 - Ce qui modifie le client (accepter une partie, pick et ban automatiques, page de runes, set d'objets, sorts
   d'invocateur) est désactivé
   par défaut et ne s'applique qu'au compte connecté.
@@ -482,6 +509,7 @@ lol-level-calculator/
 ├── arammayhem.js      # Taux de victoire des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »
 ├── journal.js         # Journal sur le disque (journal.txt), taille limitée
+├── mise-a-jour.js     # Mise à jour automatique (electron-updater, Releases GitHub) : vérification, bandeau, installation
 ├── preload-overlay.js # Pont de la fenêtre transparente par-dessus le jeu : augments, objectifs (src/overlay.html)
 ├── runes.js           # Runes : page « LoL Companion », runes recommandées par Riot (secours)
 ├── arriere-plan.js    # Arrière-plan : la croix, le démarrage de Windows, le menu de l'icône (fonctions pures)

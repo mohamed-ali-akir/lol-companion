@@ -33,6 +33,7 @@ const { creerSuiviObjectifs, estFaille } = require("./objectifs.js");
 const { creerSuiviSorts } = require("./sorts.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { alertesDuCompte, creerSuiviAlertes } = require("./session.js");
+const { creerMiseAJour } = require("./mise-a-jour.js");
 const { recupererClassee, lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./classee.js");
 const {
   actionFermeture,
@@ -78,6 +79,7 @@ const contenuOverlay = { augments: null, objectif: null, sorts: null }; // ce qu
 const lancement = Date.now(); // ouverture de l'appli : début de session en mode "depuis l'ouverture"
 const suiviAlertes = creerSuiviAlertes(); // alertes de pause déjà notifiées
 let icone = null; // icône dans la zone de notification (Tray)
+let miseAJour = null; // mise à jour automatique (mise-a-jour.js), seulement pour l'appli installée
 let quitteEnCours = false; // true quand on quitte vraiment (menu "Quitter") : la croix ne cache plus
 const DOSSIER_ASSETS = path.join(__dirname, "assets");
 
@@ -271,6 +273,15 @@ function brancherMessages() {
 
   // Arrière-plan : fermer = réduire, lancement au démarrage de Windows (onglet Paramètres).
   ipcMain.handle("arrierePlan:lire", () => stockage.reglagesArrierePlan());
+
+  // Mise à jour de l'appli : état (bandeau, Paramètres), « Vérifier maintenant », « Redémarrer et mettre à jour ».
+  ipcMain.handle("maj:lire", () => (miseAJour ? miseAJour.lire() : { etape: "indisponible", version: app.getVersion() }));
+  ipcMain.handle("maj:verifier", () => (miseAJour ? miseAJour.verifierMaintenant() : false));
+  ipcMain.handle("maj:installer", () => {
+    if (!miseAJour || miseAJour.lire().etape !== "prete") return false;
+    quitteEnCours = true; // la croix ne doit pas juste cacher la fenêtre pendant l'installation
+    return miseAJour.installer();
+  });
   ipcMain.handle("arrierePlan:enregistrer", (_evenement, reglages) => {
     try {
       const propres = stockage.enregistrerReglagesArrierePlan(reglages);
@@ -1082,6 +1093,27 @@ function appliquerDemarrageWindows(reglages) {
   );
 }
 
+/**
+ * Mise à jour automatique (mise-a-jour.js) : seulement pour l'appli installée. Lancée depuis le projet (npm start),
+ * il n'y a rien à mettre à jour (et pas de fichier app-update.yml).
+ */
+function demarrerMiseAJour() {
+  if (!app.isPackaged) return;
+  try {
+    const { autoUpdater } = require("electron-updater"); // chargé seulement ici : inutile pendant le développement
+    miseAJour = creerMiseAJour({
+      updater: autoUpdater,
+      version: app.getVersion(),
+      actif: () => stockage.reglagesArrierePlan().majAuto,
+      envoyer: (etat) => envoyerALaPage("maj:etat", etat),
+      journal: noter,
+    });
+    miseAJour.demarrer();
+  } catch (erreur) {
+    console.error("Mise à jour automatique impossible :", erreur); // pas grave : l'appli marche sans
+  }
+}
+
 /** Quitter vraiment (menu de l'icône) : la croix ne cache plus la fenêtre, tout s'arrête. */
 function quitter() {
   quitteEnCours = true;
@@ -1129,6 +1161,7 @@ if (!instanceUnique) {
     demarrerAugments();
     demarrerObjectifs();
     demarrerSurveillance();
+    demarrerMiseAJour();
 
     // Sur Mac, on réaffiche la fenêtre quand on clique sur l'icône du dock.
     app.on("activate", afficherFenetre);
@@ -1145,6 +1178,7 @@ app.on("before-quit", () => {
   if (acceptation) acceptation.arreter();
   if (selectionAuto) selectionAuto.arreter();
   if (suiviAugments) suiviAugments.arreter(); // arrête aussi la lecture d'écran
+  if (miseAJour) miseAJour.arreter();
   if (fenetreAugments && !fenetreAugments.isDestroyed()) fenetreAugments.destroy();
   if (icone && !icone.isDestroyed()) icone.destroy();
   icone = null;

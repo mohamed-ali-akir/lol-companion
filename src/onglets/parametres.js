@@ -111,6 +111,7 @@ function afficherReglagesArrierePlan(r) {
   $("demarrerReduit").disabled = !r.lancerAuDemarrage; // "démarrer réduit" n'a de sens qu'avec le démarrage de Windows
   $("prevenirClientDetecte").checked = r.prevenirClientDetecte;
   $("ouvrirAvecLeague").checked = r.ouvrirAvecLeague;
+  $("majAuto").checked = r.majAuto;
 }
 
 async function enregistrerArrierePlan() {
@@ -120,6 +121,7 @@ async function enregistrerArrierePlan() {
     demarrerReduit: $("demarrerReduit").checked,
     prevenirClientDetecte: $("prevenirClientDetecte").checked,
     ouvrirAvecLeague: $("ouvrirAvecLeague").checked,
+    majAuto: $("majAuto").checked,
   });
   if (!reponse.ok) {
     afficherEtat("etatArrierePlan", reponse.erreur, "erreur");
@@ -129,13 +131,59 @@ async function enregistrerArrierePlan() {
   afficherEtat("etatArrierePlan", "Réglages enregistrés ✓", "ok");
 }
 
+// --- Mises à jour de l'appli (mise-a-jour.js) -------------------------------------------------
+
+/** Texte de la ligne « Version » (Paramètres) selon l'étape de la mise à jour. */
+function texteMaj(etat) {
+  const actuelle = `Version ${etat.version}`;
+  switch (etat.etape) {
+    case "indisponible":
+      return `${actuelle} (lancée depuis le projet : pas de mise à jour automatique).`;
+    case "recherche":
+      return `${actuelle} · recherche d'une mise à jour…`;
+    case "a-jour":
+      return `${actuelle} · à jour ✓`;
+    case "telechargement":
+      return `${actuelle} · téléchargement de la version ${etat.nouvelle || "suivante"}${Number.isFinite(etat.pourcentage) ? ` (${etat.pourcentage} %)` : ""}…`;
+    case "prete":
+      return `${actuelle} · version ${etat.nouvelle} prête : redémarre l'appli pour l'installer.`;
+    case "erreur":
+      return `${actuelle} · ${etat.message}`;
+    default:
+      return actuelle;
+  }
+}
+
+function afficherMaj(etat) {
+  if (!etat) return;
+  $("majVersion").textContent = texteMaj(etat);
+  $("majVerifier").disabled = etat.etape === "indisponible" || etat.etape === "recherche" || etat.etape === "telechargement" || etat.etape === "prete";
+  $("bandeauMaj").hidden = etat.etape !== "prete";
+  $("bandeauMajTexte").textContent = `La version ${etat.nouvelle} de LoL Companion est prête.`;
+}
+
+function brancherMaj() {
+  window.appli.surMaj(afficherMaj);
+  window.appli.lireMaj().then(afficherMaj);
+  $("majVerifier").addEventListener("click", () => {
+    $("majVerifier").disabled = true;
+    window.appli.verifierMaj();
+  });
+  $("installerMaj").addEventListener("click", () => {
+    $("installerMaj").disabled = true; // l'appli va se fermer puis se relancer
+    $("bandeauMajTexte").textContent = "Installation… l'appli redémarre dans quelques secondes.";
+    window.appli.installerMaj();
+  });
+}
+
 function brancherParametres() {
+  brancherMaj();
   surRendu(renduCarteFile);
   window.appli.lireAcceptation().then(afficherReglagesAcceptation);
   window.appli.surAcceptation(surEvenementFile);
   window.appli.surReglagesAcceptation(afficherReglagesAcceptation); // cochée/décochée depuis l'icône
   window.appli.lireArrierePlan().then(afficherReglagesArrierePlan);
-  for (const id of ["fermerReduit", "lancerAuDemarrage", "demarrerReduit", "prevenirClientDetecte", "ouvrirAvecLeague"]) $(id).addEventListener("change", enregistrerArrierePlan);
+  for (const id of ["fermerReduit", "lancerAuDemarrage", "demarrerReduit", "prevenirClientDetecte", "ouvrirAvecLeague", "majAuto"]) $(id).addEventListener("change", enregistrerArrierePlan);
   for (const id of ["autoAccepter", "delaiAcceptation", "notifierPartie"]) $(id).addEventListener("change", enregistrerAcceptation);
 
   $("formDossier").addEventListener("submit", (e) => {

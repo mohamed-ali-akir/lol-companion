@@ -24,6 +24,11 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
   - Conseiller de draft (`draft.js`, décidé le 04/10/2026) : Lolalytics encore (tier list du poste, page de chaque
     adversaire verrouillé pour ses matchups, API `a1.lolalytics.com/mega/?ep=build-team` pour les synergies des
     alliés), mêmes règles. Case de l'onglet Sélection ; il propose seulement, ne choisit jamais.
+  - Mise à jour automatique (`mise-a-jour.js`, electron-updater, décidé le 11/10/2026) : lecture de la dernière Release
+    de github.com/mohamed-ali-akir/lol-companion (latest.yml + installateur, empreinte sha512 vérifiée). Seule
+    exception **activée par défaut** (désactivable : Paramètres → Mises à jour) ; n'envoie rien de personnel ;
+    jamais de redémarrage forcé (bandeau, ou installation en quittant). Publication : étiquette `vX.Y.Z` →
+    `.github/workflows/publier.yml`.
   Conditions à garder : désactivé par défaut (case de l'onglet Build, ou Sélection pour le conseiller), lecture seule, appels uniquement depuis le
   processus principal, certificats vérifiés normalement, et on n'envoie QUE champion / rôle / mode / langue
   (jamais Riot ID, puuid, ni aucune donnée personnelle). Aucune autre adresse Internet.
