@@ -72,6 +72,9 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   meilleur champion de la session. La session commence à ta première partie du jour (une soirée sans vraie pause
   continue après minuit) ou à l'ouverture de l'appli, au choix. **Alertes douces** : « 3 défaites d'affilée. Une pause
   de 10 minutes ? » (nombre réglable, désactivable, remakes ignorés) et, si tu l'actives, « Tu joues depuis 2 h ».
+  En option aussi, la **notif « diable »** 😈 : « 3 victoires d'affilée. Encore une ? », puis une à chaque victoire en
+  plus de la série (nombre réglable, désactivée par défaut). Changer un nombre (défaites, heures, victoires) coche
+  l'option qui va avec : les nombres restent toujours modifiables.
   Un simple « OK » pour fermer : jamais de blocage, jamais de reproche. Notification Windows seulement si tu la coches
 - **Niveau** : niveau visé (30 proposé pour la classée, sinon le prochain palier de 25) et temps de jeu par jour.
   Calcul pour ARAM du Chaos, ARAM, Swiftplay et Draft avec **ta** durée moyenne et **ton** taux de victoire (valeurs
@@ -135,13 +138,16 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   en haut à gauche du jeu avec les 5 adversaires (icône du champion) et leurs 2 sorts. Quand tu vois un adversaire
   utiliser un sort, **tu cliques dessus** : le compte à rebours démarre (bottes de lucidité visibles comptées, TP
   déchaînée après 10:00) ; un 2e clic l'annule. Le reste de l'écran laisse passer les clics au jeu. Mode « Sans bordure » requis
+  (l'onglet Build l'affiche en rappel dès que les augments, les objectifs ou les chronos des sorts sont cochés).
 - **Arrière-plan** : une icône dans la zone de notification de Windows (Ouvrir, Acceptation auto à cocher, Quitter).
   La croix **cache** la fenêtre au lieu de quitter (réglable) : la surveillance continue (acceptation auto,
   notifications, mise à jour après chaque partie), et la première fois une notification l'explique. Option
   « Lancer au démarrage de Windows » (désactivée par défaut), éventuellement « réduit » : l'appli tourne alors cachée
   et se connecte toute seule dès que League s'ouvre. Notification **« LoL Companion est prêt »** quand League est
   détecté (avec ce qui est actif : acceptation, pick/ban, build), seulement si la fenêtre est cachée, une fois par
-  lancement de League, désactivable. Une seule instance à la fois : relancer l'appli réaffiche la fenêtre déjà ouverte
+  lancement de League, désactivable. Option **« Ouvrir la fenêtre quand League se lance »** (désactivée par défaut) :
+  avec le démarrage de Windows en réduit, l'appli s'affiche toute seule dès que tu lances League (sans prendre le
+  clavier au client), au lieu de la notification. Une seule instance à la fois : relancer l'appli réaffiche la fenêtre déjà ouverte
 
 ## Installation
 
@@ -174,7 +180,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (356) |
+| `npm test` | Lance les tests (359) |
 | `npm run build` | Crée l'installateur dans `dist/` |
 
 ## Technologies

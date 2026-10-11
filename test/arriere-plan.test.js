@@ -10,24 +10,34 @@ const { creerStockage } = require("../stockage.js");
 
 test("réglages par défaut : la croix réduit, pas de démarrage avec Windows", () => {
   assert.deepStrictEqual(A.normaliserReglagesArrierePlan(undefined), {
-    fermerReduit: true, lancerAuDemarrage: false, demarrerReduit: false, prevenirClientDetecte: true,
+    fermerReduit: true, lancerAuDemarrage: false, demarrerReduit: false, prevenirClientDetecte: true, ouvrirAvecLeague: false,
   });
   assert.deepStrictEqual(A.normaliserReglagesArrierePlan({ fermerReduit: "non", lancerAuDemarrage: 1, prevenirClientDetecte: "?" }), {
     fermerReduit: true, // pas un booléen : valeur par défaut
     lancerAuDemarrage: false,
     demarrerReduit: false,
     prevenirClientDetecte: true,
+    ouvrirAvecLeague: false,
   });
   assert.strictEqual(A.normaliserReglagesArrierePlan({ prevenirClientDetecte: false }).prevenirClientDetecte, false);
+  assert.strictEqual(A.normaliserReglagesArrierePlan({ ouvrirAvecLeague: true }).ouvrirAvecLeague, true);
 });
 
 test("« LoL Companion est prêt » : seulement fenêtre cachée, option cochée, une fois par lancement de League", () => {
   const coche = { prevenirClientDetecte: true };
-  assert.strictEqual(A.doitPrevenirClientDetecte({ reglages: coche, fenetreVisible: false, dejaPrevenu: false }), true);
-  assert.strictEqual(A.doitPrevenirClientDetecte({ reglages: coche, fenetreVisible: true, dejaPrevenu: false }), false);
-  assert.strictEqual(A.doitPrevenirClientDetecte({ reglages: coche, fenetreVisible: false, dejaPrevenu: true }), false);
-  assert.strictEqual(A.doitPrevenirClientDetecte({ reglages: { prevenirClientDetecte: false }, fenetreVisible: false, dejaPrevenu: false }), false);
-  assert.strictEqual(A.doitPrevenirClientDetecte({ reglages: undefined, fenetreVisible: false, dejaPrevenu: false }), true); // cochée par défaut
+  assert.strictEqual(A.actionClientDetecte({ reglages: coche, fenetreVisible: false, dejaPrevenu: false }), "notifier");
+  assert.strictEqual(A.actionClientDetecte({ reglages: coche, fenetreVisible: true, dejaPrevenu: false }), null);
+  assert.strictEqual(A.actionClientDetecte({ reglages: coche, fenetreVisible: false, dejaPrevenu: true }), null);
+  assert.strictEqual(A.actionClientDetecte({ reglages: { prevenirClientDetecte: false }, fenetreVisible: false, dejaPrevenu: false }), null);
+  assert.strictEqual(A.actionClientDetecte({ reglages: undefined, fenetreVisible: false, dejaPrevenu: false }), "notifier"); // cochée par défaut
+});
+
+test("« Ouvrir la fenêtre quand League se lance » : ouvre au lieu de notifier, une fois, fenêtre cachée seulement", () => {
+  const ouvrir = { ouvrirAvecLeague: true, prevenirClientDetecte: false };
+  assert.strictEqual(A.actionClientDetecte({ reglages: ouvrir, fenetreVisible: false, dejaPrevenu: false }), "ouvrir");
+  assert.strictEqual(A.actionClientDetecte({ reglages: { ouvrirAvecLeague: true }, fenetreVisible: false, dejaPrevenu: false }), "ouvrir");
+  assert.strictEqual(A.actionClientDetecte({ reglages: ouvrir, fenetreVisible: true, dejaPrevenu: false }), null); // déjà ouverte
+  assert.strictEqual(A.actionClientDetecte({ reglages: ouvrir, fenetreVisible: false, dejaPrevenu: true }), null); // même lancement de League
 });
 
 test("texte de la notification : ce qui est actif", () => {

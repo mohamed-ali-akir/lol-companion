@@ -67,6 +67,8 @@ function afficherReglagesBuild(r) {
   $("buildReapparitions").checked = r.reapparitions;
   $("buildReapparitions").disabled = !r.objectifs; // option en plus de l'alerte des objectifs
   $("buildSorts").checked = r.sorts;
+  // Ces trois options dessinent par-dessus le jeu : impossible en plein écran.
+  $("rappelSansBordure").hidden = !(r.augments || r.objectifs || r.sorts);
 }
 
 async function enregistrerBuild() {

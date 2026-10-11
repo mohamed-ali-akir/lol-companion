@@ -1327,6 +1327,12 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
   padding: 10px 14px;
 }
 
+/* Notif « diable » (série de victoires) : rouge, pour la distinguer des conseils de pause */
+.session-alerte.alerte-diable {
+  background: rgba(226, 91, 91, 0.1);
+  border-color: rgba(226, 91, 91, 0.45);
+}
+
 .session-alerte strong {
   color: var(--gold-light);
 }
@@ -1453,6 +1459,17 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
 /* Onglet Sélection : une ligne par liste (rôle), trois menus déroulants dans l'ordre */
 .selection-risque {
   color: var(--danger);
+}
+
+/* Onglet Build : rappel du mode « Sans bordure » quand une option s'affiche par-dessus le jeu */
+.rappel-bordure {
+  border-left: 3px solid var(--gold);
+  background: var(--bg-card);
+  color: var(--gold-light);
+  font-size: 0.85rem;
+  padding: 0.5rem 0.75rem;
+  margin: 0.75rem 0;
+  border-radius: 0 var(--radius) var(--radius) 0;
 }
 
 .listes-selection {

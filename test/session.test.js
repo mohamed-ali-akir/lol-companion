@@ -143,6 +143,8 @@ test("normaliserReglagesSession : valeurs par défaut (rappel de durée et notif
     seuilDefaites: 3,
     rappelDuree: false,
     heuresRappel: 2,
+    alerteVictoires: false,
+    seuilVictoires: 3,
     notifier: false,
   });
   const r = C.normaliserReglagesSession({ mode: "ouverture", seuilDefaites: 50, heuresRappel: "1.3", notifier: "oui", alerteDefaites: false });
@@ -183,6 +185,42 @@ test("alertesSession : rappel « Tu joues depuis 2 h » seulement s'il est activ
   assert.strictEqual(rappel.type, "duree");
   assert.strictEqual(rappel.titre, "Tu joues depuis 2 h.");
   assert.deepStrictEqual(C.alertesSession(bilan, { rappelDuree: true, heuresRappel: 3 }, maintenant), []);
+});
+
+test("victoiresDAffilee : depuis la partie la plus récente, remakes ignorés", () => {
+  const debut = le(30, 20);
+  const parties = [
+    partie({ date: debut, victoire: false }),
+    partie({ date: debut + 35 * MIN, victoire: true }),
+    partie({ date: debut + 70 * MIN, victoire: true }),
+    partie({ date: debut + 105 * MIN, minutes: 3, victoire: false }), // remake : ne casse pas la série
+    partie({ date: debut + 110 * MIN, victoire: true }),
+  ];
+  assert.strictEqual(C.victoiresDAffilee(parties), 3);
+  assert.strictEqual(C.defaitesDAffilee(parties), 0);
+  assert.strictEqual(C.victoiresDAffilee([]), 0);
+  const bilan = C.bilanSession(parties);
+  assert.strictEqual(bilan.victoiresDAffilee, 3);
+  assert.strictEqual(bilan.idDebutVictoires, parties[1].id);
+});
+
+test("alertesSession : notif « diable » après 3 victoires d'affilée, seulement si activée, une par victoire en plus", () => {
+  const serie = (n) => Array.from({ length: n }, (_, i) => partie({ date: le(30, 20) + i * 35 * MIN, victoire: true }));
+  const trois = C.bilanSession(serie(3));
+  const maintenant = trois.fin + 2 * MIN;
+  assert.deepStrictEqual(C.alertesSession(trois, {}, maintenant), []); // désactivée par défaut
+  const [diable, ...autres] = C.alertesSession(trois, { alerteVictoires: true }, maintenant);
+  assert.strictEqual(autres.length, 0);
+  assert.strictEqual(diable.type, "diable");
+  assert.strictEqual(diable.titre, "😈 3 victoires d'affilée. Encore une ?");
+  assert.deepStrictEqual(C.alertesSession(C.bilanSession(serie(2)), { alerteVictoires: true }, maintenant), []);
+  assert.deepStrictEqual(C.alertesSession(trois, { alerteVictoires: true, seuilVictoires: 4 }, maintenant), []); // seuil réglable
+  assert.deepStrictEqual(C.alertesSession(trois, { alerteVictoires: true }, trois.fin + 60 * MIN), []); // pause déjà faite
+
+  const cinq = C.bilanSession(serie(5));
+  const [encore] = C.alertesSession(cinq, { alerteVictoires: true }, cinq.fin + 2 * MIN);
+  assert.match(encore.titre, /5 victoires d'affilée. Personne ne t'arrête/);
+  assert.notStrictEqual(encore.cle, diable.cle); // nouvelle victoire : nouvelle notification
 });
 
 test("creerSuiviAlertes : une seule notification par alerte ; rien au lancement", () => {

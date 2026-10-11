@@ -4,7 +4,7 @@
  * Session = tes parties depuis ta première partie du jour (ou depuis l'ouverture de l'appli, au choix).
  * Affiche : parties, victoires / défaites, XP gagnée (estimée), temps de jeu, meilleur champion.
  * Alertes douces : pause proposée après plusieurs défaites d'affilée, rappel du temps de jeu
- * (désactivé par défaut). Jamais de blocage. La notification Windows est envoyée par main.js
+ * (désactivé par défaut), et la notif « diable » après une série de victoires (désactivée par défaut). Jamais de blocage. La notification Windows est envoyée par main.js
  * (session.js), seulement si l'option est cochée.
  * Les parties viennent de l'onglet Stats (partiesStats, relues après chaque partie) ;
  * les calculs sont dans calculs.js. Utilise iconeChampion() et texteKda() de onglets/stats.js.
@@ -85,12 +85,13 @@ function renduSession() {
 function afficherReglagesSession(r) {
   reglagesSession = r;
   $("modeSession").value = r.mode;
+  // Les nombres restent toujours modifiables : en changer un coche sa case (voir brancherSession).
   $("alerteDefaites").checked = r.alerteDefaites;
   $("seuilDefaites").value = r.seuilDefaites;
-  $("seuilDefaites").disabled = !r.alerteDefaites;
   $("rappelDuree").checked = r.rappelDuree;
   $("heuresRappel").value = r.heuresRappel;
-  $("heuresRappel").disabled = !r.rappelDuree;
+  $("alerteVictoires").checked = r.alerteVictoires;
+  $("seuilVictoires").value = r.seuilVictoires;
   $("notifierSession").checked = r.notifier;
   renduSession();
 }
@@ -102,6 +103,8 @@ async function enregistrerReglagesSession() {
     seuilDefaites: Number($("seuilDefaites").value),
     rappelDuree: $("rappelDuree").checked,
     heuresRappel: Number($("heuresRappel").value),
+    alerteVictoires: $("alerteVictoires").checked,
+    seuilVictoires: Number($("seuilVictoires").value),
     notifier: $("notifierSession").checked,
   });
   if (!reponse.ok) {
@@ -124,7 +127,13 @@ function brancherSession() {
     renduSession();
   });
   window.appli.lireSession().then(afficherReglagesSession);
-  for (const id of ["modeSession", "alerteDefaites", "seuilDefaites", "rappelDuree", "heuresRappel", "notifierSession"]) {
+  // Changer un nombre active son option (branché avant l'enregistrement, qui part donc avec la case cochée).
+  for (const [nombre, option] of [["seuilDefaites", "alerteDefaites"], ["heuresRappel", "rappelDuree"], ["seuilVictoires", "alerteVictoires"]]) {
+    $(nombre).addEventListener("change", () => {
+      $(option).checked = true;
+    });
+  }
+  for (const id of ["modeSession", "alerteDefaites", "seuilDefaites", "rappelDuree", "heuresRappel", "alerteVictoires", "seuilVictoires", "notifierSession"]) {
     $(id).addEventListener("change", enregistrerReglagesSession);
   }
 }

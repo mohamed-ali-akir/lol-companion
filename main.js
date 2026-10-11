@@ -39,7 +39,7 @@ const {
   parametresDemarrageWindows,
   estDemarrageReduit,
   doitPrevenirReduction,
-  doitPrevenirClientDetecte,
+  actionClientDetecte,
   texteClientDetecte,
   modeleMenuIcone,
 } = require("./arriere-plan.js");
@@ -516,13 +516,21 @@ async function notifierPartieTrouvee({ autoActif, delaiSecondes }) {
 }
 
 /**
- * « LoL Companion est prêt » : League vient d'être détecté. Seulement si la fenêtre est cachée (sinon tu vois déjà
- * que l'appli marche), une fois par lancement de League, et si l'option est cochée (Paramètres, Arrière-plan).
+ * League vient d'être détecté. Seulement si la fenêtre est cachée (sinon tu vois déjà que l'appli marche) et une fois
+ * par lancement de League (Paramètres, Arrière-plan) : soit on ouvre la fenêtre (sans voler le clavier au client
+ * qui démarre), soit on affiche la notification « LoL Companion est prêt ».
  */
 function notifierClientDetecte() {
   const fenetreVisible = Boolean(fenetre && !fenetre.isDestroyed() && fenetre.isVisible());
-  if (!doitPrevenirClientDetecte({ reglages: stockage.reglagesArrierePlan(), fenetreVisible, dejaPrevenu: clientDejaSignale })) return;
+  const action = actionClientDetecte({ reglages: stockage.reglagesArrierePlan(), fenetreVisible, dejaPrevenu: clientDejaSignale });
+  if (!action) return;
   clientDejaSignale = true;
+  if (action === "ouvrir") {
+    if (!fenetre || fenetre.isDestroyed()) creerFenetre();
+    if (fenetre.isMinimized()) fenetre.restore();
+    fenetre.showInactive();
+    return;
+  }
   if (!Notification.isSupported()) return;
   const selection = stockage.reglagesSelection();
   const build = stockage.reglagesBuild();

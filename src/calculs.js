@@ -783,6 +783,8 @@ const REGLAGES_SESSION_PAR_DEFAUT = {
   seuilDefaites: 3, // de 2 à 10
   rappelDuree: false, // rappel "Tu joues depuis 2 h" (désactivé par défaut)
   heuresRappel: 2, // de 1 à 6 h, par demi-heure
+  alerteVictoires: false, // notif « diable » : t'encourager à relancer après une série de victoires (désactivée par défaut)
+  seuilVictoires: 3, // de 2 à 10
   notifier: false, // notification Windows en plus du message dans l'appli
 };
 
@@ -800,6 +802,8 @@ function normaliserReglagesSession(r) {
     seuilDefaites: borne(s.seuilDefaites, 2, 10, 1, d.seuilDefaites),
     rappelDuree: typeof s.rappelDuree === "boolean" ? s.rappelDuree : d.rappelDuree,
     heuresRappel: borne(s.heuresRappel, 1, 6, 0.5, d.heuresRappel),
+    alerteVictoires: typeof s.alerteVictoires === "boolean" ? s.alerteVictoires : d.alerteVictoires,
+    seuilVictoires: borne(s.seuilVictoires, 2, 10, 1, d.seuilVictoires),
     notifier: typeof s.notifier === "boolean" ? s.notifier : d.notifier,
   };
 }
@@ -841,19 +845,30 @@ function xpDePartie(partie, niveau = 1) {
   return FILES_BOTS.has(partie.file) ? xp * multiplicateurBots(niveau) : xp;
 }
 
-/** Défaites d'affilée en partant de la partie la plus récente (remakes ignorés). */
-function defaitesDAffilee(parties) {
+/** Parties du même résultat d'affilée (victoires si "victoire" est vrai), depuis la plus récente (remakes ignorés). */
+function serieDAffilee(parties, victoire) {
   const triees = (Array.isArray(parties) ? parties : []).filter((p) => p && !estRemake(p)).sort((a, b) => b.date - a.date);
   let nombre = 0;
   for (const p of triees) {
-    if (p.victoire) break;
+    if (Boolean(p.victoire) !== victoire) break;
     nombre++;
   }
   return nombre;
 }
 
+/** Défaites d'affilée en partant de la partie la plus récente (remakes ignorés). */
+function defaitesDAffilee(parties) {
+  return serieDAffilee(parties, false);
+}
+
+/** Victoires d'affilée en partant de la partie la plus récente (remakes ignorés). */
+function victoiresDAffilee(parties) {
+  return serieDAffilee(parties, true);
+}
+
 /**
- * Bilan d'une session : { parties, victoires, defaites, xp, dureeS, debut, fin, defaitesDAffilee, idDebutSerie, meilleur }
+ * Bilan d'une session : { parties, victoires, defaites, xp, dureeS, debut, fin, defaitesDAffilee, idDebutSerie,
+ * victoiresDAffilee, idDebutVictoires, meilleur }
  * ou null si aucune partie. Les remakes ne comptent pas. Meilleur champion : le plus de victoires,
  * puis le meilleur taux, puis le meilleur KDA.
  */
@@ -862,6 +877,7 @@ function bilanSession(parties, { niveau = 1 } = {}) {
   if (jouees.length === 0) return null;
   const victoires = jouees.filter((p) => p.victoire).length;
   const serie = defaitesDAffilee(jouees);
+  const serieVictoires = victoiresDAffilee(jouees);
   const [meilleur] = statsParChampion(jouees).sort(
     (a, b) => b.victoires - a.victoires || b.tauxVictoire - a.tauxVictoire || b.kda.valeur - a.kda.valeur || b.parties - a.parties
   );
@@ -875,6 +891,8 @@ function bilanSession(parties, { niveau = 1 } = {}) {
     fin: finDePartie(jouees[jouees.length - 1]),
     defaitesDAffilee: serie,
     idDebutSerie: serie > 0 ? jouees[jouees.length - serie].id : null, // identifie la série (pour ne prévenir qu'une fois)
+    victoiresDAffilee: serieVictoires,
+    idDebutVictoires: serieVictoires > 0 ? jouees[jouees.length - serieVictoires].id : null,
     meilleur: meilleur ? { championId: meilleur.championId, nom: meilleur.nom, parties: meilleur.parties, victoires: meilleur.victoires, kda: meilleur.kda } : null,
   };
 }
@@ -892,7 +910,8 @@ function texteDuree(secondes) {
  * Alertes douces à afficher : [{ type, cle, titre, message }]. Jamais de blocage.
  * Seulement pendant que tu joues (dernière partie finie il y a moins de 45 min).
  *  - "pause" : au moins N défaites d'affilée (si l'alerte est activée) ;
- *  - "duree" : tu joues depuis X h sans vraie pause (si le rappel est activé), une fois par tranche de X h.
+ *  - "duree" : tu joues depuis X h sans vraie pause (si le rappel est activé), une fois par tranche de X h ;
+ *  - "diable" : au moins N victoires d'affilée (si la notif « diable » est activée), une fois par victoire en plus.
  * "cle" identifie l'alerte : la même alerte n'est notifiée qu'une fois.
  */
 function alertesSession(bilan, reglages, maintenant = Date.now()) {
@@ -921,6 +940,15 @@ function alertesSession(bilan, reglages, maintenant = Date.now()) {
       message: "Pense à t'étirer et à reposer tes yeux quelques minutes.",
     });
   }
+  if (r.alerteVictoires && bilan.victoiresDAffilee >= r.seuilVictoires) {
+    const n = bilan.victoiresDAffilee;
+    alertes.push({
+      type: "diable",
+      cle: `diable-${bilan.idDebutVictoires}-${n}`, // une notification par victoire en plus dans la série
+      titre: n >= 5 ? `😈 ${n} victoires d'affilée. Personne ne t'arrête ce soir.` : `😈 ${n} victoires d'affilée. Encore une ?`,
+      message: "Tu es en feu : relance tant que la série est chaude.",
+    });
+  }
   return alertes;
 }
 
@@ -932,6 +960,7 @@ if (typeof module !== "undefined") {
     partiesDeSession,
     xpDePartie,
     defaitesDAffilee,
+    victoiresDAffilee,
     bilanSession,
     texteDuree,
     alertesSession,

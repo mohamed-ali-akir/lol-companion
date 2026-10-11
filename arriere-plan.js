@@ -6,7 +6,7 @@
  *  - fermer la fenêtre : la cacher (l'appli continue de surveiller le client) ou quitter ;
  *  - lancement au démarrage de Windows : quoi passer à app.setLoginItemSettings ;
  *  - démarrage "réduit" : l'appli a-t-elle été lancée avec --reduit ?
- *  - notification « LoL Companion est prêt » quand League est détecté : quand l'afficher, et quel texte ;
+ *  - League détecté : ouvrir la fenêtre, ou notification « LoL Companion est prêt » (quand, et quel texte) ;
  *  - le menu de l'icône (Ouvrir, Acceptation auto, Quitter).
  */
 
@@ -17,6 +17,7 @@ const REGLAGES_ARRIERE_PLAN_PAR_DEFAUT = {
   lancerAuDemarrage: false, // lancer l'appli au démarrage de Windows (désactivé par défaut)
   demarrerReduit: false, // au démarrage de Windows : sans ouvrir la fenêtre
   prevenirClientDetecte: true, // notification « LoL Companion est prêt » quand League est détecté (fenêtre cachée)
+  ouvrirAvecLeague: false, // ouvrir la fenêtre quand League se lance (fenêtre cachée ; désactivé par défaut)
 };
 
 /** Réglages toujours valides : une valeur absente ou abîmée prend la valeur par défaut. */
@@ -31,15 +32,20 @@ function normaliserReglagesArrierePlan(r) {
     // "Démarrer réduit" n'a de sens que si l'appli se lance avec Windows.
     demarrerReduit: lancerAuDemarrage && booleen(s.demarrerReduit, d.demarrerReduit),
     prevenirClientDetecte: booleen(s.prevenirClientDetecte, d.prevenirClientDetecte),
+    ouvrirAvecLeague: booleen(s.ouvrirAvecLeague, d.ouvrirAvecLeague),
   };
 }
 
 /**
- * Faut-il afficher « LoL Companion est prêt » ? Seulement si l'option est cochée, que la fenêtre est cachée
- * (sinon tu vois déjà que l'appli marche) et qu'on n'a pas déjà prévenu pour ce lancement de League.
+ * League vient d'être détecté : que faire ? "ouvrir" la fenêtre (option cochée), "notifier"
+ * (« LoL Companion est prêt »), ou null. Rien si la fenêtre est déjà visible ou si c'est déjà fait
+ * pour ce lancement de League.
  */
-function doitPrevenirClientDetecte({ reglages, fenetreVisible, dejaPrevenu }) {
-  return normaliserReglagesArrierePlan(reglages).prevenirClientDetecte && !fenetreVisible && !dejaPrevenu;
+function actionClientDetecte({ reglages, fenetreVisible, dejaPrevenu }) {
+  const r = normaliserReglagesArrierePlan(reglages);
+  if (fenetreVisible || dejaPrevenu) return null;
+  if (r.ouvrirAvecLeague) return "ouvrir";
+  return r.prevenirClientDetecte ? "notifier" : null;
 }
 
 /** Texte de la notification : ce qui est actif (acceptation, pick/ban, build), ou une phrase simple. */
@@ -113,7 +119,7 @@ module.exports = {
   parametresDemarrageWindows,
   estDemarrageReduit,
   doitPrevenirReduction,
-  doitPrevenirClientDetecte,
+  actionClientDetecte,
   texteClientDetecte,
   modeleMenuIcone,
 };

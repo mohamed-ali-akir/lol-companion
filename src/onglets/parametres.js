@@ -110,6 +110,7 @@ function afficherReglagesArrierePlan(r) {
   $("demarrerReduit").checked = r.demarrerReduit;
   $("demarrerReduit").disabled = !r.lancerAuDemarrage; // "démarrer réduit" n'a de sens qu'avec le démarrage de Windows
   $("prevenirClientDetecte").checked = r.prevenirClientDetecte;
+  $("ouvrirAvecLeague").checked = r.ouvrirAvecLeague;
 }
 
 async function enregistrerArrierePlan() {
@@ -118,6 +119,7 @@ async function enregistrerArrierePlan() {
     lancerAuDemarrage: $("lancerAuDemarrage").checked,
     demarrerReduit: $("demarrerReduit").checked,
     prevenirClientDetecte: $("prevenirClientDetecte").checked,
+    ouvrirAvecLeague: $("ouvrirAvecLeague").checked,
   });
   if (!reponse.ok) {
     afficherEtat("etatArrierePlan", reponse.erreur, "erreur");
@@ -133,7 +135,7 @@ function brancherParametres() {
   window.appli.surAcceptation(surEvenementFile);
   window.appli.surReglagesAcceptation(afficherReglagesAcceptation); // cochée/décochée depuis l'icône
   window.appli.lireArrierePlan().then(afficherReglagesArrierePlan);
-  for (const id of ["fermerReduit", "lancerAuDemarrage", "demarrerReduit", "prevenirClientDetecte"]) $(id).addEventListener("change", enregistrerArrierePlan);
+  for (const id of ["fermerReduit", "lancerAuDemarrage", "demarrerReduit", "prevenirClientDetecte", "ouvrirAvecLeague"]) $(id).addEventListener("change", enregistrerArrierePlan);
   for (const id of ["autoAccepter", "delaiAcceptation", "notifierPartie"]) $(id).addEventListener("change", enregistrerAcceptation);
 
   $("formDossier").addEventListener("submit", (e) => {
