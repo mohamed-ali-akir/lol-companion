@@ -174,6 +174,38 @@ function lireJeu({ port = PORT_JEU } = {}) {
   });
 }
 
+/**
+ * Lecture du jeu PARTAGÉE entre les suivis qui lisent le jeu chaque seconde (objectifs, chronos des sorts).
+ * Sans elle, chacun lirait /allgamedata de son côté : deux lectures par seconde pour les mêmes données.
+ *  - si une lecture est en cours, on attend la même ;
+ *  - si la dernière est arrivée il y a moins de dureeMs, on la réutilise, avec le temps de jeu avancé du temps écoulé
+ *    (pour que les chronos restent exacts) ;
+ *  - sinon, on relit le jeu.
+ * lire et maintenant sont modifiables pour les tests.
+ */
+function creerLectureJeuPartagee({ lire = lireJeu, dureeMs = 900, maintenant = Date.now } = {}) {
+  let derniere = null; // { date, arrivee (null tant que la lecture est en cours), promesse }
+
+  return async function lireJeuPartage() {
+    const enCours = derniere && derniere.arrivee === null;
+    const recente = derniere && derniere.arrivee !== null && maintenant() - derniere.date < dureeMs;
+    if (!enCours && !recente) {
+      const lecture = { date: maintenant(), arrivee: null, promesse: null };
+      lecture.promesse = Promise.resolve()
+        .then(() => lire())
+        .finally(() => {
+          lecture.arrivee = maintenant();
+        });
+      derniere = lecture;
+    }
+    const lecture = derniere;
+    const jeu = await lecture.promesse;
+    if (!jeu) return null;
+    const ecartS = (maintenant() - lecture.arrivee) / 1000;
+    return ecartS > 0 ? { ...jeu, tempsS: jeu.tempsS + ecartS } : jeu;
+  };
+}
+
 // --- Suivi pendant la partie ----------------------------------------------------------------------
 
 /**
@@ -236,5 +268,6 @@ module.exports = {
   alertesObjectifs,
   lireDonneesJeu,
   lireJeu,
+  creerLectureJeuPartagee,
   creerSuiviObjectifs,
 };

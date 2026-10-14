@@ -256,12 +256,14 @@ function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisPar
   };
 }
 
-/** Tes sets inchangés + le nouveau set ; seul l'ancien set "LoL Companion" du même champion est remplacé. */
+/**
+ * Tes sets inchangés (Porofessor, les tiens...) + le nouveau set. TOUS les anciens sets "LoL Companion" sont retirés :
+ * on n'en garde qu'un, celui du champion actuel (il est recréé à chaque champion verrouillé).
+ * Pourquoi (14/10/2026) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413) ;
+ * avec un set par champion joué, 40 sets "LoL Companion" s'étaient accumulés et bloquaient tout nouveau set.
+ */
 function fusionnerSets(existants, nouveau) {
-  const champion = nouveau.associatedChampions[0];
-  const estLeNotre = (s) =>
-    s && typeof s.title === "string" && s.title.startsWith(`${PREFIXE_SET} - `) &&
-    Array.isArray(s.associatedChampions) && s.associatedChampions.includes(champion);
+  const estLeNotre = (s) => s && typeof s.title === "string" && s.title.startsWith(`${PREFIXE_SET} - `);
   return [...(Array.isArray(existants) ? existants.filter((s) => !estLeNotre(s)) : []), nouveau];
 }
 

@@ -20,9 +20,9 @@
  *  - un appel prend environ 2 à 6 secondes : on garde les réponses en mémoire quelques heures.
  */
 
+const { creerCache, telecharger } = require("./internet.js"); // cache 3 h, User-Agent, délai maximal
+
 const URL_OPGG = "https://mcp-api.op.gg/mcp";
-const DELAI_MAX_MS = 20000;
-const DUREE_CACHE_MS = 3 * 60 * 60 * 1000; // les stats changent peu en quelques heures
 const LANGUE = "fr_FR"; // noms des objets et des runes en français
 
 const CHAMPS_DEMANDES = [
@@ -221,24 +221,21 @@ function modeOpgg(partie) {
  * url et appeler (fetch) sont modifiables pour les tests (faux serveur local).
  */
 function creerLecteurOpgg({ url = URL_OPGG, appeler = (...a) => fetch(...a), maintenant = Date.now } = {}) {
-  const cache = new Map(); // "outil|champion|..." -> { date, valeur }
+  const { avecCache } = creerCache({ maintenant }); // "analyse|champion|position|mode" -> analyse, gardée 3 h
 
   /** Appelle un outil d'OP.GG et renvoie sa réponse lue (analyserTexteOpgg). Erreurs claires (ErreurOpgg). */
   async function appelerOutil(nomOutil, args) {
-    let reponse;
-    try {
-      reponse = await appeler(url, {
+    const texte = await telecharger({
+      appeler,
+      adresse: url,
+      options: {
         method: "POST",
         headers: { "Content-Type": "application/json", Accept: "application/json, text/event-stream" },
         body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/call", params: { name: nomOutil, arguments: args } }),
-        signal: AbortSignal.timeout(DELAI_MAX_MS),
-      });
-    } catch {
-      throw new ErreurOpgg("OP.GG ne répond pas (pas d'Internet ?).");
-    }
-    if (!reponse.ok) throw new ErreurOpgg(`OP.GG a répondu une erreur (code ${reponse.status}).`);
-
-    const texte = await reponse.text();
+      },
+      site: "OP.GG",
+      Erreur: ErreurOpgg,
+    });
     // Réponse JSON, ou flux "data: {...}" selon le serveur.
     const ligne = texte.split("\n").find((l) => l.startsWith("data:"));
     let json;
@@ -252,15 +249,6 @@ function creerLecteurOpgg({ url = URL_OPGG, appeler = (...a) => fetch(...a), mai
     const brut = analyserTexteOpgg(contenu);
     if (!brut) throw new ErreurOpgg("Format de réponse d'OP.GG inattendu.");
     return brut;
-  }
-
-  /** Garde le résultat de lire() en mémoire quelques heures, sous la clé donnée. */
-  async function avecCache(cle, lire) {
-    const garde = cache.get(cle);
-    if (garde && maintenant() - garde.date < DUREE_CACHE_MS) return garde.valeur;
-    const valeur = await lire();
-    cache.set(cle, { date: maintenant(), valeur });
-    return valeur;
   }
 
   async function analyser({ alias, position, mode }) {

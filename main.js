@@ -29,7 +29,7 @@ const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg
 const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
-const { creerSuiviObjectifs, estFaille } = require("./objectifs.js");
+const { creerSuiviObjectifs, creerLectureJeuPartagee, estFaille } = require("./objectifs.js");
 const { creerSuiviSorts } = require("./sorts.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { alertesDuCompte, creerSuiviAlertes } = require("./session.js");
@@ -776,13 +776,16 @@ function demarrerAugments() {
 }
 
 function demarrerObjectifs() {
+  const lire = creerLectureJeuPartagee(); // une seule lecture du jeu par seconde pour les deux suivis
   suiviSorts = creerSuiviSorts({
     reglages: () => stockage.reglagesBuild(), // case « sorts »
+    lire,
     afficher: (panneau) => proteger("chronos des sorts", () => afficherSorts(panneau)),
     journal: noter,
   });
   suiviObjectifs = creerSuiviObjectifs({
     reglages: () => stockage.reglagesBuild(), // cases « objectifs » et « réapparitions »
+    lire,
     afficher: afficherObjectif,
     journal: noter,
   });

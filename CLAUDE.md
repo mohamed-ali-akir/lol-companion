@@ -29,6 +29,8 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
     exception **activée par défaut** (désactivable : Paramètres → Mises à jour) ; n'envoie rien de personnel ;
     jamais de redémarrage forcé (bandeau, ou installation en quittant). Publication : étiquette `vX.Y.Z` →
     `.github/workflows/publier.yml`.
+  Règles communes (User-Agent honnête, cache 3 h, délai maximal, erreurs claires) : écrites une seule fois dans
+  `internet.js` (14/10/2026). Tout nouvel appel à Internet doit passer par ce module.
   Conditions à garder : désactivé par défaut (case de l'onglet Build, ou Sélection pour le conseiller), lecture seule, appels uniquement depuis le
   processus principal, certificats vérifiés normalement, et on n'envoie QUE champion / rôle / mode / langue
   (jamais Riot ID, puuid, ni aucune donnée personnelle). Aucune autre adresse Internet.

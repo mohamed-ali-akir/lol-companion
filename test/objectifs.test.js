@@ -213,3 +213,72 @@ test("suivi : une erreur de lecture ne casse rien", async () => {
   }
   assert.ok(notes.length >= 1 && notes[0].includes("boum"));
 });
+
+// --- Lecture partagée (objectifs + chronos des sorts) ---------------------------------------------
+
+test("lecture partagée : deux suivis dans la même seconde -> une seule lecture du jeu", async () => {
+  let maintenant = 0;
+  let lectures = 0;
+  const lire = O.creerLectureJeuPartagee({ lire: async () => ({ tempsS: 100 + lectures++ }), maintenant: () => maintenant });
+  assert.strictEqual((await lire()).tempsS, 100);
+  maintenant = 300; // l'autre suivi lit 0,3 s plus tard : même lecture, temps de jeu avancé de 0,3 s
+  assert.strictEqual((await lire()).tempsS, 100.3);
+  assert.strictEqual(lectures, 1);
+  maintenant = 1000; // seconde suivante : nouvelle lecture
+  assert.strictEqual((await lire()).tempsS, 101);
+  assert.strictEqual(lectures, 2);
+});
+
+test("lecture partagée : une lecture en cours est attendue, pas relancée", async () => {
+  let lectures = 0;
+  let finir;
+  const lire = O.creerLectureJeuPartagee({
+    lire: () => {
+      lectures++;
+      return new Promise((r) => (finir = r));
+    },
+  });
+  const a = lire();
+  const b = lire();
+  await Promise.resolve(); // laisse partir la lecture
+  finir({ tempsS: 50 });
+  const [ja, jb] = await Promise.all([a, b]);
+  assert.strictEqual(lectures, 1);
+  assert.ok(Math.abs(ja.tempsS - 50) < 0.1 && Math.abs(jb.tempsS - 50) < 0.1);
+});
+
+test("lecture partagée : pas de partie (null) ou erreur -> transmis tel quel, sans planter", async () => {
+  let maintenant = 0;
+  const vide = O.creerLectureJeuPartagee({ lire: async () => null, maintenant: () => maintenant });
+  assert.strictEqual(await vide(), null);
+  let essais = 0;
+  const enPanne = O.creerLectureJeuPartagee({
+    lire: async () => {
+      essais++;
+      throw new Error("jeu fermé");
+    },
+    maintenant: () => maintenant,
+  });
+  await assert.rejects(enPanne(), /jeu fermé/);
+  maintenant = 2000;
+  await assert.rejects(enPanne(), /jeu fermé/);
+  assert.strictEqual(essais, 2, "on réessaie à la seconde suivante");
+});
+
+test("lecture partagée : branchée sur les deux suivis, ils marchent comme avant", async () => {
+  let lectures = 0;
+  const lire = O.creerLectureJeuPartagee({ lire: async () => (lectures++, null) });
+  const S = require("../sorts.js");
+  const affiches = [];
+  const objectifs = O.creerSuiviObjectifs({ reglages: () => ({ objectifs: true }), lire, afficher: (l) => affiches.push(l), intervalleMs: 10000 });
+  const sorts = S.creerSuiviSorts({ reglages: () => ({ sorts: true }), lire, afficher: (p) => affiches.push(p), intervalleMs: 10000 });
+  try {
+    objectifs.demarrer();
+    sorts.demarrer();
+    await new Promise((r) => setTimeout(r, 20));
+    assert.strictEqual(lectures, 1);
+  } finally {
+    objectifs.arreter();
+    sorts.arreter();
+  }
+});

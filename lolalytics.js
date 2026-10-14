@@ -27,11 +27,10 @@
  * par champion / voie / mode toutes les 3 heures. Si la page change de format, on revient au build d'OP.GG.
  */
 
+const { IDENTITE, creerCache, telecharger } = require("./internet.js"); // cache 3 h, User-Agent, délai maximal
+
 const URL_LOLALYTICS = "https://lolalytics.com";
 const URL_API = "https://a1.lolalytics.com"; // synergies (conseiller de draft)
-const DELAI_MAX_MS = 20000;
-const DUREE_CACHE_MS = 3 * 60 * 60 * 1000;
-const IDENTITE = "LoLCompanion/1.0 (appli de bureau personnelle ; une page par champion toutes les 3 h)";
 
 const EXCEPTIONS_NOMS = { monkeyking: "wukong" };
 const VOIES = { top: "top", jungle: "jungle", middle: "middle", bottom: "bottom", utility: "support" };
@@ -184,26 +183,21 @@ function analyseDepuisDonnees(d, nomObjet = (id) => `Objet ${id}`) {
 
 /** Lecteur Lolalytics avec cache. appeler (fetch) et maintenant sont modifiables pour les tests. */
 function creerLecteurLolalytics({ appeler = (...a) => fetch(...a), maintenant = Date.now } = {}) {
-  const cache = new Map(); // adresse -> { date, promesse } (la promesse est partagée si deux lectures arrivent en même temps)
+  const cache = creerCache({ maintenant }); // adresse -> données lues, gardées 3 h (internet.js)
 
   /** Lit une adresse au plus une fois toutes les 3 h, et la transforme avec lire(texte). Un échec n'est pas gardé. */
   function avecCache(adresse, accept, lire) {
-    const garde = cache.get(adresse);
-    if (garde && maintenant() - garde.date < DUREE_CACHE_MS) return garde.promesse;
-    const promesse = (async () => {
-      let reponse;
-      try {
-        reponse = await appeler(adresse, { headers: { "User-Agent": IDENTITE, Accept: accept }, signal: AbortSignal.timeout(DELAI_MAX_MS) });
-      } catch {
-        throw new ErreurLolalytics("Lolalytics ne répond pas (pas d'Internet ?).");
-      }
-      if (reponse.status === 404) throw new ErreurLolalytics("Lolalytics ne connaît pas ce champion.");
-      if (!reponse.ok) throw new ErreurLolalytics(`Lolalytics a répondu une erreur (code ${reponse.status}).`);
-      return lire(await reponse.text());
-    })();
-    cache.set(adresse, { date: maintenant(), promesse });
-    promesse.catch(() => cache.delete(adresse));
-    return promesse;
+    return cache.avecCache(adresse, async () => {
+      const texte = await telecharger({
+        appeler,
+        adresse,
+        options: { headers: { Accept: accept } },
+        site: "Lolalytics",
+        Erreur: ErreurLolalytics,
+        introuvable: "Lolalytics ne connaît pas ce champion.",
+      });
+      return lire(texte);
+    });
   }
 
   /** Données brutes de la page d'un champion (objets + matchups). */

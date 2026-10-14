@@ -17,10 +17,9 @@
  * Noms en anglais : ils correspondent aux cartes quand le jeu est en anglais.
  */
 
+const { IDENTITE, creerCache, telecharger } = require("./internet.js"); // cache 3 h, User-Agent, délai maximal
+
 const URL_ARAMMAYHEM = "https://arammayhem.com";
-const DELAI_MAX_MS = 20000;
-const DUREE_CACHE_MS = 3 * 60 * 60 * 1000;
-const IDENTITE = "LoLCompanion/1.0 (appli de bureau personnelle ; une page par champion toutes les 3 h)";
 const RARETES = ["Prismatic", "Gold", "Silver"];
 const EXCEPTIONS_NOMS = { monkeyking: "wukong" };
 
@@ -94,22 +93,20 @@ function augmentsGlobaux(lignes) {
 
 /** Lecteur arammayhem.com avec cache. appeler (fetch) et maintenant sont modifiables pour les tests. */
 function creerLecteurArammayhem({ appeler = (...a) => fetch(...a), maintenant = Date.now } = {}) {
-  const cache = new Map();
+  const { avecCache } = creerCache({ maintenant }); // adresse -> lignes de la page, gardées 3 h (internet.js)
 
-  async function lirePage(adresse) {
-    const garde = cache.get(adresse);
-    if (garde && maintenant() - garde.date < DUREE_CACHE_MS) return garde.lignes;
-    let reponse;
-    try {
-      reponse = await appeler(adresse, { headers: { "User-Agent": IDENTITE, Accept: "text/html" }, signal: AbortSignal.timeout(DELAI_MAX_MS) });
-    } catch {
-      throw new ErreurArammayhem("arammayhem.com ne répond pas (pas d'Internet ?).");
-    }
-    if (reponse.status === 404) throw new ErreurArammayhem("arammayhem.com ne connaît pas ce champion.");
-    if (!reponse.ok) throw new ErreurArammayhem(`arammayhem.com a répondu une erreur (code ${reponse.status}).`);
-    const lignes = texteVisible(await reponse.text());
-    cache.set(adresse, { date: maintenant(), lignes });
-    return lignes;
+  function lirePage(adresse) {
+    return avecCache(adresse, async () => {
+      const html = await telecharger({
+        appeler,
+        adresse,
+        options: { headers: { Accept: "text/html" } },
+        site: "arammayhem.com",
+        Erreur: ErreurArammayhem,
+        introuvable: "arammayhem.com ne connaît pas ce champion.",
+      });
+      return texteVisible(html);
+    });
   }
 
   /**

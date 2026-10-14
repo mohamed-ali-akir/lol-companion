@@ -119,7 +119,8 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   - choisit tes **sorts d'invocateur** (case séparée) : les plus joués d'après OP.GG, en gardant chaque sort sur ta
     touche habituelle (si Flash est sur F, il y reste). Route du client : `PATCH /lol-champ-select/v1/session/my-selection` ;
   - crée le set d'objets « LoL Companion - Champion (Rôle) », visible dans la boutique en jeu : un bloc par
-    emplacement avec ses 3 choix, le recommandé en premier.
+    emplacement avec ses 3 choix, le recommandé en premier. Un seul set « LoL Companion » est gardé (celui du champion
+    actuel) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413).
   Tes pages de runes et tes sets (Porofessor...) ne sont jamais modifiés. Tu peux aussi consulter le build de
   n'importe quel champion, rôle et mode, sans rien appliquer
 - **Augments ARAM Mayhem en jeu** (onglet Build, désactivé par défaut) : quand les 3 augments sont proposés, l'appli
@@ -185,7 +186,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (365) |
+| `npm test` | Lance les tests (379) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -238,12 +239,14 @@ temporaire dans le fichier `lockfile` de son dossier d'installation. L'appli lit
 | `GET /lol-gameflow/v1/session` | Carte et mode de la partie (Faille / Abîme hurlant, classée / ARAM / URF) pour le build |
 | `GET /lol-perks/v1/pages`, `GET /lol-perks/v1/inventory` | Tes pages de runes, place disponible |
 | `POST /lol-perks/v1/pages`, `DELETE /lol-perks/v1/pages/<id>` | Créer / remplacer la page « LoL Companion » (modifie le client, désactivé par défaut ; jamais tes autres pages) |
-| `GET` / `PUT /lol-item-sets/v1/item-sets/<summonerId>/sets` | Sets d'objets : on ajoute / remplace « LoL Companion - Champion », tes autres sets sont renvoyés tels quels (modifie le client, désactivé par défaut) |
+| `GET` / `PUT /lol-item-sets/v1/item-sets/<summonerId>/sets` | Sets d'objets : on garde un seul set « LoL Companion - Champion » (celui du champion actuel), tes autres sets sont renvoyés tels quels (modifie le client, désactivé par défaut) |
 
 **Seules connexions à Internet : les statistiques de builds (OP.GG et Lolalytics).** Le client ne fournit aucune
 statistique d'objets (`recommendedItemDefaults` est vide). Si tu coches « Récupérer le build de mon champion »
 (onglet Build), l'appli envoie **seulement** le champion, le rôle et le mode (jamais ton Riot ID), avec les
-certificats vérifiés normalement et les réponses gardées 3 h en mémoire :
+certificats vérifiés normalement et les réponses gardées 3 h en mémoire. Ces règles communes (User-Agent honnête,
+cache de 3 h, 20 s d'attente au plus, messages d'erreur) sont écrites une seule fois, dans `internet.js`, et
+utilisées par OP.GG, Lolalytics et arammayhem.com :
 - `opgg.js` interroge le serveur public qu'OP.GG met à disposition des applis
   ([OP.GG MCP Server](https://github.com/opgginc/opgg-mcp)) : `POST https://mcp-api.op.gg/mcp`, outil
   `lol_get_champion_analysis` (runes, sorts, et objets si Lolalytics ne répond pas). Il ne donne qu'une combinaison
@@ -318,7 +321,9 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   `/lol-gameflow/v1/session`), l'appli lit le chrono toutes les secondes avec l'API officielle « Live Client Data »
   que le jeu ouvre sur ton PC (`GET https://127.0.0.1:2999/liveclientdata/allgamedata` → `gameData.gameTime`,
   `allPlayers` et `events`, sans mot de passe ; certificat de Riot accepté seulement pour cet appel, comme pour le
-  client). Le bandeau ne change que quand son texte change. Réapparitions : l'appli relit les événements `DragonKill`
+  client). Cette lecture est **partagée** avec les chronos des sorts (`creerLectureJeuPartagee`) : une seule lecture
+  par seconde pour les deux, le temps de jeu étant avancé du temps écoulé quand une lecture est réutilisée. Le bandeau ne change
+  que quand son texte change. Réapparitions : l'appli relit les événements `DragonKill`
   et `BaronKill` (annoncés à tous les joueurs, les deux équipes comprises) ; l'équipe du tueur, retrouvée par son nom
   dans `allPlayers`, sert à savoir quand une équipe a 4 dragons (l'âme : ensuite, dragons ancestraux à 6:00). Si un
   nom est introuvable, 7 dragons tués suffisent à savoir que l'âme est prise. Inhibiteurs : événement `InhibKilled`
@@ -500,6 +505,7 @@ lol-level-calculator/
 ├── selection.js       # Pick et ban automatiques (rôle, listes, champions disponibles, délais)
 ├── draft.js           # Conseiller de draft : picks verrouillés, score (matchups, synergies, confort), suivi
 ├── build.js           # Build : classement des objets, page de runes, set d'objets, logique automatique
+├── internet.js        # Règles communes des appels à Internet : User-Agent honnête, cache de 3 h, délai, erreurs
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
 ├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies ; cache
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu

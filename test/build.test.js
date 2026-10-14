@@ -207,14 +207,28 @@ test("set d'objets : format du client, potions regroupées, taux dans les titres
   assert.strictEqual(B.setObjets({ etapes: [], championId: 1, nomChampion: "X", role: null }).title, "LoL Companion - X");
 });
 
-test("fusion des sets : tes sets intacts, seul notre set du même champion est remplacé", () => {
+test("fusion des sets : tes sets intacts, un seul set LoL Companion (celui du champion actuel)", () => {
   const porofessor = { title: "Porofessor - LeBlanc (Mid)", associatedChampions: [7], uid: "a" };
   const notreAhri = { title: "LoL Companion - Ahri (Haut)", associatedChampions: [AHRI], uid: "b" };
   const notreLux = { title: "LoL Companion - Lux (Support)", associatedChampions: [99], uid: "c" };
   const monSetAhri = { title: "Mon set Ahri", associatedChampions: [AHRI], uid: "d" };
+  const monSetLoL = { title: "LoL Companion perso", associatedChampions: [], uid: "f" }; // pas notre préfixe exact
   const nouveau = { title: "LoL Companion - Ahri (Milieu)", associatedChampions: [AHRI], uid: "e" };
-  assert.deepStrictEqual(B.fusionnerSets([porofessor, notreAhri, notreLux, monSetAhri], nouveau), [porofessor, notreLux, monSetAhri, nouveau]);
+  assert.deepStrictEqual(
+    B.fusionnerSets([porofessor, notreAhri, notreLux, monSetAhri, monSetLoL], nouveau),
+    [porofessor, monSetAhri, monSetLoL, nouveau],
+  );
   assert.deepStrictEqual(B.fusionnerSets(undefined, nouveau), [nouveau]);
+  assert.deepStrictEqual(B.fusionnerSets([null, { uid: "sans titre" }], nouveau), [null, { uid: "sans titre" }, nouveau]);
+});
+
+test("fusion des sets : 40 anciens sets LoL Companion -> il n'en reste qu'un (évite le refus 413 du client)", () => {
+  const anciens = Array.from({ length: 40 }, (_, i) => ({ title: `LoL Companion - Champion ${i}`, associatedChampions: [i + 1], uid: `x${i}` }));
+  const porofessor = Array.from({ length: 6 }, (_, i) => ({ title: `Porofessor - LeBlanc ${i}`, associatedChampions: [7], uid: `p${i}` }));
+  const nouveau = { title: "LoL Companion - Cassiopeia (Milieu)", associatedChampions: [69], uid: "n" };
+  const fusion = B.fusionnerSets([...porofessor, ...anciens], nouveau);
+  assert.strictEqual(fusion.length, 7);
+  assert.strictEqual(fusion.filter((s) => s.title.startsWith("LoL Companion - ")).length, 1);
 });
 
 test("résumé pour l'appli : étapes avec taux, runes, sorts nommés", () => {
