@@ -283,9 +283,9 @@ function logique({ reglages = { stats: true, runes: true, objets: true }, analys
       if (echecs.sorts) throw new Error(echecs.sorts);
       journal.sorts.push(ids);
     },
-    appliquerObjets: async (set) => {
+    appliquerObjets: async (sets) => {
       if (echecs.objets) throw new Error(echecs.objets);
-      journal.sets.push(set);
+      journal.sets.push(...sets); // un set, ou un par famille de build
     },
     nomChampion: async () => "Ahri",
     carte: async () => 11,
@@ -480,4 +480,69 @@ test("sorts d'invocateur : OP.GG sans sorts ou client qui refuse -> erreur signa
   refus.auto.surSession(session());
   await attendre(20);
   assert.strictEqual(refus.journal.resultats[0].erreurs.sortsAuto, "code 500");
+});
+
+// --- Plusieurs sets : un par famille de build (familles.js) ---------------------------------------
+
+// Deux familles fictives pour Ahri : ses Objets 1 à 3 propres ; le reste vient du build général (LOLA).
+const choixFamille = (id, parties, selection) => ({ ids: [id], parties, selection, noms: [`Objet ${id}`] });
+const FAMILLES = [
+  { nom: "AP", part: 0.7, parties: 7000, emplacements: [[choixFamille(6655, 5000, 0.7)], [choixFamille(4645, 4000, 0.6), choixFamille(6655, 900, 0.2)], []] },
+  { nom: "Tank", part: 0.3, parties: 3000, emplacements: [[choixFamille(3068, 2000, 0.8)], [choixFamille(3075, 1500, 0.6)], [choixFamille(3157, 700, 0.4)]] },
+];
+
+test("set d'une famille : Objets 1 à 3 propres (sinon ceux du build général), jamais un objet en double", () => {
+  const etapes = B.composerParEmplacement(LOLA);
+  const ap = B.etapesFamille(etapes, FAMILLES[0]);
+  assert.deepStrictEqual(ap.map((e) => e.cle), etapes.map((e) => e.cle));
+  const objet = (liste, cle) => liste.find((e) => e.cle === cle);
+  assert.deepStrictEqual(objet(ap, "objet1").option.ids, [6655]);
+  assert.deepStrictEqual(objet(ap, "objet2").option.ids, [4645]);
+  assert.deepStrictEqual(objet(ap, "objet2").autres, [], "6655 déjà pris en Objet 1 : pas reproposé");
+  // Objet 3 : rien de propre à la famille -> choix du build général, sans 4645 (déjà pris)
+  assert.ok(!objet(ap, "objet3").option.ids.includes(4645));
+  assert.deepStrictEqual(objet(ap, "depart").option, objet(etapes, "depart").option);
+  assert.deepStrictEqual(objet(ap, "bottes").option, objet(etapes, "bottes").option);
+});
+
+test("plusieurs sets : un par famille, titres et identifiants différents ; sans famille, un seul set comme avant", () => {
+  const etapes = B.composerParEmplacement(LOLA);
+  const commun = { etapes, championId: AHRI, nomChampion: "Ahri", role: "middle", carte: 11, troisParBloc: true };
+  const sets = B.setsObjets({ ...commun, familles: FAMILLES });
+  assert.deepStrictEqual(sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · AP", "LoL Companion - Ahri (Milieu) · Tank"]);
+  assert.strictEqual(new Set(sets.map((s) => s.uid)).size, 2);
+  assert.match(sets[1].uid, /^[0-9a-f-]{36}$/);
+  assert.strictEqual(sets[0].uid, B.setObjets(commun).uid, "le 1er set garde l'identifiant habituel");
+  // Objets propres à la famille : pas de taux de victoire (inconnu), seulement la part des achats
+  assert.strictEqual(sets[1].blocks.find((b) => b.type.startsWith("Objet 1")).type, "Objet 1 · 80 % choix");
+  assert.deepStrictEqual(B.setsObjets({ ...commun, familles: [] }).map((s) => s.title), ["LoL Companion - Ahri (Milieu)"]);
+  assert.deepStrictEqual(B.setsObjets({ ...commun, familles: [FAMILLES[0]] }).length, 1, "une seule famille : rien à séparer");
+  assert.strictEqual(B.setsObjets({ ...commun, troisParBloc: false, familles: FAMILLES }).length, 1, "build d'OP.GG : un seul set");
+});
+
+test("fusion : tous les sets du champion sont ajoutés, les anciens sets LoL Companion retirés", () => {
+  const porofessor = { title: "Porofessor - LeBlanc (Mid)", associatedChampions: [7], uid: "a" };
+  const ancien = { title: "LoL Companion - Lux (Support)", associatedChampions: [99], uid: "c" };
+  const nouveaux = [{ title: "LoL Companion - Kayn (Jungle) · Bleu", uid: "x" }, { title: "LoL Companion - Kayn (Jungle) · Rouge", uid: "y" }];
+  assert.deepStrictEqual(B.fusionnerSets([porofessor, ancien], nouveaux), [porofessor, ...nouveaux]);
+});
+
+test("champion à plusieurs builds verrouillé : un set par famille, et la page connaît les sets créés", async () => {
+  const { journal, auto } = logique({ emplacements: { ...LOLA, familles: FAMILLES } });
+  auto.surSession(session());
+  await attendre(20);
+  assert.deepStrictEqual(journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · AP", "LoL Companion - Ahri (Milieu) · Tank"]);
+  const [r] = journal.resultats;
+  assert.strictEqual(r.objets, true);
+  assert.deepStrictEqual(r.setsCrees, journal.sets.map((s) => s.title));
+  assert.deepStrictEqual(r.build.familles.map((f) => f.nom), ["AP", "Tank"]);
+  assert.deepStrictEqual(r.build.familles[1].objets, ["Objet 3068", "Objet 3075", "Objet 3157"]);
+});
+
+test("set d'une famille : les objets exclus (autre famille) ne sont pas proposés aux objets 4 et 5", () => {
+  const etapes = B.composerParEmplacement(LOLA);
+  const avant = B.etapesFamille(etapes, FAMILLES[0]).find((e) => e.cle === "objet4");
+  const exclu = avant.option.ids[0];
+  const apres = B.etapesFamille(etapes, { ...FAMILLES[0], exclus: [exclu] }).find((e) => e.cle === "objet4");
+  assert.ok(!apres || ![apres.option, ...apres.autres].some((o) => o.ids.includes(exclu)));
 });

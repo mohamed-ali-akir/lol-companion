@@ -9,7 +9,9 @@
  *  2. compose le build : avec Lolalytics, Départ, Objet 1, Bottes, Objet 2 à 5, chacun avec 3 choix
  *     (composerParEmplacement) ; sinon, avec OP.GG, départ, objets principaux, bottes, 4e, 5e et 6e objet ;
  *  3. crée la page de runes "LoL Companion" (runes d'OP.GG, ou celles recommandées par Riot si OP.GG ne répond pas) ;
- *  4. crée le set d'objets "LoL Companion - Champion (Rôle)", visible dans la boutique en jeu.
+ *  4. crée le set d'objets "LoL Companion - Champion (Rôle)", visible dans la boutique en jeu. Pour un champion qui se
+ *     joue de plusieurs façons (Vi combattant ou létalité, Kayn rouge ou bleu...), un set par façon de jouer
+ *     (familles.js) : ses 3 premiers objets lui sont propres, le reste vient du build général.
  * Chaque étape a sa case dans l'onglet Build, toutes désactivées par défaut. Autorisé par Riot
  * (comme Blitz, Porofessor ou u.gg) : ce sont des infos publiques, et rien n'est choisi à ta place en jeu.
  *
@@ -26,7 +28,7 @@
  * Sets d'objets (vérifié sur le client le 02/10/2026) :
  *   GET/PUT /lol-item-sets/v1/item-sets/{summonerId}/sets -> { accountId, itemSets: [...], timestamp }
  *   Le PUT remplace TOUTE la liste : on renvoie tes sets (Porofessor...) exactement comme on les a lus,
- *   et on remplace seulement le set "LoL Companion" du même champion.
+ *   et on remplace tous les anciens sets "LoL Companion" par ceux du champion actuel.
  */
 const { lireLockfile, lireJson, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
 const { monChampion, pageDepuisRecommandation, nomsPage } = require("./runes.js");
@@ -205,10 +207,14 @@ function pageDepuisOpgg(runes) {
 }
 
 const pourcent = (x) => `${Math.round(x * 100)} %`;
+const nomsOption = (o) => (Array.isArray(o.noms) ? o.noms.join(" + ") : o.ids.join(" + "));
 
-/** Identifiant stable du set d'un champion et d'un rôle (même forme que ceux de Porofessor). */
-function uidSet(championId, role) {
-  const n = championId * 10 + Math.max(0, Object.keys(LIBELLES_ROLES).indexOf(role) + 1);
+/**
+ * Identifiant stable du set d'un champion et d'un rôle (même forme que ceux de Porofessor).
+ * indice : numéro de la famille de build (0 = le premier set, identifiant inchangé).
+ */
+function uidSet(championId, role, indice = 0) {
+  const n = indice * 1e8 + championId * 10 + Math.max(0, Object.keys(LIBELLES_ROLES).indexOf(role) + 1);
   return `1c0a9a10-0000-4000-8000-${String(n).padStart(12, "0")}`;
 }
 
@@ -216,15 +222,19 @@ function uidSet(championId, role) {
  * Set d'objets pour la boutique en jeu (format du client).
  * troisParBloc : chaque emplacement montre ses 3 choix (le recommandé d'abord) — build de Lolalytics ;
  * sinon (build d'OP.GG), un objet par emplacement et un bloc « Pour t'adapter » avec les autres choix.
+ * famille, indice : nom et numéro de la famille de build (plusieurs sets pour un champion), sinon null et 0.
  */
-function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisParBloc = false }) {
+function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisParBloc = false, famille = null, indice = 0 }) {
   const blocs = etapes.map(({ cle, titre, option, autres }) => {
     const compte = new Map();
     for (const id of option.ids) compte.set(id, (compte.get(id) || 0) + 1); // ex. 2 potions
     // Les autres choix d'un objet ou des bottes (pas du départ, où chaque choix est une combinaison).
     if (troisParBloc && cle !== "depart") for (const o of autres) for (const id of o.ids) if (!compte.has(id)) compte.set(id, 1);
     return {
-      type: `${titre} · ${pourcent(tauxVictoire(option))} V · ${pourcent(option.selection)} choix`,
+      // Objets d'une famille : pas de taux de victoire connu (voir familles.js), seulement la part des achats.
+      type: Number.isFinite(option.victoires)
+        ? `${titre} · ${pourcent(tauxVictoire(option))} V · ${pourcent(option.selection)} choix`
+        : `${titre} · ${pourcent(option.selection)} choix`,
       items: [...compte].map(([id, count]) => ({ id: String(id), count })),
       hideIfSummonerSpell: "",
       showIfSummonerSpell: "",
@@ -242,7 +252,7 @@ function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisPar
     });
   }
   return {
-    title: `${PREFIXE_SET} - ${nomChampion}${role ? ` (${LIBELLES_ROLES[role] || role})` : ""}`,
+    title: `${PREFIXE_SET} - ${nomChampion}${role ? ` (${LIBELLES_ROLES[role] || role})` : ""}${famille ? ` · ${famille}` : ""}`,
     type: "custom",
     map: "any",
     mode: "any",
@@ -252,26 +262,59 @@ function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisPar
     preferredItemSlots: [],
     sortrank: 0,
     startedFrom: "blank",
-    uid: uidSet(championId, role),
+    uid: uidSet(championId, role, indice),
   };
 }
 
 /**
- * Tes sets inchangés (Porofessor, les tiens...) + le nouveau set. TOUS les anciens sets "LoL Companion" sont retirés :
- * on n'en garde qu'un, celui du champion actuel (il est recréé à chaque champion verrouillé).
+ * Tes sets inchangés (Porofessor, les tiens...) + les nouveaux sets. TOUS les anciens sets "LoL Companion" sont retirés :
+ * on ne garde que ceux du champion actuel (1 à 3, recréés à chaque champion verrouillé).
  * Pourquoi (14/10/2026) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413) ;
  * avec un set par champion joué, 40 sets "LoL Companion" s'étaient accumulés et bloquaient tout nouveau set.
  */
-function fusionnerSets(existants, nouveau) {
+function fusionnerSets(existants, nouveaux) {
   const estLeNotre = (s) => s && typeof s.title === "string" && s.title.startsWith(`${PREFIXE_SET} - `);
-  return [...(Array.isArray(existants) ? existants.filter((s) => !estLeNotre(s)) : []), nouveau];
+  const ajouts = Array.isArray(nouveaux) ? nouveaux : [nouveaux]; // un set, ou un par famille de build
+  return [...(Array.isArray(existants) ? existants.filter((s) => !estLeNotre(s)) : []), ...ajouts];
+}
+
+/**
+ * Étapes du set d'une famille de build (familles.js) : les Objets 1 à 3 prennent les choix propres à la famille,
+ * tout le reste (départ, bottes, objets 4 et 5, et un emplacement où la famille n'a rien d'assez joué) vient du
+ * build général, sans les objets d'une autre famille du champion (famille.exclus, de familles.js).
+ * Un objet déjà retenu plus tôt dans le set n'est jamais reproposé.
+ */
+function etapesFamille(etapes, famille) {
+  const pris = new Set();
+  const exclus = new Set(Array.isArray(famille.exclus) ? famille.exclus : []);
+  const resultat = [];
+  for (const e of etapes) {
+    const numero = /^objet([123])$/.exec(e.cle);
+    const propres = numero ? famille.emplacements[Number(numero[1]) - 1] || [] : [];
+    let choix = propres.length > 0 ? propres : [e.option, ...e.autres];
+    if (e.cle !== "depart") choix = choix.filter((o) => o.ids.some((id) => !pris.has(id)) && !o.ids.some((id) => exclus.has(id)));
+    if (choix.length === 0) continue;
+    const [option, ...autres] = choix;
+    if (e.cle !== "depart") option.ids.forEach((id) => pris.add(id));
+    resultat.push({ ...e, option, autres: autres.slice(0, NB_CHOIX - 1), fiable: propres.length > 0 ? true : e.fiable });
+  }
+  return resultat;
+}
+
+/**
+ * Les sets à créer pour ce champion : un par famille de build s'il y en a au moins 2 (build de Lolalytics),
+ * sinon un seul set, comme avant. Mêmes paramètres que setObjets, plus familles (de lolalytics.js).
+ */
+function setsObjets({ etapes, familles = [], ...reste }) {
+  if (!reste.troisParBloc || !Array.isArray(familles) || familles.length < 2) return [setObjets({ etapes, ...reste })];
+  return familles.map((f, indice) => setObjets({ etapes: etapesFamille(etapes, f), ...reste, famille: f.nom, indice }));
 }
 
 /**
  * Ce que la page affiche : étapes avec taux, runes, sorts.
  * analyse : celle d'OP.GG (runes, sorts) ou null ; stats : statistiques générales à afficher ; source : d'où viennent les objets.
  */
-function resumeBuild({ analyse, etapes, stats = analyse ? analyse.stats : null, source = "OP.GG" }) {
+function resumeBuild({ analyse, etapes, stats = analyse ? analyse.stats : null, source = "OP.GG", familles = [] }) {
   const option = (o) => ({ noms: o.noms, parties: o.parties, tauxVictoire: tauxVictoire(o), selection: o.selection, minute: o.minute || null });
   const r = analyse && analyse.runes;
   return {
@@ -280,6 +323,12 @@ function resumeBuild({ analyse, etapes, stats = analyse ? analyse.stats : null, 
     etapes: etapes.map((e) => ({ titre: e.titre, ...option(e.option), fiable: e.fiable, note: e.note, autres: e.autres.map(option) })),
     runes: r ? { styles: [r.nomStylePrincipal, r.nomStyleSecondaire].filter(Boolean), noms: r.noms, parties: r.parties, tauxVictoire: tauxVictoire(r) } : null,
     sorts: analyse && analyse.sorts ? { noms: analyse.sorts.ids.map((id) => SORTS[id] || `Sort n° ${id}`), tauxVictoire: tauxVictoire(analyse.sorts) } : null,
+    // Familles de build (un set chacune) : nom, part des builds, et noms des choix des Objets 1 à 3.
+    familles: (Array.isArray(familles) ? familles : []).map((f) => ({
+      nom: f.nom,
+      part: f.part,
+      objets: f.emplacements.map((choix) => choix.map((o) => nomsOption(o)).join(" / ")),
+    })),
   };
 }
 
@@ -297,6 +346,7 @@ function assemblerBuild({ opgg = null, emplacements = null }) {
     etapes,
     stats: parEmplacement ? emplacements.stats : opgg.stats,
     source: parEmplacement ? "Lolalytics" : "OP.GG",
+    familles: parEmplacement ? emplacements.familles : [],
   });
   return { etapes, troisParBloc: parEmplacement, resume };
 }
@@ -396,11 +446,15 @@ function creerBuildAuto({
     }
 
     let objets = false;
+    let setsCrees = []; // titres des sets créés (plusieurs pour un champion à plusieurs builds)
     if (r.objets && etapes.length > 0) {
       try {
-        const set = setObjets({ etapes, championId, nomChampion: await nomChampion(championId), role, carte: await carte(), troisParBloc });
-        await appliquerObjets(set);
+        const sets = setsObjets({
+          etapes, familles: emplacements ? emplacements.familles : [], championId, nomChampion: await nomChampion(championId), role, carte: await carte(), troisParBloc,
+        });
+        await appliquerObjets(sets);
         objets = true;
+        setsCrees = sets.map((s) => s.title);
       } catch (erreur) {
         erreurs.objets = erreur.message;
       }
@@ -419,7 +473,7 @@ function creerBuildAuto({
     }
 
     journal("build", championId, role, { runes: Boolean(runes), objets, sorts: sortsChoisis, erreurs });
-    resultat({ championId, role, build: resume, runes, objets, sortsChoisis, erreurs });
+    resultat({ championId, role, build: resume, runes, objets, setsCrees, sortsChoisis, erreurs });
   }
 
   return { surSession };
@@ -432,12 +486,20 @@ async function lirePartie(dossierJeu) {
   return lireJsonOuNull(lireLockfile(dossierJeu), "/lol-gameflow/v1/session");
 }
 
-/** Noms des objets dans la langue du client : Map id -> nom (pour les données de Lolalytics, qui n'ont que les numéros). */
-async function lireNomsObjets(dossierJeu) {
+/**
+ * Objets du client, lus en une fois : { noms: Map id -> nom (langue du client, pour Lolalytics qui n'a que les numéros),
+ * categories: Map id -> ["Health", "Damage"...] (pour repérer les familles de builds, familles.js) }.
+ */
+async function lireObjets(dossierJeu) {
   const objets = await lireJsonOuNull(lireLockfile(dossierJeu), "/lol-game-data/assets/v1/items.json");
   const noms = new Map();
-  if (Array.isArray(objets)) for (const o of objets) if (o && Number.isInteger(o.id) && typeof o.name === "string") noms.set(o.id, o.name);
-  return noms;
+  const categories = new Map();
+  for (const o of Array.isArray(objets) ? objets : []) {
+    if (!o || !Number.isInteger(o.id)) continue;
+    if (typeof o.name === "string") noms.set(o.id, o.name);
+    if (Array.isArray(o.categories)) categories.set(o.id, o.categories.filter((c) => typeof c === "string"));
+  }
+  return { noms, categories };
 }
 
 /** Alias des champions (nom interne, ex. "MonkeyKing"), pour OP.GG : Map id -> alias. */
@@ -448,7 +510,6 @@ async function lireAliasChampions(dossierJeu) {
   return alias;
 }
 
-/** Ajoute (ou remplace) le set "LoL Companion" de ce champion, sans toucher à tes autres sets. */
 /**
  * Choisit tes 2 sorts d'invocateur pendant la sélection des champions (route vérifiée dans lcu-schema) :
  *   PATCH /lol-champ-select/v1/session/my-selection { spell1Id, spell2Id } -> 204
@@ -461,13 +522,14 @@ async function appliquerSorts(dossierJeu, [spell1Id, spell2Id]) {
   if (status < 200 || status >= 300) throw new ErreurClient(`Le client a refusé les sorts d'invocateur (code ${status}).`);
 }
 
-async function appliquerSet(dossierJeu, set) {
+/** Écrit le ou les sets "LoL Companion" du champion (un par famille de build) sans toucher à tes autres sets. */
+async function appliquerSet(dossierJeu, sets) {
   const connexion = lireLockfile(dossierJeu);
   const moi = await lireJson(connexion, "/lol-summoner/v1/current-summoner");
   const route = `/lol-item-sets/v1/item-sets/${moi.summonerId}/sets`;
   const actuels = await lireJson(connexion, route);
   if (!actuels || !Array.isArray(actuels.itemSets)) throw new ErreurClient("Sets d'objets illisibles dans le client.");
-  const corps = { ...actuels, itemSets: fusionnerSets(actuels.itemSets, set), timestamp: Date.now() };
+  const corps = { ...actuels, itemSets: fusionnerSets(actuels.itemSets, sets), timestamp: Date.now() };
   const { status } = await appelerClient(connexion, route, { methode: "PUT", corps });
   if (status < 200 || status >= 300) throw new ErreurClient(`Le client a refusé le set d'objets (code ${status}).`);
 }
@@ -486,11 +548,13 @@ module.exports = {
   assemblerBuild,
   pageDepuisOpgg,
   setObjets,
+  etapesFamille,
+  setsObjets,
   fusionnerSets,
   resumeBuild,
   creerBuildAuto,
   lirePartie,
-  lireNomsObjets,
+  lireObjets,
   lireAliasChampions,
   appliquerSet,
   appliquerSorts,

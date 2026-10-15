@@ -51,6 +51,20 @@ function dessinerBuild(conteneur, { titre, build }) {
     conteneur.append(element("p", null, `Runes${styles} : ${build.runes.noms.join(", ")} · ${pourcentBuild(build.runes.tauxVictoire)} V`));
   }
   if (build.sorts) conteneur.append(element("p", null, `Sorts : ${build.sorts.noms.join(" + ")} · ${pourcentBuild(build.sorts.tauxVictoire)} V`));
+  // Champion qui se joue de plusieurs façons (familles.js) : un set par façon, ses 3 premiers objets lui sont propres.
+  if (Array.isArray(build.familles) && build.familles.length > 1) {
+    conteneur.append(element("h4", null, "Plusieurs façons de jouer ce champion (un set d'objets chacune)"));
+    const familles = element("ul", "build-etapes");
+    for (const f of build.familles) {
+      const ligne = element("li");
+      ligne.append(element("strong", null, `${f.nom} `), element("span", "build-taux", `(${pourcentBuild(f.part)} des builds)`));
+      f.objets.forEach((noms, i) => {
+        if (noms) ligne.append(element("div", "aide", `Objet ${i + 1} : ${noms}`));
+      });
+      familles.append(ligne);
+    }
+    conteneur.append(familles);
+  }
 }
 
 // --- Réglages -----------------------------------------------------------------------------
@@ -99,7 +113,10 @@ function surEvenementBuild(info) {
   const bilan = [];
   if (info.runes) bilan.push(`page de runes « ${info.runes.nomPage || "LoL Companion"} » créée (${info.runes.source}) ✓`);
   if (info.sortsChoisis) bilan.push(`sorts : ${info.sortsChoisis.join(" + ")} ✓`);
-  if (info.objets) bilan.push("set d'objets créé ✓");
+  if (info.objets) {
+    const plusieurs = Array.isArray(info.setsCrees) && info.setsCrees.length > 1;
+    bilan.push(plusieurs ? `${info.setsCrees.length} sets d'objets créés (un par façon de jouer) ✓` : "set d'objets créé ✓");
+  }
   for (const [quoi, message] of Object.entries(info.erreurs || {})) {
     bilan.push(`${{ stats: "OP.GG", emplacements: "Lolalytics", runes: "runes", objets: "set d'objets", sortsAuto: "sorts" }[quoi]} : ${message}`);
   }

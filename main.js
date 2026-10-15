@@ -24,7 +24,7 @@ const { creerLecteurEcran } = require("./ocr.js");
 const { creerLecteurArammayhem } = require("./arammayhem.js");
 const { creerSondage, etatPreparation } = require("./sondage.js");
 const { creerJournal } = require("./journal.js");
-const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireNomsObjets, appliquerSet, appliquerSorts } = require("./build.js");
+const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireObjets, appliquerSet, appliquerSorts } = require("./build.js");
 const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg.js");
 const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
@@ -65,7 +65,7 @@ const lecteurOpgg = creerLecteurOpgg();
 const lecteurLolalytics = creerLecteurLolalytics();
 const lecteurArammayhem = creerLecteurArammayhem(); // taux de victoire des augments ARAM Mayhem
 let aliasChampions = new Map(); // id -> nom interne ("MonkeyKing"), pour OP.GG et Lolalytics
-let nomsObjets = new Map(); // id -> nom de l'objet (langue du client), pour Lolalytics
+let objetsClient = { noms: new Map(), categories: new Map() }; // noms (langue du client) et catégories des objets, pour Lolalytics
 // Augments ARAM Mayhem affichés en jeu (augments.js) : désactivé par défaut (onglet Build).
 let championPartie = null; // ton champion, retenu pendant la sélection
 let indexAugments = null; // noms de tous les augments (langue du jeu)
@@ -325,16 +325,16 @@ async function obtenirAliasChampions() {
 // Positions des pages recommandées par Riot ("MIDDLE"...) -> rôles du client ("middle"...).
 const ROLE_DEPUIS_POSITION = { TOP: "top", JUNGLE: "jungle", MIDDLE: "middle", BOTTOM: "bottom", UTILITY: "utility" };
 
-/** Noms des objets (langue du client), lus une seule fois dans le client. */
-async function obtenirNomsObjets() {
-  if (nomsObjets.size === 0) {
+/** Noms et catégories des objets (langue du client), lus une seule fois dans le client. */
+async function obtenirObjets() {
+  if (objetsClient.noms.size === 0) {
     try {
-      nomsObjets = await lireNomsObjets(stockage.dossierJeu());
+      objetsClient = await lireObjets(stockage.dossierJeu());
     } catch {
       // client fermé : on réessaiera
     }
   }
-  return nomsObjets;
+  return objetsClient;
 }
 
 /**
@@ -365,8 +365,14 @@ async function analyserOpgg(demande) {
 /** Objets emplacement par emplacement (Lolalytics), avec les noms des objets du client. */
 async function analyserLolalytics(demande) {
   const { alias, role, mode } = await contexteBuild(demande);
-  const noms = await obtenirNomsObjets();
-  return lecteurLolalytics.analyser({ alias, role, mode: mode === "flex" ? "ranked" : mode, nomObjet: (id) => noms.get(id) || `Objet n° ${id}` });
+  const { noms, categories } = await obtenirObjets();
+  return lecteurLolalytics.analyser({
+    alias,
+    role,
+    mode: mode === "flex" ? "ranked" : mode,
+    nomObjet: (id) => noms.get(id) || `Objet n° ${id}`,
+    categoriesObjet: (id) => categories.get(id) || [], // familles de builds (plusieurs sets)
+  });
 }
 
 /**

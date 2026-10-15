@@ -121,6 +121,14 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   - crée le set d'objets « LoL Companion - Champion (Rôle) », visible dans la boutique en jeu : un bloc par
     emplacement avec ses 3 choix, le recommandé en premier. Un seul set « LoL Companion » est gardé (celui du champion
     actuel) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413).
+  - **plusieurs sets pour un champion qui se joue de plusieurs façons** (`familles.js`) : Vi combattant ou
+    létalité / critique, Kai'Sa à l'impact ou AP, Kayn rouge (Rhaast) ou bleu (Assassin de l'ombre)... La page
+    Lolalytics donne les combinaisons des 3 premiers objets réellement construites (`itemSets`). Chaque combinaison est
+    rangée d'après son **premier objet** et ses catégories dans le client (Santé, Coup critique, Pénétration...) ;
+    Kayn est un cas à part (bleu = aucun objet avec de la Santé, rouge = au moins un). On garde les familles qui
+    pèsent au moins 10 % des builds et 300 parties (3 au plus), et seulement les objets construits dans au moins
+    200 parties et 10 % des achats de leur emplacement. Chaque set a ses Objets 1 à 3 propres ; le départ, les
+    bottes et les objets 4 et 5 viennent du build général. Un champion qui ne se joue que d'une façon garde un seul set.
   Tes pages de runes et tes sets (Porofessor...) ne sont jamais modifiés. Tu peux aussi consulter le build de
   n'importe quel champion, rôle et mode, sans rien appliquer
 - **Augments ARAM Mayhem en jeu** (onglet Build, désactivé par défaut) : quand les 3 augments sont proposés, l'appli
@@ -186,7 +194,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (379) |
+| `npm test` | Lance les tests (392) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -239,7 +247,7 @@ temporaire dans le fichier `lockfile` de son dossier d'installation. L'appli lit
 | `GET /lol-gameflow/v1/session` | Carte et mode de la partie (Faille / Abîme hurlant, classée / ARAM / URF) pour le build |
 | `GET /lol-perks/v1/pages`, `GET /lol-perks/v1/inventory` | Tes pages de runes, place disponible |
 | `POST /lol-perks/v1/pages`, `DELETE /lol-perks/v1/pages/<id>` | Créer / remplacer la page « LoL Companion » (modifie le client, désactivé par défaut ; jamais tes autres pages) |
-| `GET` / `PUT /lol-item-sets/v1/item-sets/<summonerId>/sets` | Sets d'objets : on garde un seul set « LoL Companion - Champion » (celui du champion actuel), tes autres sets sont renvoyés tels quels (modifie le client, désactivé par défaut) |
+| `GET` / `PUT /lol-item-sets/v1/item-sets/<summonerId>/sets` | Sets d'objets : on garde seulement les sets « LoL Companion - Champion » du champion actuel (un par façon de le jouer), tes autres sets sont renvoyés tels quels (modifie le client, désactivé par défaut) |
 
 **Seules connexions à Internet : les statistiques de builds (OP.GG et Lolalytics).** Le client ne fournit aucune
 statistique d'objets (`recommendedItemDefaults` est vide). Si tu coches « Récupérer le build de mon champion »
@@ -507,6 +515,7 @@ lol-level-calculator/
 ├── build.js           # Build : classement des objets, page de runes, set d'objets, logique automatique
 ├── internet.js        # Règles communes des appels à Internet : User-Agent honnête, cache de 3 h, délai, erreurs
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
+├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
 ├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies ; cache
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
 ├── objectifs.js       # Alerte avant les objectifs en jeu : heures d'apparition, chrono du jeu (API locale), bandeau

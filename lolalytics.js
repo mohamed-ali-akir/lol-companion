@@ -28,6 +28,7 @@
  */
 
 const { IDENTITE, creerCache, telecharger } = require("./internet.js"); // cache 3 h, User-Agent, délai maximal
+const { detecterFamilles, ajouterExclus } = require("./familles.js"); // plusieurs sets pour les champions à plusieurs builds
 
 const URL_LOLALYTICS = "https://lolalytics.com";
 const URL_API = "https://a1.lolalytics.com"; // synergies (conseiller de draft)
@@ -97,7 +98,7 @@ function extraireDonnees(html) {
   const page = etat.objs.find((o) => o && typeof o === "object" && !Array.isArray(o) && "item1" in o && "boots" in o);
   if (!page) return null;
   const donnees = {};
-  for (const cle of ["n", "avgWr", "boots", "startSet", "item1", "item2", "item3", "item4", "item5", "enemy"]) {
+  for (const cle of ["n", "avgWr", "boots", "startSet", "item1", "item2", "item3", "item4", "item5", "enemy", "itemSets"]) {
     donnees[cle] = etat.resoudre(page[cle]);
   }
   return donnees;
@@ -165,8 +166,11 @@ function optionsEmplacement(liste, { combinaison = false } = {}) {
   return options.map((o) => ({ ...o, selection: total > 0 ? o.parties / total : 0 }));
 }
 
-/** Données de la page -> { stats, depart, bottes, emplacements: [objet1..objet5] }, ou null si inutilisables. */
-function analyseDepuisDonnees(d, nomObjet = (id) => `Objet ${id}`) {
+/**
+ * Données de la page -> { stats, depart, bottes, emplacements: [objet1..objet5], familles }, ou null si inutilisables.
+ * familles : builds séparés du champion (familles.js), [] s'il n'y en a qu'un ; il faut les catégories des objets.
+ */
+function analyseDepuisDonnees(d, nomObjet = (id) => `Objet ${id}`, { categoriesObjet = () => [], alias = "" } = {}) {
   if (!d) return null;
   const nommer = (options) => options.map((o) => ({ ...o, noms: o.ids.map(nomObjet) }));
   const emplacements = ["item1", "item2", "item3", "item4", "item5"].map((cle) => nommer(optionsEmplacement(d[cle])));
@@ -176,6 +180,12 @@ function analyseDepuisDonnees(d, nomObjet = (id) => `Objet ${id}`) {
     depart: nommer(optionsEmplacement(d.startSet, { combinaison: true })),
     bottes: nommer(optionsEmplacement(d.boots)),
     emplacements,
+    familles: ajouterExclus({
+      familles: detecterFamilles({ itemSets: d.itemSets, categoriesObjet, alias }),
+      ids: emplacements.flat().flatMap((o) => o.ids), // objets du build général, pour le reste de chaque set
+      categoriesObjet,
+      alias,
+    }).map((f) => ({ ...f, emplacements: f.emplacements.map(nommer) })),
   };
 }
 
@@ -211,7 +221,7 @@ function creerLecteurLolalytics({ appeler = (...a) => fetch(...a), maintenant = 
     });
   }
 
-  async function analyser({ alias, role, mode, nomObjet }) {
+  async function analyser({ alias, role, mode, nomObjet, categoriesObjet }) {
     let donnees;
     try {
       donnees = await donneesChampion({ alias, role, mode });
@@ -219,7 +229,7 @@ function creerLecteurLolalytics({ appeler = (...a) => fetch(...a), maintenant = 
       if (/format/.test(erreur.message)) throw new ErreurLolalytics("La page de Lolalytics a changé de format : build d'OP.GG utilisé à la place.");
       throw erreur;
     }
-    const analyse = analyseDepuisDonnees(donnees, nomObjet);
+    const analyse = analyseDepuisDonnees(donnees, nomObjet, { categoriesObjet, alias });
     if (!analyse) throw new ErreurLolalytics("La page de Lolalytics a changé de format : build d'OP.GG utilisé à la place.");
     return analyse;
   }

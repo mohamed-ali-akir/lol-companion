@@ -211,3 +211,19 @@ test("tier list : un échec n'est pas gardé en cache (on réessaie à la procha
   assert.strictEqual(site.appels[1].url, "https://lolalytics.com/lol/tierlist/?lane=middle");
   assert.strictEqual(tl.lignes.size, 1);
 });
+
+test("familles de builds : itemSets de la page -> un set par façon de jouer (catégories des objets du client)", () => {
+  // Combinaisons fictives au format de Lolalytics (itemBootSet3 : "objet_bottes_objet": [parties, ...]).
+  const itemSets = { itemBootSet3: { "3078_3047_3071": [6000, 0], "6676_3047_3036": [2000, 0], "3078_3071_6333": [1500, 0] } };
+  const categories = { 3047: ["Boots"], 3078: ["Health", "Damage"], 3071: ["Health", "Damage"], 6333: ["Armor", "Damage"], 6676: ["CriticalStrike"], 3036: ["CriticalStrike"] };
+  const noms = { 3078: "Force Trinité", 6676: "Collecteur" };
+  const d = L.extraireDonnees(pageQwik({ ...HWEI, itemSets }));
+  assert.deepStrictEqual(d.itemSets, itemSets);
+  const a = L.analyseDepuisDonnees(d, (id) => noms[id] || `Objet ${id}`, { categoriesObjet: (id) => categories[id] || [], alias: "Vi" });
+  assert.deepStrictEqual(a.familles.map((f) => f.nom), ["Combattant", "Létalité / Critique"]);
+  assert.deepStrictEqual(a.familles[0].emplacements[0][0].noms, ["Force Trinité"]);
+  assert.deepStrictEqual(a.familles[1].emplacements[0][0].noms, ["Collecteur"]);
+  // Sans itemSets, ou sans les catégories des objets : un seul build, comme avant
+  assert.deepStrictEqual(L.analyseDepuisDonnees(L.extraireDonnees(pageQwik(HWEI))).familles, []);
+  assert.deepStrictEqual(L.analyseDepuisDonnees(d).familles, []);
+});
