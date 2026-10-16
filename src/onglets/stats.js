@@ -2,7 +2,7 @@
  * Onglet "Stats" (et sa carte sur l'Accueil)
  * -----------------------------------------
  * Taux de victoire, KDA et nombre de parties par champion et par mode, meilleurs champions,
- * créneaux horaires et jours de la semaine, série en cours.
+ * créneaux horaires et jours de la semaine, série en cours, et temps passé sur le jeu (compté + estimé).
  * Les parties viennent de l'historique local (parties.json, lu par main.js) : il s'enrichit à chaque
  * lecture du client et reste disponible quand le client est fermé. Les calculs sont dans calculs.js.
  * Chaque chiffre indique sur combien de parties il est calculé.
@@ -189,6 +189,7 @@ function renduStats() {
   const parties = filtrerParFile(dansLaPeriode, fileStats === "tous" ? "tous" : Number(fileStats));
   const resume = resumeStats(parties);
   renduCarteAccueilStats();
+  renduTemps();
   renduPeriodes();
 
   $("statsSansDonnees").hidden = Boolean(resume);
@@ -261,6 +262,56 @@ async function importerHistorique() {
   } finally {
     bouton.disabled = false;
   }
+}
+
+// --- Temps passé sur LoL (calculs.js : tempsDeJeu) --------------------------------------------
+
+/** "1 895 h", ou "4,5 h" sous 10 h. */
+const texteHeures = (h) => `${formatNombre(h < 10 ? Math.round(h * 10) / 10 : Math.round(h))} h`;
+
+/**
+ * Bloc « Temps passé sur LoL » de l'onglet Stats et sa carte sur l'Accueil.
+ * Toujours sur TOUT le compte (ni la période ni le filtre de mode ne s'appliquent).
+ */
+function renduTemps() {
+  const t = tempsDeJeu({ parties: partiesStats, compte });
+  const carte = $("carteTempsJeu");
+  carte.classList.toggle("bientot", !t);
+  $("blocTemps").hidden = !t;
+  if (!t) {
+    carte.querySelector(".carte-valeur").textContent = "";
+    carte.querySelector(".carte-detail").textContent = "Lance League of Legends pour le calculer.";
+    return;
+  }
+  const estimation = t.estime !== null && t.total === t.estime.heures;
+  carte.querySelector(".carte-valeur").textContent = `≈ ${texteHeures(t.total)}`;
+  carte.querySelector(".carte-detail").textContent = `soit ${formatNombre(Math.round(t.jours * 10) / 10)} jours de jeu${estimation ? " depuis la création du compte" : ""}`;
+
+  $("tempsTotal").textContent = `≈ ${texteHeures(t.total)}`;
+  $("tempsTotalDetail").textContent = `≈ ${formatNombre(Math.round(t.jours * 10) / 10)} jours${t.estime ? ` · ≈ ${formatNombre(t.estime.parties)} parties` : ""}`;
+  $("tempsCompte").textContent = texteHeures(t.compte.heures);
+  $("tempsCompteDetail").textContent = t.compte.depuis
+    ? `${surParties(t.compte.parties)} depuis le ${formatDateLongue(t.compte.depuis)}`
+    : "aucune partie enregistrée";
+  $("tempsSemaine").textContent = texteHeures(t.heuresParSemaine);
+  $("tempsFilms").textContent = formatNombre(t.films);
+
+  const lignes = [];
+  if (t.plusLongue) {
+    const avec = t.plusLongue.champion ? ` avec ${t.plusLongue.champion}` : "";
+    lignes.push(`Ta plus longue partie : ${t.plusLongue.minutes} min${avec} (${t.plusLongue.victoire ? "victoire" : "défaite"}).`);
+  }
+  if (t.modes.length > 0) lignes.push(`Tes modes : ${t.modes.map((m) => `${m.nom} ${texteHeures(m.heures)}`).join(" · ")}.`);
+  if (t.champions.length > 0) lignes.push(`Tes champions : ${t.champions.map((c) => `${c.nom} ${texteHeures(c.heures)}`).join(" · ")}.`);
+  if (t.compte.parties > 0) lignes.push(`Parties entre minuit et 6 h : ${pourcent(t.partiesDeNuit)}.`);
+  $("tempsAmusant").replaceChildren(...lignes.map((l) => cellule("li", l)));
+
+  $("tempsMethode").textContent = t.estime
+    ? `Comment c'est calculé : l'appli compte exactement tes parties enregistrées (durée + ${ATTENTE_PAR_PARTIE_MIN} min d'attente chacune). ` +
+      `Avant ça, elle estime : l'XP totale de ton compte (niveau ${compte.niveau}) divisée par l'XP d'une partie moyenne pour toi ` +
+      `(${formatNombre(t.estime.xpParPartie)} XP). C'est un ordre de grandeur : l'XP des missions et des boosts fait monter l'estimation, ` +
+      "les parties contre des bots la font baisser."
+    : `Comment c'est calculé : tes parties enregistrées (durée + ${ATTENTE_PAR_PARTIE_MIN} min d'attente chacune). Lance League of Legends pour ajouter l'estimation depuis la création du compte.`;
 }
 
 /** Carte "Tes stats" sur l'Accueil (tous modes confondus, toutes les parties connues). */

@@ -14,11 +14,11 @@ publiques (Lolalytics, OP.GG).*
 
 | Onglet | Ce qu'il montre |
 |---|---|
-| **Accueil** | Le bilan de ta session en grand, puis une carte par onglet (niveau, objectif, rythme, classée, stats, missions, maîtrise, acceptation auto). Chaque carte ouvre l'onglet détaillé |
+| **Accueil** | Le bilan de ta session en grand, puis une carte par onglet (niveau, objectif, rythme, classée, stats, temps passé sur LoL, missions, maîtrise, acceptation auto). Chaque carte ouvre l'onglet détaillé |
 | **Niveau** | Le calculateur : parties, heures et jours restants avant ton niveau visé pour 4 modes, et ta courbe de progression |
 | **Classée** | Checklist niveau 30 + 20 champions, ton Essence bleue et les champions que tu peux acheter tout de suite |
 | **Missions** | Tes missions en cours et l'XP de compte qu'elles rapportent |
-| **Stats** | Taux de victoire et KDA par champion et par mode, meilleurs champions, moments où tu gagnes le plus, sur 30 jours ou depuis le début |
+| **Stats** | Taux de victoire et KDA par champion et par mode, meilleurs champions, moments où tu gagnes le plus, sur 30 jours ou depuis le début ; temps passé sur LoL depuis la création du compte |
 | **Maîtrise** | Les champions les plus proches du niveau de maîtrise suivant, tes plus joués, la liste complète |
 | **Sélection** | Conseiller de draft : les 5 meilleurs champions pour la draft en cours, avec la raison (matchups, synergies). Pick et ban automatiques (désactivés par défaut) : 3 champions et 3 bans dans l'ordre, par rôle |
 | **Build** | Build de ton champion d'après les statistiques de Lolalytics et d'OP.GG (3 choix par emplacement avec taux de victoire et de sélection, runes, sorts), page de runes et set d'objets créés automatiquement, consultation du build de n'importe quel champion ; en jeu : stats des augments (ARAM Mayhem) et alerte avant les objectifs (Faille) |
@@ -88,6 +88,16 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 - **Stats** : par champion (tableau triable) et par mode, 3 meilleurs champions, taux de victoire selon le moment de
   la journée et le jour de la semaine, série en cours. Périodes **30 derniers jours** et **Tout**. Les parties sont
   gardées sur ton PC, et **« Importer tout mon historique »** remonte l'historique du client aussi loin qu'il le permet
+- **Temps passé sur LoL** (onglet Stats et carte de l'Accueil, comme wol.gg mais sans clé API ni site extérieur) :
+  le client ne garde qu'une vingtaine de parties et n'a plus de statistiques de carrière (routes `lol-career-stats`
+  absentes, vérifié le 16/10/2026). Le temps est donc :
+  - **compté** sur les parties enregistrées par l'appli : durée exacte + 5 min d'attente par partie ;
+  - **estimé** depuis la création du compte : XP totale du compte (niveau + progression) divisée par l'XP d'une
+    partie moyenne pour toi (ta durée moyenne, ton taux de victoire, formule du wiki). C'est un ordre de grandeur :
+    l'XP des missions et des boosts fait monter l'estimation, les parties contre des bots la font baisser.
+  On affiche le plus grand des deux, en heures et en jours, avec quelques stats amusantes : nombre de films de 2 h,
+  heures par semaine sur 30 jours, plus longue partie, modes et champions où tu as passé le plus de temps, parties
+  entre minuit et 6 h. Fonction `tempsDeJeu` de `src/calculs.js`.
 - **Maîtrise** : points restants et **marques de maîtrise** manquantes (système de 2024), avec la note à obtenir pour
   en gagner. Estimation « ≈ N parties » à partir de ta moyenne de points par partie sur ce champion, mesurée par
   l'appli après tes parties. Recherche et tri (par points ou par proximité du niveau suivant)
@@ -194,7 +204,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (392) |
+| `npm test` | Lance les tests (400) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour

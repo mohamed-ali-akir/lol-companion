@@ -1530,3 +1530,9 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
 .tuiles-session .tuile-valeur {
   font-size: 1.3rem; /* "≈ +1 250 XP" tient sur une ligne */
 }
+
+/* Temps passé sur LoL (onglet Stats) : petites phrases sous les tuiles */
+.liste-temps {
+  margin: 12px 0 0;
+  padding-left: 18px;
+}

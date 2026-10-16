@@ -952,9 +952,77 @@ function alertesSession(bilan, reglages, maintenant = Date.now()) {
   return alertes;
 }
 
+// ---------------------------------------------------------------------------
+// Temps passé sur le jeu (comme wol.gg, mais sans clé API) : compté + estimé
+// ---------------------------------------------------------------------------
+
+const REMAKE_S = 5 * 60; // moins de 5 minutes : remake, pas compté
+const DUREE_PARTIE_PAR_DEFAUT_MIN = 25; // sans parties enregistrées, une partie moyenne
+
+/**
+ * Temps passé sur LoL par un compte.
+ *  - compté : les parties enregistrées par l'appli (durée exacte + ATTENTE_PAR_PARTIE_MIN d'attente chacune) ;
+ *  - estimé : depuis la création du compte, d'après son XP totale (niveau + progression). On divise l'XP par
+ *    l'XP d'une partie moyenne (TA durée moyenne et TON taux de victoire, formule du wiki), ce qui donne un
+ *    nombre de parties, puis des heures. Ordre de grandeur seulement : l'XP des missions, des boosts et des
+ *    événements fait monter l'estimation ; les parties contre des bots (moins d'XP) la font baisser.
+ *  - total : le plus grand des deux (l'estimation ne peut pas être plus petite que ce qu'on a compté).
+ * parties : [{ date, dureeS, file, championNom, victoire }] ; compte : { niveau, progression } ou null.
+ * Renvoie null s'il n'y a ni compte ni partie.
+ */
+function tempsDeJeu({ parties, compte, maintenant = Date.now() }) {
+  const vraies = (Array.isArray(parties) ? parties : []).filter((p) => p && Number.isFinite(p.dureeS) && p.dureeS >= REMAKE_S);
+  const niveauValide = compte && Number.isInteger(compte.niveau) && compte.niveau >= 1;
+  if (!niveauValide && vraies.length === 0) return null;
+
+  const n = vraies.length;
+  const secondes = vraies.reduce((s, p) => s + p.dureeS, 0);
+  const dureeMoyMin = n > 0 ? secondes / 60 / n : DUREE_PARTIE_PAR_DEFAUT_MIN;
+  const tauxVictoire = n > 0 ? vraies.filter((p) => p.victoire).length / n : TAUX_VICTOIRE_PAR_DEFAUT;
+  const heuresAvecAttente = (nb, minutesParPartie) => (nb * (minutesParPartie + ATTENTE_PAR_PARTIE_MIN)) / 60;
+
+  const exact = {
+    parties: n,
+    heuresEnJeu: secondes / 3600,
+    heures: n > 0 ? heuresAvecAttente(n, dureeMoyMin) : 0,
+    depuis: n > 0 ? Math.min(...vraies.map((p) => p.date)) : null,
+  };
+
+  let estime = null;
+  if (niveauValide) {
+    const xpTotale = xpDuCompte({ niveau: compte.niveau, progression: Number(compte.progression) || 0 });
+    const xpParPartie = xpMoyenneParPartie({ dureeMin: Math.max(dureeMoyMin, DUREE_MINIMUM_MIN), tauxVictoire, niveau: compte.niveau, bots: false });
+    const partiesEstimees = xpParPartie > 0 ? xpTotale / xpParPartie : 0;
+    estime = { parties: Math.round(partiesEstimees), heures: heuresAvecAttente(partiesEstimees, dureeMoyMin), xpParPartie: Math.round(xpParPartie) };
+  }
+  const total = Math.max(estime ? estime.heures : 0, exact.heures);
+
+  // Stats amusantes (sur les parties enregistrées)
+  const heuresPar = (cle) => {
+    const table = new Map();
+    for (const p of vraies) table.set(cle(p), (table.get(cle(p)) || 0) + p.dureeS / 3600);
+    return [...table].map(([nom, heures]) => ({ nom, heures })).sort((a, b) => b.heures - a.heures).slice(0, 3);
+  };
+  const trenteJours = vraies.filter((p) => maintenant - p.date < 30 * JOUR_MS);
+  const plusLongue = vraies.reduce((m, p) => (!m || p.dureeS > m.dureeS ? p : m), null);
+  return {
+    compte: exact,
+    estime,
+    total,
+    jours: total / 24,
+    films: Math.floor(total / 2), // un film = 2 h
+    heuresParSemaine: (trenteJours.reduce((s, p) => s + p.dureeS, 0) / 3600 + (trenteJours.length * ATTENTE_PAR_PARTIE_MIN) / 60) / (30 / 7),
+    partiesDeNuit: n > 0 ? vraies.filter((p) => new Date(p.date).getHours() < 6).length / n : 0, // entre minuit et 6 h
+    plusLongue: plusLongue ? { minutes: Math.round(plusLongue.dureeS / 60), champion: plusLongue.championNom || null, victoire: Boolean(plusLongue.victoire) } : null,
+    modes: heuresPar((p) => NOMS_FILES[p.file] || "Autres modes"), // modes inconnus regroupés
+    champions: heuresPar((p) => p.championNom || `Champion ${p.championId}`),
+  };
+}
+
 // Dans Node (tests, main.js), on exporte les fonctions. Dans la page, elles sont déjà globales.
 if (typeof module !== "undefined") {
   module.exports = {
+    tempsDeJeu,
     REGLAGES_SESSION_PAR_DEFAUT,
     normaliserReglagesSession,
     partiesDeSession,

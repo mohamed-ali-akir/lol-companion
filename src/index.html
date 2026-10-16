@@ -132,6 +132,12 @@
             <span class="carte-detail"></span>
           </button>
 
+          <button type="button" class="card carte-accueil bientot" id="carteTempsJeu" data-vers="stats">
+            <span class="carte-titre">Temps passé sur LoL</span>
+            <span class="carte-valeur"></span>
+            <span class="carte-detail"></span>
+          </button>
+
           <!-- Emplacements des prochaines fonctionnalités -->
           <button type="button" class="card carte-accueil bientot" id="carteClassee" data-vers="classee">
             <span class="carte-titre">Prêt pour la classée ?</span>
@@ -300,6 +306,30 @@
           </p>
           <p id="etatImport" class="etat" hidden></p>
         </div>
+
+        <section class="card" id="blocTemps" aria-labelledby="titreTemps" hidden>
+          <h2 id="titreTemps">Temps passé sur LoL</h2>
+          <div class="tuiles">
+            <div class="tuile">
+              <span class="tuile-titre">Depuis la création du compte</span><span class="tuile-valeur" id="tempsTotal"></span>
+              <span class="tuile-detail" id="tempsTotalDetail"></span>
+            </div>
+            <div class="tuile">
+              <span class="tuile-titre">Compté par l'appli</span><span class="tuile-valeur" id="tempsCompte"></span>
+              <span class="tuile-detail" id="tempsCompteDetail"></span>
+            </div>
+            <div class="tuile">
+              <span class="tuile-titre">Ton rythme</span><span class="tuile-valeur" id="tempsSemaine"></span>
+              <span class="tuile-detail">par semaine (30 derniers jours)</span>
+            </div>
+            <div class="tuile">
+              <span class="tuile-titre">Soit</span><span class="tuile-valeur" id="tempsFilms"></span>
+              <span class="tuile-detail">films de 2 h</span>
+            </div>
+          </div>
+          <ul class="aide liste-temps" id="tempsAmusant"></ul>
+          <p class="aide" id="tempsMethode"></p>
+        </section>
 
         <div class="periodes" role="tablist" aria-label="Période des stats">
           <button type="button" role="tab" id="periode-30" data-periode="30" aria-selected="true" tabindex="0">30 derniers jours</button>
