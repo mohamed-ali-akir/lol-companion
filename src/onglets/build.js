@@ -81,6 +81,8 @@ function afficherReglagesBuild(r) {
   $("buildReapparitions").checked = r.reapparitions;
   $("buildReapparitions").disabled = !r.objectifs; // option en plus de l'alerte des objectifs
   $("buildSorts").checked = r.sorts;
+  $("buildSortsPings").checked = r.sortsPings;
+  $("buildSortsPings").disabled = !r.sorts; // option en plus des chronos des sorts
   // Ces trois options dessinent par-dessus le jeu : impossible en plein écran.
   $("rappelSansBordure").hidden = !(r.augments || r.objectifs || r.sorts);
 }
@@ -95,6 +97,7 @@ async function enregistrerBuild() {
     objectifs: $("buildObjectifs").checked,
     reapparitions: $("buildObjectifs").checked && $("buildReapparitions").checked,
     sorts: $("buildSorts").checked,
+    sortsPings: $("buildSorts").checked && $("buildSortsPings").checked,
   });
   if (!reponse.ok) {
     afficherEtat("etatBuild", reponse.erreur, "erreur");
@@ -170,7 +173,7 @@ async function consulterBuild(evenement) {
 function brancherBuild() {
   window.appli.lireBuild().then(afficherReglagesBuild);
   window.appli.surBuild(surEvenementBuild);
-  for (const id of ["buildStats", "buildRunes", "buildObjets", "buildSortsAuto", "buildAugments", "buildObjectifs", "buildReapparitions", "buildSorts"]) $(id).addEventListener("change", enregistrerBuild);
+  for (const id of ["buildStats", "buildRunes", "buildObjets", "buildSortsAuto", "buildAugments", "buildObjectifs", "buildReapparitions", "buildSorts", "buildSortsPings"]) $(id).addEventListener("change", enregistrerBuild);
   $("formConsulterBuild").addEventListener("submit", consulterBuild);
   $("buildMode").addEventListener("change", () => ($("buildRole").disabled = $("buildMode").value === "aram"));
   remplirChampionsBuild().then((ok) => {

@@ -43,3 +43,47 @@ test("Mac : le script Vision relit un texte connu", { skip: process.platform !==
     fs.rmSync(dossier, { recursive: true, force: true });
   }
 });
+
+// Un faux chat aux couleurs du jeu (pseudo bleu, ennemi rouge, sort orange), petit texte sur un fond sombre :
+// toute la chaîne de l'appli (image.js puis Vision) doit y reconnaître le ping « Vex Flash ».
+const SCRIPT_CHAT = String.raw`
+ObjC.import("AppKit");
+function run(argv) {
+  const image = $.NSImage.alloc.initWithSize($.NSMakeSize(563, 252));
+  image.lockFocus;
+  $.NSColor.colorWithSRGBRedGreenBlueAlpha(0.13, 0.17, 0.10, 1).setFill;
+  $.NSRectFill($.NSMakeRect(0, 0, 563, 252));
+  const police = $.NSFont.systemFontOfSize(17);
+  const couleur = (r, v, b) => $.NSColor.colorWithSRGBRedGreenBlueAlpha(r / 255, v / 255, b / 255, 1);
+  let x = 30;
+  for (const [texte, c] of [["wDark (Ashe): ", couleur(70, 170, 235)], ["Vex ", couleur(230, 60, 60)], ["Flash", couleur(250, 170, 40)]]) {
+    const attributs = $.NSDictionary.dictionaryWithObjectsForKeys($([police, c]), $([$.NSFontAttributeName, $.NSForegroundColorAttributeName]));
+    const t = $(texte);
+    t.drawAtPointWithAttributes($.NSMakePoint(x, 60), attributs);
+    x += t.sizeWithAttributes(attributs).width;
+  }
+  image.unlockFocus;
+  const bitmap = $.NSBitmapImageRep.imageRepWithData(image.TIFFRepresentation);
+  bitmap.representationUsingTypeProperties($.NSBitmapImageFileTypePNG, $.NSDictionary.dictionary).writeToFileAtomically(argv[0], true);
+  return "ok";
+}`;
+
+test("Mac : chaîne complète des pings (image.js + Vision) sur un faux chat aux couleurs du jeu", { skip: process.platform !== "darwin" && "seulement sur Mac" }, async () => {
+  const I = require("../image.js");
+  const P = require("../pings.js");
+  const dossier = fs.mkdtempSync(path.join(os.tmpdir(), "lol-chat-mac-"));
+  const capture = path.join(dossier, "chat.png");
+  const propre = path.join(dossier, "propre.png");
+  try {
+    execFileSync("osascript", ["-l", "JavaScript", "-e", SCRIPT_CHAT, capture], { timeout: 30000 });
+    const image = I.nettoyerChat(I.lirePng(fs.readFileSync(capture)), { facteur: 3 });
+    fs.writeFileSync(propre, I.ecrirePngGris(image));
+    const lecteur = O.creerLecteurEcranMac({ langue: "en-US", dossierTemp: dossier });
+    const lignes = P.regrouperLignes(await lecteur.lireImage(propre, { largeur: image.largeur, hauteur: image.hauteur }));
+    console.log("Chat lu :", JSON.stringify(lignes));
+    const cibles = [{ noms: ["Vex"], sorts: [{ id: "vex|0", noms: P.NOMS_SORTS.Flash }] }];
+    assert.ok(lignes.some((l) => P.pingDepuisLigne(l, cibles) === "vex|0"), "ping « Vex Flash » reconnu");
+  } finally {
+    fs.rmSync(dossier, { recursive: true, force: true });
+  }
+});

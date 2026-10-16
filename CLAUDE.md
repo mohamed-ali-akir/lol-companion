@@ -57,6 +57,12 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
 - **Exception décidée par le propriétaire (10/10/2026)** : chronos des sorts d'invocateur adverses (`sorts.js`),
   comme Porofessor ou Blitz. Garde-fous : case désactivée par défaut, le joueur CLIQUE lui-même quand il voit un sort
   utilisé (l'appli ne le devine jamais), seuls les objets visibles comptent (bottes de lucidité), aucun pseudo affiché.
+- **Exception décidée par le propriétaire (16/10/2026)** : démarrage AUTOMATIQUE d'un chrono de sort adverse quand un
+  joueur de ton équipe (ou toi) le signale par un ping, lu dans le chat du jeu (`pings.js`, OCR local de l'écran ;
+  message « Pseudo (Champion): ChampionEnnemi Sort »). Garde-fous : case séparée désactivée par défaut (en plus de
+  celle des chronos), seulement les pings visibles par l'équipe, seulement les 5 adversaires et LEURS sorts
+  d'invocateur, jamais un ultime ni une rune ; un chrono déjà lancé n'est pas relancé ; un clic l'annule comme
+  avant ; rien d'autre du chat n'est lu, gardé ou affiché (aucun pseudo).
 - **Toujours interdit** : chronos des ULTIMES adverses (interdits par Riot depuis le 13/03/2025, même manuels),
   camps de la jungle adverse, et tout ce qui n'est pas annoncé ou visible dans le jeu.
 

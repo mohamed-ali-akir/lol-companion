@@ -32,6 +32,7 @@ const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
 const { creerSuiviObjectifs, creerLectureJeuPartagee, estFaille } = require("./objectifs.js");
 const { creerSuiviSorts } = require("./sorts.js");
+const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { alertesDuCompte, creerSuiviAlertes } = require("./session.js");
 const { creerMiseAJour, creerVerificationMac, ADRESSE_LATEST_YML } = require("./mise-a-jour.js");
@@ -816,11 +817,22 @@ function demarrerAugments() {
 
 function demarrerObjectifs() {
   const lire = creerLectureJeuPartagee(); // une seule lecture du jeu par seconde pour les deux suivis
+  // Pings des sorts lus dans le chat (pings.js, exception du 16/10/2026 ; case « sortsPings », désactivée par défaut).
+  // Le lecteur d'écran est demandé à chaque lecture : c'est le même que celui des augments (un seul processus).
+  const lectureEcranPossible = process.platform === "win32" || process.platform === "darwin";
+  const lecteurChat = creerLecteurChat({
+    lecteur: {
+      capturer: (...args) => obtenirLecteurEcran().capturer(...args),
+      lireImage: (...args) => obtenirLecteurEcran().lireImage(...args),
+    },
+    ecran: () => ecranJeu(),
+  });
   suiviSorts = creerSuiviSorts({
-    reglages: () => stockage.reglagesBuild(), // case « sorts »
+    reglages: () => stockage.reglagesBuild(), // cases « sorts » et « sortsPings »
     lire,
     afficher: (panneau) => proteger("chronos des sorts", () => afficherSorts(panneau)),
     journal: noter,
+    lireChat: lectureEcranPossible ? () => lecteurChat.lire() : null,
   });
   suiviObjectifs = creerSuiviObjectifs({
     reglages: () => stockage.reglagesBuild(), // cases « objectifs » et « réapparitions »

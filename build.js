@@ -60,6 +60,7 @@ function normaliserReglagesBuild(brut, ancienRunes) {
     objectifs: r.objectifs === true, // bandeau avant la 1re apparition des objectifs, en jeu (objectifs.js)
     reapparitions: r.objectifs === true && r.reapparitions === true, // + réapparitions dragon / Baron / inhibiteurs (exception, voir objectifs.js)
     sorts: r.sorts === true, // chronos des sorts d'invocateur adverses, cliquables en jeu (sorts.js)
+    sortsPings: r.sorts === true && r.sortsPings === true, // + lancés par les pings lus dans le chat (pings.js, exception du 16/10/2026)
     sortsAuto: r.sortsAuto === true, // choisir mes sorts d'invocateur (les plus joués d'après OP.GG ; nécessite les stats)
   };
 }

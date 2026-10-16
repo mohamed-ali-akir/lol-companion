@@ -205,7 +205,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (414, dont 1 seulement sur Mac) |
+| `npm test` | Lance les tests (434, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -392,6 +392,17 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   (`setIgnoreMouseEvents(true, { forward: true })`) et ne les prend que quand la souris est sur le panneau ; elle ne
   prend jamais le clavier au jeu (`focusable: false`). Heures d'apparition vérifiées le 10/10/2026 sur le wiki officiel (patch 26.x) ; Riot les change parfois
   d'une saison à l'autre. Le bandeau partage la fenêtre transparente des augments, cachée quand il n'y a rien.
+- **Pings des sorts lus dans le chat** (`pings.js`, `image.js` ; case séparée, désactivée par défaut, exception
+  décidée le 16/10/2026) : quand un allié (ou toi) clique sur le sort d'un adversaire dans le tableau des scores, le
+  jeu écrit « Pseudo (Champion): ChampionEnnemi Sort » (ex. « wDark (Ashe): Vex Flash »), sans heure ni temps
+  restant. Aucune API ne donne le chat : chaque seconde, l'appli capture la zone du chat (en bas à gauche, à sa place
+  par défaut), la **nettoie** (agrandie 3 fois, seuls les pixels vifs et saturés du texte gardés, en noir sur blanc :
+  sans ça, l'OCR lisait « V c y Rash » pour « Vex Flash »), la lit avec l'OCR du système, puis cherche à la FIN de
+  chaque ligne un des 5 adversaires suivi d'un de SES sorts. Les erreurs de lecture courantes sont tolérées
+  (« Karnna », « K a I-nn a » pour « Karma ») ; jamais les lignes « Wait For… » (ses propres sorts), les runes ni les
+  alliés. Le chrono démarre au moment du ping, jamais relancé s'il tourne déjà ; un clic l'annule. Essai sur 7 vraies
+  captures : 5 pings retrouvés sur 5, aucune fausse détection, environ 100 ms par lecture sous Windows. Les captures
+  sont effacées aussitôt ; seuls les pings reconnus (champion + sort, jamais de pseudo) vont dans le journal.
 - **Build** (`build.js`, `lolalytics.js`, `opgg.js`, `runes.js`) : l'appli attend que ton pick soit verrouillé
   (`completed`) ; en ARAM, où il n'y a pas d'action « pick », le champion attribué suffit, et une relance de champion
   refait tout. Une seule fois par champion et par sélection. Sans rôle attribué, elle prend le rôle principal du
@@ -566,6 +577,8 @@ lol-level-calculator/
 ├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
 ├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies ; cache
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
+├── pings.js           # Pings des sorts lus dans le chat : capture, OCR, reconnaissance « ChampionEnnemi Sort »
+├── image.js           # Images PNG (lecture, écriture) et nettoyage de la zone du chat avant l'OCR
 ├── objectifs.js       # Alerte avant les objectifs en jeu : heures d'apparition, chrono du jeu (API locale), bandeau
 ├── augments.js        # Augments ARAM Mayhem : reconnaissance des cartes, étiquettes, surveillance pendant la partie
 ├── ocr.js             # Lecture de texte à l'écran : OCR de Windows (PowerShell) ou de macOS (screencapture + Vision)

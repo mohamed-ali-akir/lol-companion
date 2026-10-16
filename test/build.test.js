@@ -33,12 +33,12 @@ const ANALYSE = {
 };
 
 test("réglages : tout désactivé par défaut ; reprise de l'ancien réglage des runes", () => {
-  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false });
   assert.deepStrictEqual(B.normaliserReglagesBuild({ stats: "oui", runes: 1, objets: true, augments: "oui" }), {
-    stats: false, runes: false, objets: true, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false,
+    stats: false, runes: false, objets: true, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false,
   });
-  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined, { actif: true }), { stats: false, runes: true, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false });
-  assert.deepStrictEqual(B.normaliserReglagesBuild({ runes: false }, { actif: true }), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined, { actif: true }), { stats: false, runes: true, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild({ runes: false }, { actif: true }), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false });
   assert.strictEqual(B.normaliserReglagesBuild({ augments: true }).augments, true);
 });
 

@@ -63,6 +63,16 @@ while ($true) {
   try {
     $d = $demande | ConvertFrom-Json
     $chrono = [Diagnostics.Stopwatch]::StartNew()
+    if ($d.capture) {
+      # Capture seule, enregistrée dans un fichier PNG (zone du chat : nettoyée par image.js avant l'OCR).
+      $bmp = New-Object System.Drawing.Bitmap $d.largeur, $d.hauteur
+      $g = [System.Drawing.Graphics]::FromImage($bmp)
+      $g.CopyFromScreen($d.x, $d.y, 0, 0, $bmp.Size)
+      $g.Dispose()
+      $bmp.Save($d.capture, [System.Drawing.Imaging.ImageFormat]::Png); $bmp.Dispose()
+      [Console]::Out.WriteLine((ConvertTo-Json -Compress -InputObject @{ capture = $true; ms = $chrono.ElapsedMilliseconds }))
+      continue
+    }
     if ($d.fichier) {
       # Essais : lire une image (bande de $d.haut à $d.bas), au lieu de l'écran.
       $img = [System.Drawing.Image]::FromFile($d.fichier)
@@ -153,7 +163,7 @@ function creerLecteurEcran({ langue = "en-US", lancer = spawn, plateforme = proc
         const reponse = lireReponse(ligne);
         if (!reponse) attente.rejeter(new Error("Réponse illisible de la lecture d'écran."));
         else if (reponse.erreur) attente.rejeter(new Error(`Lecture d'écran impossible : ${reponse.erreur}`));
-        else attente.resoudre(attente.demarrage ? reponse : reponse.lignes);
+        else attente.resoudre(attente.demarrage || !("lignes" in reponse) ? reponse : reponse.lignes); // capture : { capture: true }
       }
     });
     const fini = () => {
@@ -193,9 +203,14 @@ function creerLecteurEcran({ langue = "en-US", lancer = spawn, plateforme = proc
     processus = null;
   }
 
+  const zoneEntiere = (zone) => ({ x: Math.round(zone.x), y: Math.round(zone.y), largeur: Math.round(zone.largeur), hauteur: Math.round(zone.hauteur) });
   return {
-    lire: (zone) => demander({ x: Math.round(zone.x), y: Math.round(zone.y), largeur: Math.round(zone.largeur), hauteur: Math.round(zone.hauteur) }),
+    lire: (zone) => demander(zoneEntiere(zone)),
     lireFichier: (chemin, haut, bas) => demander({ fichier: chemin, haut, bas }),
+    /** Capture la zone dans un fichier PNG (pixels réels de l'écran), sans OCR. */
+    capturer: (zone, chemin) => demander({ capture: chemin, ...zoneEntiere(zone) }).then(() => chemin),
+    /** OCR d'une image entière (ex. la zone du chat nettoyée) : lignes en pixels de l'image. */
+    lireImage: (chemin, { hauteur }) => demander({ fichier: chemin, haut: 0, bas: Math.round(hauteur) }),
     arreter,
   };
 }
@@ -276,28 +291,50 @@ function creerLecteurEcranMac({ langue = "en-US", executer = execFile, echelle =
       );
     });
 
-  async function lire(zone) {
+  /** Zone en pixels réels -> { z (entiers, vérifiée), points ("x,y,l,h" pour screencapture, échelle Retina) }. */
+  function preparerZone(zone) {
     const z = { x: Math.round(zone.x), y: Math.round(zone.y), largeur: Math.round(zone.largeur), hauteur: Math.round(zone.hauteur) };
     if (![z.x, z.y, z.largeur, z.hauteur].every(Number.isFinite) || z.largeur <= 0 || z.hauteur <= 0) throw new Error("Zone de lecture invalide.");
     const e = Number(echelle()) > 0 ? Number(echelle()) : 1;
-    const points = [z.x / e, z.y / e, z.largeur / e, z.hauteur / e].map((n) => Math.round(n)).join(",");
+    return { z, points: [z.x / e, z.y / e, z.largeur / e, z.hauteur / e].map((n) => Math.round(n)).join(",") };
+  }
+
+  /** Vision sur une image : lignes en pixels de `cadre` (la zone de l'écran, ou l'image entière). */
+  async function vision(chemin, cadre) {
+    const lignes = lignesDepuisVision(await lancer("osascript", ["-l", "JavaScript", "-e", SCRIPT_VISION, chemin, langueOcr(String(langue).replace("-", "_"))]), cadre);
+    if (!lignes) throw new Error("Réponse illisible de la lecture d'écran.");
+    return lignes;
+  }
+
+  async function lire(zone) {
+    const { z, points } = preparerZone(zone);
     try {
       await lancer("screencapture", ["-x", "-t", "png", "-R", points, fichier]); // -x : sans bruit d'appareil photo
-      const lignes = lignesDepuisVision(await lancer("osascript", ["-l", "JavaScript", "-e", SCRIPT_VISION, fichier, langueOcr(String(langue).replace("-", "_"))]), z);
-      if (!lignes) throw new Error("Réponse illisible de la lecture d'écran.");
-      return lignes;
+      return await vision(fichier, z);
     } finally {
       fs.rm(fichier, { force: true }, () => {}); // la capture ne reste jamais sur le disque
     }
   }
 
+  /** Une seule commande à la fois (même fichier temporaire, et le Mac n'est pas surchargé). */
+  const uneAUne = (action) => {
+    const suivante = (enCours || Promise.resolve()).catch(() => {}).then(action);
+    enCours = suivante;
+    return suivante;
+  };
+
   return {
-    lire: (zone) => {
-      const suivante = (enCours || Promise.resolve()).catch(() => {}).then(() => lire(zone));
-      enCours = suivante;
-      return suivante;
-    },
+    lire: (zone) => uneAUne(() => lire(zone)),
     lireFichier: () => Promise.reject(new Error("La lecture d'une image enregistrée n'existe que sous Windows.")),
+    /** Capture la zone dans un fichier PNG, sans OCR (le fichier est à effacer par l'appelant). */
+    capturer: (zone, chemin) =>
+      uneAUne(async () => {
+        const { points } = preparerZone(zone);
+        await lancer("screencapture", ["-x", "-t", "png", "-R", points, chemin]);
+        return chemin;
+      }),
+    /** OCR d'une image entière (ex. la zone du chat nettoyée) : lignes en pixels de l'image. */
+    lireImage: (chemin, { largeur, hauteur }) => uneAUne(() => vision(chemin, { x: 0, y: 0, largeur, hauteur })),
     arreter: () => {}, // rien ne reste ouvert entre deux lectures
   };
 }

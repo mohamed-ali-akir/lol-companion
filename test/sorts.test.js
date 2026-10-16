@@ -112,3 +112,97 @@ test("case décochée : rien n'est affiché, et un clic ne fait rien", async (t)
   s.arreter();
   assert.deepStrictEqual(etat.vus.filter(Boolean), []);
 });
+
+// --- Pings du chat (exception du 16/10/2026) : faux chat, rien n'est lu à l'écran -----------------
+
+test("cibles des pings : nom du champion et des sorts dans la langue du jeu, plus l'anglais et le français", () => {
+  const avecNoms = JOUEURS.map((j) =>
+    j.rawChampionName.endsWith("MonkeyKing")
+      ? { ...j, championName: "Wukong", summonerSpells: { summonerSpellOne: { ...sort("SummonerFlash"), displayName: "Saut éclair" }, summonerSpellTwo: sort("SummonerTeleport") } }
+      : j
+  );
+  const cibles = S.ciblesPings({ ...JEU(100), joueurs: avecNoms });
+  assert.deepStrictEqual(cibles[0].noms, ["Wukong", "MonkeyKing"]);
+  assert.ok(cibles[0].sorts[0].noms.includes("Saut éclair") && cibles[0].sorts[0].noms.includes("Flash"));
+  assert.ok(cibles[0].sorts[1].noms.includes("Unleashed Teleport"));
+  assert.deepStrictEqual(cibles[2].noms, ["Jinx"], "sans championName : l'alias");
+  assert.deepStrictEqual(S.ciblesPings(null), []);
+});
+
+function suiviPings({ pings = true, lignes = [] } = {}) {
+  const etat = { temps: 600, horloge: 0, pings, lignes, vus: [], journal: [], erreur: null };
+  const s = S.creerSuiviSorts({
+    reglages: () => ({ sorts: true, sortsPings: etat.pings }),
+    lire: async () => JEU(etat.temps),
+    afficher: (p) => etat.vus.push(p),
+    maintenant: () => etat.horloge,
+    intervalleMs: 5,
+    intervalleChatMs: 60000, // les tests lisent le chat à la main (lireChatMaintenant)
+    lireChat: async () => {
+      if (etat.erreur) throw new Error(etat.erreur);
+      return etat.lignes;
+    },
+    journal: (...m) => etat.journal.push(m.join(" ")),
+  });
+  return { s, etat };
+}
+
+test("ping « Zed Flash » lu dans le chat : le chrono démarre (bottes ioniennes comptées), une seule fois", async (t) => {
+  const { s, etat } = suiviPings({ lignes: ["Type /help for a list of commands", "wDark (Ahri): Zed Flash"] });
+  t.after(() => s.arreter());
+  s.demarrer();
+  await attendre(15);
+  await s.lireChatMaintenant();
+  assert.strictEqual(flashDe(etat.vus.at(-1), "Zed").restantS, Math.ceil(300 / 1.1));
+  assert.ok(etat.journal.some((l) => /Ping lu dans le chat : Zed Flash/.test(l)));
+  assert.ok(!etat.journal.some((l) => /wDark/.test(l)), "jamais de pseudo dans le journal");
+  // Le message reste à l'écran : relu 10 s plus tard, il ne relance rien (le chrono continue)
+  etat.horloge = 10000;
+  etat.temps = 610; // 10 s de jeu plus tard
+  await s.lireChatMaintenant();
+  await attendre(15);
+  assert.strictEqual(flashDe(etat.vus.at(-1), "Zed").restantS, Math.ceil(300 / 1.1) - 10);
+});
+
+test("ping après un clic d'annulation : pas relancé tant que le même message est encore à l'écran (30 s)", async (t) => {
+  const { s, etat } = suiviPings({ lignes: ["wDark (Ahri): Jinx Flash"] });
+  t.after(() => s.arreter());
+  s.demarrer();
+  await attendre(15);
+  await s.lireChatMaintenant();
+  const id = flashDe(etat.vus.at(-1), "Jinx").id;
+  assert.ok(flashDe(etat.vus.at(-1), "Jinx").restantS > 0);
+  s.clic(id); // le joueur annule (faux ping)
+  assert.strictEqual(flashDe(etat.vus.at(-1), "Jinx").restantS, 0);
+  etat.horloge = 5000;
+  await s.lireChatMaintenant();
+  assert.strictEqual(flashDe(etat.vus.at(-1), "Jinx").restantS, 0, "pas relancé");
+});
+
+test("case des pings décochée, ou rien de reconnu : aucun chrono ne démarre", async (t) => {
+  const { s, etat } = suiviPings({ pings: false, lignes: ["wDark (Ahri): Zed Flash"] });
+  t.after(() => s.arreter());
+  s.demarrer();
+  await attendre(15);
+  await s.lireChatMaintenant();
+  assert.strictEqual(flashDe(etat.vus.at(-1), "Zed").restantS, 0);
+  etat.pings = true;
+  etat.lignes = ["wDark (Ahri): Wait For Ahri Flash - 200s", "wDark (Ahri): Zed Arcane Comet"];
+  await s.lireChatMaintenant();
+  assert.strictEqual(flashDe(etat.vus.at(-1), "Zed").restantS, 0);
+});
+
+test("erreur de lecture du chat : notée une fois par minute, le panneau continue", async (t) => {
+  const { s, etat } = suiviPings();
+  t.after(() => s.arreter());
+  s.demarrer();
+  await attendre(15);
+  etat.erreur = "pas d'autorisation";
+  await s.lireChatMaintenant();
+  await s.lireChatMaintenant();
+  assert.strictEqual(etat.journal.filter((l) => /pas d'autorisation/.test(l)).length, 1);
+  etat.horloge = 61000;
+  await s.lireChatMaintenant();
+  assert.strictEqual(etat.journal.filter((l) => /pas d'autorisation/.test(l)).length, 2);
+  assert.ok(etat.vus.at(-1), "le panneau est toujours là");
+});

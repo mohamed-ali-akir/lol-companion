@@ -15,6 +15,7 @@ async function afficherParametres() {
     // Mac : les augments sont lus à l'écran avec l'OCR de macOS, qui a besoin de l'autorisation
     // « Enregistrement de l'écran » : on explique où la donner tant qu'elle manque.
     $("augmentsMac").hidden = config.autorisationEcran === "granted";
+    $("pingsMac").hidden = config.autorisationEcran === "granted"; // les pings du chat lisent aussi l'écran
     // Textes qui parlent de Windows : leur version Mac est dans l'attribut data-mac (index.html).
     for (const e of document.querySelectorAll("[data-mac]")) e.textContent = e.dataset.mac;
   }
