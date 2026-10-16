@@ -29,7 +29,11 @@ jobs:
       # propre Release (vu le 11/10/2026 : deux « v1.1.0 », le lien public tombait sur celle qui n'avait que le .blockmap).
       - name: Créer la Release
         if: github.ref_type == 'tag'
-        run: gh release create "${{ github.ref_name }}" --title "LoL Companion ${{ github.ref_name }}" --notes "Windows : télécharge LoL-Companion-Setup-*.exe ci-dessous (les applis déjà installées se mettent à jour toutes seules). Mac (bêta) : LoL-Companion-*-mac.dmg, voir la section Mac du README pour l'installer."
+        # Bloc « >- » : le texte peut contenir « : » (sinon YAML le prend pour une clé, vu le 16/10/2026).
+        run: >-
+          gh release create "${{ github.ref_name }}" --title "LoL Companion ${{ github.ref_name }}"
+          --notes "Windows : télécharge LoL-Companion-Setup-*.exe ci-dessous (les applis déjà installées se mettent à jour toutes seules).
+          Mac (bêta) : LoL-Companion-*-mac.dmg, voir la section Mac du README pour l'installer."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Fabriquer et publier l'installateur
