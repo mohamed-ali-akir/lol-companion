@@ -239,7 +239,7 @@ Une version Mac existe, mais elle n'a pas encore été essayée sur un vrai Mac.
 - **Différences avec Windows** :
   - dossier du jeu par défaut : `/Applications/League of Legends.app/Contents/LoL` (là où le client écrit son lockfile) ;
   - menu de l'appli en haut de l'écran (LoL Companion, Édition, Fenêtre) : c'est lui qui fait marcher Cmd+C, Cmd+V,
-    Cmd+A, Cmd+Z dans les champs de texte, et Cmd+Q / Cmd+H (\`modeleMenuMac\` dans \`arriere-plan.js\`) ;
+    Cmd+A, Cmd+Z dans les champs de texte, et Cmd+Q / Cmd+H (`modeleMenuMac` dans `arriere-plan.js`) ;
   - **pas de stats des augments** (la lecture des cartes à l'écran utilise l'OCR de Windows) ;
   - **pas de mise à jour automatique** (electron-updater exige une appli signée sur Mac) : retélécharger chaque version ;
   - l'overlay en jeu (objectifs, chronos des sorts) et la notification de partie trouvée sont à vérifier.
