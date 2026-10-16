@@ -91,7 +91,8 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 - **Temps passé sur LoL** (onglet Stats et carte de l'Accueil, comme wol.gg mais sans clé API ni site extérieur) :
   le client ne garde qu'une vingtaine de parties et n'a plus de statistiques de carrière (routes `lol-career-stats`
   absentes, vérifié le 16/10/2026). Le temps est donc :
-  - **compté** sur les parties enregistrées par l'appli : durée exacte + 5 min d'attente par partie ;
+  - **compté** sur les parties enregistrées par l'appli : durée exacte + 1 min de file par partie (le calculateur
+    de niveau garde 5 min, qui comptent aussi la sélection et le chargement) ;
   - **estimé** depuis la création du compte : XP totale du compte (niveau + progression) divisée par l'XP d'une
     partie moyenne pour toi (ta durée moyenne, ton taux de victoire, formule du wiki). C'est un ordre de grandeur :
     l'XP des missions et des boosts fait monter l'estimation, les parties contre des bots la font baisser.
