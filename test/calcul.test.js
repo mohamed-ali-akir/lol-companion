@@ -123,8 +123,8 @@ test("phrase de résumé de l'historique du client", () => {
   assert.ok(!texte.includes("Draft")); // les modes sans partie ne sont plus listés
 });
 
-test("le niveau vient du compte, l'attente de la constante (5 min)", () => {
-  assert.strictEqual(ATTENTE_PAR_PARTIE_MIN, 5);
+test("le niveau vient du compte, l'attente de la constante (2 min)", () => {
+  assert.strictEqual(ATTENTE_PAR_PARTIE_MIN, 2);
   const p = parametresCalcul(
     { niveau: 24, progression: 63 },
     { niveauCible: 30, heuresParJour: 3, boostDuree: false, boostVictoire: true }
@@ -132,7 +132,7 @@ test("le niveau vient du compte, l'attente de la constante (5 min)", () => {
   assert.deepStrictEqual(p, {
     niveauActuel: 24,
     progression: 63,
-    attenteMin: 5,
+    attenteMin: 2,
     niveauCible: 30,
     heuresParJour: 3,
     boostDuree: false,

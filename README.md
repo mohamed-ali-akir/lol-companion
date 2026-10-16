@@ -78,7 +78,7 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   Un simple « OK » pour fermer : jamais de blocage, jamais de reproche. Notification Windows seulement si tu la coches
 - **Niveau** : niveau visé (30 proposé pour la classée, sinon le prochain palier de 25) et temps de jeu par jour.
   Calcul pour ARAM du Chaos, ARAM, Swiftplay et Draft avec **ta** durée moyenne et **ton** taux de victoire (valeurs
-  moyennes si tu n'as pas assez de parties), le mode le plus rapide mis en avant, 5 min d'attente comptées par partie,
+  moyennes si tu n'as pas assez de parties), le mode le plus rapide mis en avant, 2 min d'attente comptées par partie,
   boosts d'XP, XP des missions en cours (option). Courbe de ton XP dans le temps, rythme réel sur 7 jours et date
   estimée. Fonctionne au-delà du niveau 50
 - **Classée** : champions vraiment possédés (rotation gratuite, location et prêts exclus), Essence bleue, nombre de
@@ -91,8 +91,8 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 - **Temps passé sur LoL** (onglet Stats et carte de l'Accueil, comme wol.gg mais sans clé API ni site extérieur) :
   le client ne garde qu'une vingtaine de parties et n'a plus de statistiques de carrière (routes `lol-career-stats`
   absentes, vérifié le 16/10/2026). Le temps est donc :
-  - **compté** sur les parties enregistrées par l'appli : durée exacte + 2 min de file par partie (le calculateur
-    de niveau garde 5 min, qui comptent aussi la sélection et le chargement) ;
+  - **compté** sur les parties enregistrées par l'appli : durée exacte + 2 min d'attente par partie (la même valeur
+    que l'onglet Niveau : `ATTENTE_PAR_PARTIE_MIN` dans `src/calculs.js`) ;
   - **estimé** depuis la création du compte : XP totale du compte (niveau + progression) divisée par l'XP d'une
     partie moyenne pour toi (ta durée moyenne, ton taux de victoire, formule du wiki). C'est un ordre de grandeur :
     l'XP des missions et des boosts fait monter l'estimation, les parties contre des bots la font baisser.

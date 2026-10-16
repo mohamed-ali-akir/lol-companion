@@ -40,10 +40,10 @@ const MIN_PARTIES_POUR_STATS = 3; // en dessous, l'historique n'est pas assez fi
 
 const DUREE_MINIMUM_MIN = 7;   // en dessous de 7 minutes, une partie ne rapporte rien
 
-// Temps "perdu" entre deux parties, en minutes : file d'attente, sélection des champions,
-// écran de chargement et écran de fin. Il ne rapporte pas d'XP, mais il compte dans les
-// heures et les jours nécessaires. 5 minutes est une moyenne raisonnable.
-const ATTENTE_PAR_PARTIE_MIN = 5;
+// Temps "perdu" entre deux parties, en minutes (surtout la file d'attente). Il ne rapporte pas d'XP, mais il compte
+// dans les heures et les jours nécessaires (onglet Niveau) et dans le temps passé sur LoL (onglet Stats).
+// 2 minutes depuis le 16/10/2026 (avant : 5) : avec ça, le temps passé sur LoL tombe à 2 % de wol.gg.
+const ATTENTE_PAR_PARTIE_MIN = 2;
 const BONUS_BOOST_VICTOIRE = 216;
 
 /** XP nécessaire pour passer du niveau donné au suivant. */
@@ -957,14 +957,11 @@ function alertesSession(bilan, reglages, maintenant = Date.now()) {
 // ---------------------------------------------------------------------------
 
 const REMAKE_S = 5 * 60; // moins de 5 minutes : remake, pas compté
-// File d'attente ajoutée à chaque partie dans le temps passé sur LoL (décidé le 16/10/2026 : 2 min, proche de
-// wol.gg). Le calculateur de niveau garde ATTENTE_PAR_PARTIE_MIN (5 min : file + sélection + chargement).
-const ATTENTE_TEMPS_DE_JEU_MIN = 2;
 const DUREE_PARTIE_PAR_DEFAUT_MIN = 25; // sans parties enregistrées, une partie moyenne
 
 /**
  * Temps passé sur LoL par un compte.
- *  - compté : les parties enregistrées par l'appli (durée exacte + ATTENTE_TEMPS_DE_JEU_MIN de file chacune) ;
+ *  - compté : les parties enregistrées par l'appli (durée exacte + ATTENTE_PAR_PARTIE_MIN d'attente chacune) ;
  *  - estimé : depuis la création du compte, d'après son XP totale (niveau + progression). On divise l'XP par
  *    l'XP d'une partie moyenne (TA durée moyenne et TON taux de victoire, formule du wiki), ce qui donne un
  *    nombre de parties, puis des heures. Ordre de grandeur seulement : l'XP des missions, des boosts et des
@@ -982,7 +979,7 @@ function tempsDeJeu({ parties, compte, maintenant = Date.now() }) {
   const secondes = vraies.reduce((s, p) => s + p.dureeS, 0);
   const dureeMoyMin = n > 0 ? secondes / 60 / n : DUREE_PARTIE_PAR_DEFAUT_MIN;
   const tauxVictoire = n > 0 ? vraies.filter((p) => p.victoire).length / n : TAUX_VICTOIRE_PAR_DEFAUT;
-  const heuresAvecAttente = (nb, minutesParPartie) => (nb * (minutesParPartie + ATTENTE_TEMPS_DE_JEU_MIN)) / 60;
+  const heuresAvecAttente = (nb, minutesParPartie) => (nb * (minutesParPartie + ATTENTE_PAR_PARTIE_MIN)) / 60;
 
   const exact = {
     parties: n,
@@ -1014,7 +1011,7 @@ function tempsDeJeu({ parties, compte, maintenant = Date.now() }) {
     total,
     jours: total / 24,
     films: Math.floor(total / 2), // un film = 2 h
-    heuresParSemaine: (trenteJours.reduce((s, p) => s + p.dureeS, 0) / 3600 + (trenteJours.length * ATTENTE_TEMPS_DE_JEU_MIN) / 60) / (30 / 7),
+    heuresParSemaine: (trenteJours.reduce((s, p) => s + p.dureeS, 0) / 3600 + (trenteJours.length * ATTENTE_PAR_PARTIE_MIN) / 60) / (30 / 7),
     partiesDeNuit: n > 0 ? vraies.filter((p) => new Date(p.date).getHours() < 6).length / n : 0, // entre minuit et 6 h
     plusLongue: plusLongue ? { minutes: Math.round(plusLongue.dureeS / 60), champion: plusLongue.championNom || null, victoire: Boolean(plusLongue.victoire) } : null,
     modes: heuresPar((p) => NOMS_FILES[p.file] || "Autres modes"), // modes inconnus regroupés
@@ -1089,7 +1086,6 @@ if (typeof module !== "undefined") {
     verifier,
     xpGagnee,
     ATTENTE_PAR_PARTIE_MIN,
-    ATTENTE_TEMPS_DE_JEU_MIN,
     xpMoyenneParPartie,
     xpPourNiveauSuivant,
     xpTotaleAuNiveau,

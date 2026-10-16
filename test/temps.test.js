@@ -12,12 +12,12 @@ test("rien à calculer : ni compte ni partie -> null", () => {
   assert.strictEqual(C.tempsDeJeu({ parties: undefined, compte: { niveau: 0 } }), null);
 });
 
-test("compté : durée exacte des parties + 2 min de file chacune ; les remakes (< 5 min) ne comptent pas", () => {
+test("compté : durée exacte des parties + 2 min d'attente chacune ; les remakes (< 5 min) ne comptent pas", () => {
   const parties = [partie(1, 30), partie(2, 20), partie(3, 3), { date: 1 }, null];
   const t = C.tempsDeJeu({ parties, compte: null, maintenant: MAINTENANT });
   assert.strictEqual(t.compte.parties, 2);
   assert.strictEqual(t.compte.heuresEnJeu, 50 / 60);
-  assert.strictEqual(t.compte.heures, 54 / 60); // 50 min de jeu + 2 × 2 min de file
+  assert.strictEqual(t.compte.heures, 54 / 60); // 50 min de jeu + 2 × 2 min d'attente
   assert.strictEqual(t.compte.depuis, MAINTENANT - 2 * JOUR);
   assert.strictEqual(t.estime, null);
   assert.strictEqual(t.total, 54 / 60);
@@ -30,7 +30,7 @@ test("estimé : XP totale du compte / XP d'une partie moyenne (ta durée, ton ta
   const xp = C.xpDuCompte(compte);
   const parPartie = C.xpMoyenneParPartie({ dureeMin: 25, tauxVictoire: 0.5, niveau: 27, bots: false });
   assert.strictEqual(t.estime.parties, Math.round(xp / parPartie));
-  assert.ok(Math.abs(t.estime.heures - ((xp / parPartie) * 27) / 60) < 1e-9); // 25 min + 2 min de file
+  assert.ok(Math.abs(t.estime.heures - ((xp / parPartie) * 27) / 60) < 1e-9); // 25 min + 2 min d'attente
   assert.strictEqual(t.total, t.estime.heures);
   assert.strictEqual(t.jours, t.total / 24);
   assert.strictEqual(t.films, Math.floor(t.total / 2));
@@ -64,6 +64,6 @@ test("stats amusantes : plus longue partie, top modes et champions, parties de n
   assert.strictEqual(t.champions[0].nom, "Hwei");
   assert.strictEqual(t.modes[0].nom, C.nomFile(400)); // Draft : Jayce 40 min + Lux 30 min
   assert.strictEqual(t.partiesDeNuit, 1 / 4);
-  // 30 derniers jours : 90 min de jeu + 3 × 2 min de file, ramenés à une semaine
+  // 30 derniers jours : 90 min de jeu + 3 × 2 min d'attente, ramenés à une semaine
   assert.ok(Math.abs(t.heuresParSemaine - (96 / 60) / (30 / 7)) < 1e-9);
 });
