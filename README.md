@@ -204,7 +204,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (400) |
+| `npm test` | Lance les tests (401) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -223,6 +223,24 @@ arrière-plan, vérifie son empreinte (sha512 du fichier `latest.yml`), puis aff
 
 Les applis déjà installées voient la nouvelle version au plus tard 6 h après (ou tout de suite avec « Vérifier
 maintenant »). Une version 1.0.0 (sans mise à jour automatique) doit être remplacée une fois à la main.
+
+### Sur Mac (bêta, pas encore testée)
+
+Une version Mac existe, mais elle n'a pas encore été essayée sur un vrai Mac.
+- **Fabrication** : un `.dmg` ne se fabrique que sur un Mac. Onglet **Actions** du dépôt → **Construire pour Mac**
+  → *Run workflow* (`.github/workflows/mac.yml`, un Mac de GitHub). Le fichier `.dmg` (Intel et Apple Silicon)
+  est à télécharger en bas de la page de l'exécution (*Artifacts*, gardé 14 jours). Rien n'est publié.
+- **Installation** : ouvrir le `.dmg` et glisser LoL Companion dans *Applications*. L'appli n'est pas signée par
+  Apple (compte développeur à 99 $ par an) : macOS la dit « endommagée » ou « d'un développeur non identifié ».
+  Pour la débloquer une fois, dans le Terminal :
+  ```bash
+  xattr -cr "/Applications/LoL Companion.app"
+  ```
+- **Différences avec Windows** :
+  - dossier du jeu par défaut : `/Applications/League of Legends.app/Contents/LoL` (là où le client écrit son lockfile) ;
+  - **pas de stats des augments** (la lecture des cartes à l'écran utilise l'OCR de Windows) ;
+  - **pas de mise à jour automatique** (electron-updater exige une appli signée sur Mac) : retélécharger chaque version ;
+  - l'overlay en jeu (objectifs, chronos des sorts) et la notification de partie trouvée sont à vérifier.
 
 ## Technologies
 

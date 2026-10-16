@@ -23,7 +23,15 @@ const { normaliserReglagesBuild } = require("./build.js");
 const { normaliserReglagesSession } = require("./src/calculs.js");
 const { normaliserReglagesArrierePlan } = require("./arriere-plan.js");
 
-const DOSSIER_JEU_PAR_DEFAUT = "C:\\Riot Games\\League of Legends";
+// Dossier du jeu par défaut selon le système (c'est là que le client écrit son « lockfile »).
+// Mac (16/10/2026) : le lockfile est dans l'application, sous Contents/LoL.
+const DOSSIERS_JEU_PAR_DEFAUT = {
+  win32: "C:\\Riot Games\\League of Legends",
+  darwin: "/Applications/League of Legends.app/Contents/LoL",
+};
+/** Dossier du jeu par défaut pour ce système (celui de Windows si le système est inconnu). */
+const dossierJeuParDefaut = (plateforme = process.platform) => DOSSIERS_JEU_PAR_DEFAUT[plateforme] || DOSSIERS_JEU_PAR_DEFAUT.win32;
+const DOSSIER_JEU_PAR_DEFAUT = dossierJeuParDefaut();
 
 // Réglages des anciennes versions (clé API, recherche en ligne) : plus utilisés.
 const ANCIENS_REGLAGES = ["cleApi", "cleApiChiffree", "dernierRiotId", "region"];
@@ -206,4 +214,4 @@ function creerStockage({ dossier }) {
   };
 }
 
-module.exports = { creerStockage, ErreurStockage, DOSSIER_JEU_PAR_DEFAUT };
+module.exports = { creerStockage, ErreurStockage, DOSSIER_JEU_PAR_DEFAUT, dossierJeuParDefaut };

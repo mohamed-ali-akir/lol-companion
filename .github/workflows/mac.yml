@@ -1,0 +1,36 @@
+# Version Mac de LoL Companion (bêta, à tester)
+# ----------------------------------------------
+# Lancée À LA MAIN (onglet Actions du dépôt → « Construire pour Mac » → Run workflow). Rien n'est publié dans les
+# Releases : le .dmg est déposé comme fichier à télécharger en bas de la page de l'exécution (« Artifacts »).
+# Un .dmg ne peut être fabriqué que sur un Mac : on utilise un Mac de GitHub (gratuit pour un dépôt public).
+# L'appli n'est pas signée par Apple (compte développeur payant) : signature « ad-hoc » seulement (voir package.json),
+# donc pas de mise à jour automatique sur Mac, et il faut la débloquer une fois (README, section Mac).
+name: Construire pour Mac
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # Les tests sont écrits sous Windows : on les lance pour voir, sans bloquer la fabrication du .dmg.
+      - name: Tests (pour information)
+        run: npm test
+        continue-on-error: true
+      - name: Fabriquer le .dmg (Intel + Apple Silicon)
+        run: npx electron-builder --mac --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LoL-Companion-Mac
+          path: dist/*.dmg
+          retention-days: 14

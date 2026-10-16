@@ -64,7 +64,18 @@
       "uninstallerIcon": "assets/icon.ico"
     },
     "mac": {
-      "target": "dmg"
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "universal"
+          ]
+        }
+      ],
+      "icon": "assets/icon.png",
+      "category": "public.app-category.games",
+      "identity": "-",
+      "hardenedRuntime": false
     },
     "linux": {
       "target": "AppImage",

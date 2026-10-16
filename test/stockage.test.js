@@ -100,3 +100,10 @@ test("acceptation automatique : désactivée par défaut, réglages enregistrés
   fs.writeFileSync(path.join(dossier, "config.json"), JSON.stringify({ acceptationAuto: { actif: 1, delaiSecondes: 500 } }));
   assert.deepStrictEqual(stockage.reglagesAcceptation(), { actif: false, delaiSecondes: 8, notifier: true });
 });
+
+test("dossier du jeu par défaut : Windows ou Mac selon le système (Windows si inconnu)", () => {
+  const { dossierJeuParDefaut } = require("../stockage.js");
+  assert.strictEqual(dossierJeuParDefaut("win32"), "C:\\Riot Games\\League of Legends");
+  assert.strictEqual(dossierJeuParDefaut("darwin"), "/Applications/League of Legends.app/Contents/LoL");
+  assert.strictEqual(dossierJeuParDefaut("linux"), "C:\\Riot Games\\League of Legends");
+});

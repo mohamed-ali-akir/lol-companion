@@ -11,6 +11,11 @@ async function afficherParametres() {
   const config = await window.appli.lireConfig();
   $("dossierJeu").value = config.dossierJeu;
   $("dossierParDefaut").textContent = config.dossierJeuParDefaut;
+  // Mac : les stats des augments lisent l'écran avec l'OCR de Windows, impossible ici.
+  if (config.plateforme === "darwin") {
+    $("buildAugments").disabled = true;
+    $("augmentsMac").hidden = false;
+  }
   return config;
 }
 
@@ -138,7 +143,9 @@ function texteMaj(etat) {
   const actuelle = `Version ${etat.version}`;
   switch (etat.etape) {
     case "indisponible":
-      return `${actuelle} (lancée depuis le projet : pas de mise à jour automatique).`;
+      return etat.raison === "mac"
+        ? `${actuelle} (Mac : pas de mise à jour automatique, l'appli n'est pas signée par Apple ; télécharge la nouvelle version à la main).`
+        : `${actuelle} (lancée depuis le projet : pas de mise à jour automatique).`;
     case "recherche":
       return `${actuelle} · recherche d'une mise à jour…`;
     case "a-jour":

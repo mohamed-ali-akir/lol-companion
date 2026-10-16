@@ -133,6 +133,7 @@ function brancherMessages() {
   ipcMain.handle("config:lire", () => ({
     dossierJeu: stockage.dossierJeu(),
     dossierJeuParDefaut: DOSSIER_JEU_PAR_DEFAUT,
+    plateforme: process.platform, // "win32" ou "darwin" (Mac) : la page cache ce qui ne marche que sous Windows
     dernierCompte: stockage.dernierCompte(), // pour l'afficher même si le client est fermé
     ongletActif: stockage.ongletActif(), // pour rouvrir le même onglet
     lancement, // heure d'ouverture de l'appli (session "depuis l'ouverture")
@@ -275,7 +276,9 @@ function brancherMessages() {
   ipcMain.handle("arrierePlan:lire", () => stockage.reglagesArrierePlan());
 
   // Mise à jour de l'appli : état (bandeau, Paramètres), « Vérifier maintenant », « Redémarrer et mettre à jour ».
-  ipcMain.handle("maj:lire", () => (miseAJour ? miseAJour.lire() : { etape: "indisponible", version: app.getVersion() }));
+  ipcMain.handle("maj:lire", () =>
+    miseAJour ? miseAJour.lire() : { etape: "indisponible", version: app.getVersion(), raison: process.platform === "darwin" ? "mac" : "projet" }
+  );
   ipcMain.handle("maj:verifier", () => (miseAJour ? miseAJour.verifierMaintenant() : false));
   ipcMain.handle("maj:installer", () => {
     if (!miseAJour || miseAJour.lire().etape !== "prete") return false;
@@ -763,7 +766,7 @@ function obtenirLecteurEcran() {
 
 function demarrerAugments() {
   suiviAugments = creerSuiviAugments({
-    actif: () => stockage.reglagesBuild().augments,
+    actif: () => process.platform === "win32" && stockage.reglagesBuild().augments, // OCR de Windows (ocr.js) : rien sur Mac
     ecran: ecranJeu,
     lireEcran: (zone) => obtenirLecteurEcran().lire(zone),
     nomsAugments: obtenirIndexAugments,
@@ -1108,6 +1111,8 @@ function appliquerDemarrageWindows(reglages) {
  */
 function demarrerMiseAJour() {
   if (!app.isPackaged) return;
+  // Mac : la mise à jour automatique exige une appli signée par Apple (99 $/an), ce qui n'est pas le cas.
+  if (process.platform !== "win32") return;
   try {
     const { autoUpdater } = require("electron-updater"); // chargé seulement ici : inutile pendant le développement
     miseAJour = creerMiseAJour({
