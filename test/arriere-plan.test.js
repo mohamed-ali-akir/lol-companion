@@ -112,3 +112,13 @@ test("stockage : réglages d'arrière-plan et « déjà prévenu » enregistrés
   stockage.noterPrevenuReduction();
   assert.strictEqual(stockage.dejaPrevenuReduction(), true);
 });
+
+test("menu Mac : Édition (Cmd+C, Cmd+V...) et Quitter (Cmd+Q), en français", () => {
+  const menu = A.modeleMenuMac("LoL Companion");
+  assert.deepStrictEqual(menu.map((m) => m.label), ["LoL Companion", "Édition", "Fenêtre"]);
+  const roles = (label) => menu.find((m) => m.label === label).submenu.map((l) => l.role).filter(Boolean);
+  assert.deepStrictEqual(roles("Édition"), ["undo", "redo", "cut", "copy", "paste", "selectAll"]);
+  assert.ok(roles("LoL Companion").includes("quit"));
+  assert.ok(roles("LoL Companion").includes("hide"));
+  assert.strictEqual(menu[0].submenu.find((l) => l.role === "quit").label, "Quitter LoL Companion");
+});

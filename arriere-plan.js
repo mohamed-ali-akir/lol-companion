@@ -7,7 +7,8 @@
  *  - lancement au démarrage de Windows : quoi passer à app.setLoginItemSettings ;
  *  - démarrage "réduit" : l'appli a-t-elle été lancée avec --reduit ?
  *  - League détecté : ouvrir la fenêtre, ou notification « LoL Companion est prêt » (quand, et quel texte) ;
- *  - le menu de l'icône (Ouvrir, Acceptation auto, Quitter).
+ *  - le menu de l'icône (Ouvrir, Acceptation auto, Quitter) ;
+ *  - sur Mac, le menu de l'appli en haut de l'écran (sans lui, pas de Cmd+C / Cmd+V / Cmd+Q).
  */
 
 const ARGUMENT_REDUIT = "--reduit";
@@ -113,6 +114,48 @@ function modeleMenuIcone({ acceptationActive }) {
   ];
 }
 
+/**
+ * Menu de l'appli en haut de l'écran, SUR MAC SEULEMENT (Windows n'en a pas besoin : pas de barre de menu).
+ * Sur Mac, ce sont ces menus qui font marcher les raccourcis : sans menu « Édition », Cmd+C, Cmd+V, Cmd+X, Cmd+A
+ * et Cmd+Z ne font rien dans les champs de texte ; sans menu de l'appli, pas de Cmd+Q ni de Cmd+H.
+ * Chaque ligne a un « role » d'Electron : il fait l'action et ajoute le raccourci habituel tout seul.
+ */
+function modeleMenuMac(nomAppli = "LoL Companion") {
+  return [
+    {
+      label: nomAppli,
+      submenu: [
+        { role: "about", label: `À propos de ${nomAppli}` },
+        { type: "separator" },
+        { role: "hide", label: `Masquer ${nomAppli}` },
+        { role: "hideOthers", label: "Masquer les autres" },
+        { role: "unhide", label: "Tout afficher" },
+        { type: "separator" },
+        { role: "quit", label: `Quitter ${nomAppli}` },
+      ],
+    },
+    {
+      label: "Édition",
+      submenu: [
+        { role: "undo", label: "Annuler" },
+        { role: "redo", label: "Rétablir" },
+        { type: "separator" },
+        { role: "cut", label: "Couper" },
+        { role: "copy", label: "Copier" },
+        { role: "paste", label: "Coller" },
+        { role: "selectAll", label: "Tout sélectionner" },
+      ],
+    },
+    {
+      label: "Fenêtre",
+      submenu: [
+        { role: "minimize", label: "Réduire" },
+        { role: "close", label: "Fermer" },
+      ],
+    },
+  ];
+}
+
 module.exports = {
   ARGUMENT_REDUIT,
   REGLAGES_ARRIERE_PLAN_PAR_DEFAUT,
@@ -124,4 +167,5 @@ module.exports = {
   actionClientDetecte,
   texteClientDetecte,
   modeleMenuIcone,
+  modeleMenuMac,
 };

@@ -43,6 +43,7 @@ const {
   actionClientDetecte,
   texteClientDetecte,
   modeleMenuIcone,
+  modeleMenuMac,
 } = require("./arriere-plan.js");
 
 let stockage; // créé quand l'appli est prête (app.getPath en a besoin)
@@ -1134,7 +1135,8 @@ function quitter() {
   app.quit();
 }
 
-// Pas de barre de menu (Fichier, Édition...) : l'appli n'en a pas besoin.
+// Windows : pas de barre de menu (Fichier, Édition...), l'appli n'en a pas besoin.
+// Mac : le menu en haut de l'écran est indispensable aux raccourcis (Cmd+C, Cmd+V, Cmd+Q...) : posé quand l'appli est prête.
 Menu.setApplicationMenu(null);
 
 // Copie de développement (dossier du projet) lancée AUTOMATIQUEMENT (--reduit : démarrage de Windows, ou Windows qui
@@ -1177,6 +1179,8 @@ if (!instanceUnique) {
     demarrerSurveillance();
     demarrerMiseAJour();
 
+    // Sur Mac : menu de l'appli (raccourcis Cmd+C, Cmd+V, Cmd+Q... : arriere-plan.js, modeleMenuMac).
+    if (process.platform === "darwin") Menu.setApplicationMenu(Menu.buildFromTemplate(modeleMenuMac(app.getName())));
     // Sur Mac, on réaffiche la fenêtre quand on clique sur l'icône du dock.
     app.on("activate", afficherFenetre);
   });
