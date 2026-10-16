@@ -957,9 +957,9 @@ function alertesSession(bilan, reglages, maintenant = Date.now()) {
 // ---------------------------------------------------------------------------
 
 const REMAKE_S = 5 * 60; // moins de 5 minutes : remake, pas compté
-// File d'attente ajoutée à chaque partie dans le temps passé sur LoL (décidé le 16/10/2026 : 1 min, plus proche de
+// File d'attente ajoutée à chaque partie dans le temps passé sur LoL (décidé le 16/10/2026 : 2 min, proche de
 // wol.gg). Le calculateur de niveau garde ATTENTE_PAR_PARTIE_MIN (5 min : file + sélection + chargement).
-const ATTENTE_TEMPS_DE_JEU_MIN = 1;
+const ATTENTE_TEMPS_DE_JEU_MIN = 2;
 const DUREE_PARTIE_PAR_DEFAUT_MIN = 25; // sans parties enregistrées, une partie moyenne
 
 /**
