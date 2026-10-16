@@ -11,10 +11,10 @@ async function afficherParametres() {
   const config = await window.appli.lireConfig();
   $("dossierJeu").value = config.dossierJeu;
   $("dossierParDefaut").textContent = config.dossierJeuParDefaut;
-  // Mac : les stats des augments lisent l'écran avec l'OCR de Windows, impossible ici.
   if (config.plateforme === "darwin") {
-    $("buildAugments").disabled = true;
-    $("augmentsMac").hidden = false;
+    // Mac : les augments sont lus à l'écran avec l'OCR de macOS, qui a besoin de l'autorisation
+    // « Enregistrement de l'écran » : on explique où la donner tant qu'elle manque.
+    $("augmentsMac").hidden = config.autorisationEcran === "granted";
     // Textes qui parlent de Windows : leur version Mac est dans l'attribut data-mac (index.html).
     for (const e of document.querySelectorAll("[data-mac]")) e.textContent = e.dataset.mac;
   }
@@ -156,6 +156,8 @@ function texteMaj(etat) {
       return `${actuelle} · téléchargement de la version ${etat.nouvelle || "suivante"}${Number.isFinite(etat.pourcentage) ? ` (${etat.pourcentage} %)` : ""}…`;
     case "prete":
       return `${actuelle} · version ${etat.nouvelle} prête : redémarre l'appli pour l'installer.`;
+    case "disponible": // Mac : l'appli vérifie seulement, la nouvelle version se télécharge à la main
+      return `${actuelle} · version ${etat.nouvelle} disponible : télécharge-la depuis le bandeau en haut.`;
     case "erreur":
       return `${actuelle} · ${etat.message}`;
     default:
@@ -167,8 +169,14 @@ function afficherMaj(etat) {
   if (!etat) return;
   $("majVersion").textContent = texteMaj(etat);
   $("majVerifier").disabled = etat.etape === "indisponible" || etat.etape === "recherche" || etat.etape === "telechargement" || etat.etape === "prete";
-  $("bandeauMaj").hidden = etat.etape !== "prete";
-  $("bandeauMajTexte").textContent = `La version ${etat.nouvelle} de LoL Companion est prête.`;
+  // Windows : version téléchargée, prête à installer. Mac : version disponible, à télécharger soi-même.
+  const mac = etat.etape === "disponible";
+  $("bandeauMaj").hidden = etat.etape !== "prete" && !mac;
+  $("bandeauMajTexte").textContent = mac
+    ? `La version ${etat.nouvelle} de LoL Companion est disponible.`
+    : `La version ${etat.nouvelle} de LoL Companion est prête.`;
+  $("installerMaj").textContent = mac ? "Télécharger la nouvelle version" : "Redémarrer et mettre à jour";
+  $("installerMaj").disabled = false;
 }
 
 function brancherMaj() {
@@ -179,6 +187,12 @@ function brancherMaj() {
     window.appli.verifierMaj();
   });
   $("installerMaj").addEventListener("click", () => {
+    if ($("installerMaj").textContent.startsWith("Télécharger")) {
+      // Mac : ouvre la page de téléchargement dans le navigateur ; l'appli reste ouverte.
+      $("bandeauMajTexte").textContent = "Page de téléchargement ouverte : installe le .dmg, puis relance LoL Companion.";
+      window.appli.installerMaj();
+      return;
+    }
     $("installerMaj").disabled = true; // l'appli va se fermer puis se relancer
     $("bandeauMajTexte").textContent = "Installation… l'appli redémarre dans quelques secondes.";
     window.appli.installerMaj();

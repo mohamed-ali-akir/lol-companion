@@ -1,5 +1,5 @@
 /*
- * Lecture de texte à l'écran (OCR intégré à Windows)
+ * Lecture de texte à l'écran (OCR intégré à Windows, ou à macOS)
  * --------------------------------------------------
  * Tourne dans le processus principal (Node). Sert à reconnaître les augments proposés en ARAM Mayhem
  * (augments.js) : Riot ne dit pas quels augments te sont proposés, il faut lire leurs noms à l'écran.
@@ -12,7 +12,10 @@
  * Le script est passé en "-EncodedCommand" : aucun fichier .ps1 à installer.
  * Rien ne quitte le PC : la capture est lue puis effacée (fichier temporaire).
  */
-const { spawn } = require("child_process");
+const { spawn, execFile } = require("child_process");
+const fs = require("fs");
+const os = require("os");
+const path = require("path");
 
 const DELAI_MAX_MS = 8000;
 
@@ -116,14 +119,15 @@ function lireReponse(ligne) {
  * zone : { x, y, largeur, hauteur } en pixels réels de l'écran. Renvoie [{ texte, x, y, largeur, hauteur }].
  * lancer : spawn (modifiable pour les tests).
  */
-function creerLecteurEcran({ langue = "en-US", lancer = spawn, plateforme = process.platform } = {}) {
+function creerLecteurEcran({ langue = "en-US", lancer = spawn, plateforme = process.platform, echelle = () => 1 } = {}) {
+  if (plateforme === "darwin") return creerLecteurEcranMac({ langue, echelle }); // Mac : screencapture + Vision
   let processus = null;
   let tampon = "";
   let pret = null; // promesse : le script a fini de démarrer
   const enAttente = []; // { resoudre, rejeter, minuterie }
 
   function demarrer() {
-    if (plateforme !== "win32") throw new Error("La lecture d'écran ne marche que sous Windows.");
+    if (plateforme !== "win32") throw new Error("La lecture d'écran ne marche que sous Windows et sur Mac.");
     processus = lancer("powershell.exe", ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-EncodedCommand", commandeEncodee(langue)], {
       windowsHide: true,
       stdio: ["pipe", "pipe", "ignore"],
@@ -196,4 +200,106 @@ function creerLecteurEcran({ langue = "en-US", lancer = spawn, plateforme = proc
   };
 }
 
-module.exports = { langueOcr, commandeEncodee, lireReponse, creerLecteurEcran };
+// --- Mac : capture + OCR de macOS (Vision), sans rien installer (16/10/2026) ------------------------
+// Pour chaque lecture :
+//  1. « screencapture » (fourni avec macOS) capture la zone dans un fichier temporaire. Il travaille en « points »
+//     (l'échelle Retina, ex. 2), alors que l'appli parle en pixels réels : on divise par l'échelle ;
+//  2. « osascript -l JavaScript » (JavaScript pour macOS, fourni aussi) appelle Vision, l'OCR d'Apple ;
+//  3. Vision donne la place de chaque ligne en FRACTIONS de l'image, en partant du BAS : on la ramène en pixels
+//     de l'écran, en partant du haut, comme sous Windows.
+// macOS demande l'autorisation « Enregistrement de l'écran » une fois (sans elle, la capture ne montre que le bureau).
+// Rien ne quitte le Mac : la capture est lue puis effacée.
+
+const SCRIPT_VISION = String.raw`
+ObjC.import("Foundation");
+ObjC.import("Vision");
+function run(argv) {
+  const requete = $.VNRecognizeTextRequest.alloc.init;
+  requete.setRecognitionLevel(0); // 0 = précis
+  requete.setUsesLanguageCorrection(false); // des noms d'augments, pas des phrases
+  try {
+    if (argv[1]) requete.setRecognitionLanguages($([argv[1]]));
+  } catch (e) {} // langue inconnue de Vision : sa langue par défaut
+  const image = $.NSURL.fileURLWithPath(argv[0]);
+  const lecteur = $.VNImageRequestHandler.alloc.initWithURLOptions(image, $.NSDictionary.dictionary);
+  if (!lecteur.performRequestsError($.NSArray.arrayWithObject(requete), null)) return JSON.stringify({ erreur: "Vision n'a pas pu lire l'image" });
+  const resultats = requete.results;
+  const lignes = [];
+  for (let i = 0; i < resultats.count; i++) {
+    const observation = resultats.objectAtIndex(i);
+    const candidats = observation.topCandidates(1);
+    if (!candidats || candidats.count < 1) continue;
+    const b = observation.boundingBox;
+    lignes.push({ texte: candidats.objectAtIndex(0).string.js, x: b.origin.x, y: b.origin.y, largeur: b.size.width, hauteur: b.size.height });
+  }
+  return JSON.stringify({ lignes: lignes });
+}`;
+
+/**
+ * Réponse du script Vision -> [{ texte, x, y, largeur, hauteur }] en pixels de l'écran (comme sous Windows).
+ * Vision : fractions de l'image (0 à 1), origine en BAS à gauche. zone : la zone capturée, en pixels réels.
+ * Lignes abîmées ignorées ; null si la réponse est illisible ; lance une erreur si Vision en signale une.
+ */
+function lignesDepuisVision(sortie, zone) {
+  let r;
+  try {
+    r = JSON.parse(String(sortie || "").trim());
+  } catch {
+    return null;
+  }
+  if (!r || typeof r !== "object") return null;
+  if (r.erreur) throw new Error(`Lecture d'écran impossible : ${r.erreur}`);
+  if (!Array.isArray(r.lignes)) return null;
+  return r.lignes
+    .filter((l) => l && typeof l.texte === "string" && [l.x, l.y, l.largeur, l.hauteur].every(Number.isFinite))
+    .map((l) => ({
+      texte: l.texte,
+      x: Math.round(zone.x + l.x * zone.largeur),
+      y: Math.round(zone.y + (1 - l.y - l.hauteur) * zone.hauteur), // Vision compte depuis le bas
+      largeur: Math.round(l.largeur * zone.largeur),
+      hauteur: Math.round(l.hauteur * zone.hauteur),
+    }));
+}
+
+/**
+ * Lecteur d'écran du Mac : mêmes fonctions que celui de Windows ({ lire(zone), lireFichier, arreter }).
+ *  executer : execFile (modifiable pour les tests) ; echelle() : échelle de l'écran (2 sur un écran Retina).
+ */
+function creerLecteurEcranMac({ langue = "en-US", executer = execFile, echelle = () => 1, dossierTemp = os.tmpdir() } = {}) {
+  const fichier = path.join(dossierTemp, `lol-companion-ocr-${process.pid}.png`);
+  let enCours = null; // une seule lecture à la fois (le même fichier temporaire)
+
+  const lancer = (programme, args) =>
+    new Promise((resoudre, rejeter) => {
+      executer(programme, args, { timeout: DELAI_MAX_MS, maxBuffer: 4 * 1024 * 1024 }, (erreur, sortie) =>
+        erreur ? rejeter(new Error(`Lecture d'écran impossible (${programme}) : ${erreur.message}`)) : resoudre(String(sortie || ""))
+      );
+    });
+
+  async function lire(zone) {
+    const z = { x: Math.round(zone.x), y: Math.round(zone.y), largeur: Math.round(zone.largeur), hauteur: Math.round(zone.hauteur) };
+    if (![z.x, z.y, z.largeur, z.hauteur].every(Number.isFinite) || z.largeur <= 0 || z.hauteur <= 0) throw new Error("Zone de lecture invalide.");
+    const e = Number(echelle()) > 0 ? Number(echelle()) : 1;
+    const points = [z.x / e, z.y / e, z.largeur / e, z.hauteur / e].map((n) => Math.round(n)).join(",");
+    try {
+      await lancer("screencapture", ["-x", "-t", "png", "-R", points, fichier]); // -x : sans bruit d'appareil photo
+      const lignes = lignesDepuisVision(await lancer("osascript", ["-l", "JavaScript", "-e", SCRIPT_VISION, fichier, langueOcr(String(langue).replace("-", "_"))]), z);
+      if (!lignes) throw new Error("Réponse illisible de la lecture d'écran.");
+      return lignes;
+    } finally {
+      fs.rm(fichier, { force: true }, () => {}); // la capture ne reste jamais sur le disque
+    }
+  }
+
+  return {
+    lire: (zone) => {
+      const suivante = (enCours || Promise.resolve()).catch(() => {}).then(() => lire(zone));
+      enCours = suivante;
+      return suivante;
+    },
+    lireFichier: () => Promise.reject(new Error("La lecture d'une image enregistrée n'existe que sous Windows.")),
+    arreter: () => {}, // rien ne reste ouvert entre deux lectures
+  };
+}
+
+module.exports = { langueOcr, commandeEncodee, lireReponse, creerLecteurEcran, lignesDepuisVision, creerLecteurEcranMac, SCRIPT_VISION };

@@ -251,3 +251,66 @@ test("lecture d'écran hors Windows : erreur claire", async () => {
   const lecteur = O.creerLecteurEcran({ plateforme: "linux" });
   await assert.rejects(lecteur.lire({ x: 0, y: 0, largeur: 10, hauteur: 10 }), /que sous Windows/);
 });
+
+// --- Mac : screencapture + Vision (faux programmes : rien n'est capturé pendant les tests) ---------
+
+test("Mac : positions de Vision (fractions, depuis le bas) -> pixels de l'écran depuis le haut", () => {
+  const zone = { x: 100, y: 200, largeur: 1000, hauteur: 400 };
+  const sortie = JSON.stringify({ lignes: [{ texte: "Goliath", x: 0.1, y: 0.75, largeur: 0.2, hauteur: 0.1 }, { texte: "abîmée", x: "?" }] });
+  assert.deepStrictEqual(O.lignesDepuisVision(sortie, zone), [{ texte: "Goliath", x: 200, y: 260, largeur: 200, hauteur: 40 }]);
+  assert.strictEqual(O.lignesDepuisVision("pas du json", zone), null);
+  assert.strictEqual(O.lignesDepuisVision('{"autre":1}', zone), null);
+  assert.throws(() => O.lignesDepuisVision('{"erreur":"Vision a échoué"}', zone), /Vision a échoué/);
+});
+
+test("Mac : capture en points (écran Retina), lecture par Vision, capture effacée", async () => {
+  const fs = require("fs");
+  const os = require("os");
+  const path = require("path");
+  const dossierTemp = fs.mkdtempSync(path.join(os.tmpdir(), "lol-ocr-mac-"));
+  const appels = [];
+  const executer = (programme, args, options, rappel) => {
+    appels.push([programme, ...args]);
+    if (programme === "screencapture") {
+      fs.writeFileSync(args.at(-1), "png"); // la fausse capture
+      return rappel(null, "");
+    }
+    return rappel(null, JSON.stringify({ lignes: [{ texte: "Goliath", x: 0, y: 0.5, largeur: 0.5, hauteur: 0.5 }] }));
+  };
+  try {
+    const lecteur = O.creerLecteurEcranMac({ langue: "fr-FR", executer, echelle: () => 2, dossierTemp });
+    const lignes = await lecteur.lire({ x: 200, y: 100, largeur: 800, hauteur: 400 });
+    assert.deepStrictEqual(lignes, [{ texte: "Goliath", x: 200, y: 100, largeur: 400, hauteur: 200 }]);
+    const [capture, ocr] = appels;
+    assert.deepStrictEqual(capture.slice(0, 6), ["screencapture", "-x", "-t", "png", "-R", "100,50,400,200"]); // pixels / 2
+    assert.deepStrictEqual(ocr.slice(0, 3), ["osascript", "-l", "JavaScript"]);
+    assert.strictEqual(ocr.at(-1), "fr-FR");
+    assert.strictEqual(ocr.at(-2), capture.at(-1), "Vision lit bien la capture");
+    await new Promise((r) => setTimeout(r, 50));
+    assert.deepStrictEqual(fs.readdirSync(dossierTemp), [], "la capture ne reste pas sur le disque");
+  } finally {
+    fs.rmSync(dossierTemp, { recursive: true, force: true });
+  }
+});
+
+test("Mac : erreurs claires (programme en échec, réponse illisible, zone invalide) ; la lecture suivante marche", async () => {
+  let echec = true;
+  const executer = (programme, args, options, rappel) => {
+    if (programme === "screencapture") return rappel(echec ? new Error("pas d'autorisation") : null, "");
+    return rappel(null, echec ? "rien" : '{"lignes":[]}');
+  };
+  const lecteur = O.creerLecteurEcranMac({ executer, dossierTemp: require("os").tmpdir() });
+  await assert.rejects(lecteur.lire({ x: 0, y: 0, largeur: 10, hauteur: 10 }), /screencapture/);
+  await assert.rejects(lecteur.lire({ x: 0, y: 0, largeur: 0, hauteur: 10 }), /Zone de lecture invalide/);
+  echec = false;
+  assert.deepStrictEqual(await lecteur.lire({ x: 0, y: 0, largeur: 10, hauteur: 10 }), []);
+  await assert.rejects(lecteur.lireFichier("x.png", 0, 10), /que sous Windows/);
+  lecteur.arreter();
+  assert.match(O.SCRIPT_VISION, /VNRecognizeTextRequest/);
+});
+
+test("lecture d'écran : sur Mac, creerLecteurEcran donne le lecteur du Mac", () => {
+  const lecteur = O.creerLecteurEcran({ plateforme: "darwin" });
+  assert.strictEqual(typeof lecteur.lire, "function");
+  assert.strictEqual(typeof lecteur.arreter, "function");
+});

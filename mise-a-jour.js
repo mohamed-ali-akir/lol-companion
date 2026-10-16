@@ -107,4 +107,112 @@ function creerMiseAJour({
   };
 }
 
-module.exports = { creerMiseAJour, DELAI_PREMIERE_VERIFICATION_MS, INTERVALLE_VERIFICATION_MS };
+// --- Mac : vérification seulement (16/10/2026) ---------------------------------------------------
+// Sur Mac, electron-updater ne peut installer qu'une appli signée par Apple (compte payant) : l'appli ne fait donc
+// que VÉRIFIER. Elle lit latest.yml de la dernière Release (le même fichier que la mise à jour de Windows, publié
+// à chaque version) et, s'il annonce une version plus récente, le bandeau propose d'ouvrir la page de téléchargement.
+// Même exception que sur Windows (github.com, désactivable), rien de personnel envoyé (internet.js).
+
+const DEPOT = "mohamed-ali-akir/lol-companion";
+const ADRESSE_LATEST_YML = `https://github.com/${DEPOT}/releases/latest/download/latest.yml`;
+const PAGE_TELECHARGEMENT = `https://github.com/${DEPOT}/releases/latest`; // fixe : jamais une adresse reçue
+
+/** Version annoncée par latest.yml ("version: 1.2.0"), ou null si le fichier est inattendu. */
+function versionDepuisLatestYml(texte) {
+  const m = /^version:\s*["']?(\d+\.\d+\.\d+)["']?\s*$/m.exec(String(texte || ""));
+  return m ? m[1] : null;
+}
+
+/** Compare deux versions "X.Y.Z" : 1 si a est plus récente, -1 si plus ancienne, 0 si égales (ou illisibles). */
+function comparerVersions(a, b) {
+  const lire = (v) => (/^\d+\.\d+\.\d+$/.test(String(v || "")) ? String(v).split(".").map(Number) : null);
+  const [va, vb] = [lire(a), lire(b)];
+  if (!va || !vb) return 0;
+  for (let i = 0; i < 3; i++) if (va[i] !== vb[i]) return va[i] > vb[i] ? 1 : -1;
+  return 0;
+}
+
+/**
+ * Vérification des versions pour Mac, avec les mêmes fonctions que creerMiseAJour (le reste de l'appli ne voit
+ * pas la différence). Étapes : "attente", "recherche", "a-jour", "disponible" (nouvelle = la version), "erreur".
+ *  - lireLatestYml() : texte de latest.yml (promesse ; internet.js dans main.js, un faux dans les tests) ;
+ *  - ouvrir(adresse) : ouvre la page de téléchargement dans le navigateur (shell.openExternal dans main.js).
+ */
+function creerVerificationMac({
+  lireLatestYml,
+  ouvrir,
+  version,
+  actif = () => true,
+  envoyer = () => {},
+  journal = () => {},
+  delaiMs = DELAI_PREMIERE_VERIFICATION_MS,
+  intervalleMs = INTERVALLE_VERIFICATION_MS,
+}) {
+  let etat = { etape: "attente", version, nouvelle: null, pourcentage: null, message: null, raison: "mac" };
+  let minuterieDepart = null;
+  let minuterieIntervalle = null;
+  let enCours = false;
+
+  function changer(modifs) {
+    etat = { ...etat, ...modifs };
+    envoyer({ ...etat });
+  }
+
+  async function verifier({ forcer = false } = {}) {
+    if ((!forcer && !actif()) || enCours) return false;
+    enCours = true;
+    if (etat.etape !== "disponible") changer({ etape: "recherche", message: null });
+    try {
+      const derniere = versionDepuisLatestYml(await lireLatestYml());
+      if (!derniere) throw new Error("latest.yml illisible");
+      if (comparerVersions(derniere, version) > 0) {
+        if (etat.nouvelle !== derniere) journal("Mise à jour (Mac) : version", derniere, "disponible au téléchargement");
+        changer({ etape: "disponible", nouvelle: derniere, message: null });
+      } else {
+        changer({ etape: "a-jour", nouvelle: null, message: null });
+      }
+      return true;
+    } catch (erreur) {
+      journal("Mise à jour (Mac) : vérification impossible", erreur && erreur.message);
+      // Une version déjà annoncée le reste (une vérification suivante peut échouer sans rien casser).
+      if (etat.etape !== "disponible") changer({ etape: "erreur", message: "Impossible de vérifier les mises à jour (Internet ou GitHub indisponible)." });
+      return false;
+    } finally {
+      enCours = false;
+    }
+  }
+
+  return {
+    demarrer() {
+      this.arreter();
+      minuterieDepart = setTimeout(() => verifier(), delaiMs);
+      minuterieIntervalle = setInterval(() => verifier(), intervalleMs);
+    },
+    arreter() {
+      clearTimeout(minuterieDepart);
+      clearInterval(minuterieIntervalle);
+      minuterieDepart = null;
+      minuterieIntervalle = null;
+    },
+    verifierMaintenant: () => verifier({ forcer: true }),
+    /** Bouton du bandeau : ouvre la page de téléchargement (adresse fixe). Faux si aucune version n'est annoncée. */
+    installer() {
+      if (etat.etape !== "disponible") return false;
+      journal("Mise à jour (Mac) : ouverture de la page de téléchargement");
+      ouvrir(PAGE_TELECHARGEMENT);
+      return true;
+    },
+    lire: () => ({ ...etat }),
+  };
+}
+
+module.exports = {
+  creerMiseAJour,
+  creerVerificationMac,
+  versionDepuisLatestYml,
+  comparerVersions,
+  ADRESSE_LATEST_YML,
+  PAGE_TELECHARGEMENT,
+  DELAI_PREMIERE_VERIFICATION_MS,
+  INTERVALLE_VERIFICATION_MS,
+};

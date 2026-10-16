@@ -204,7 +204,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (405) |
+| `npm test` | Lance les tests (414, dont 1 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -227,9 +227,11 @@ maintenant »). Une version 1.0.0 (sans mise à jour automatique) doit être rem
 ### Sur Mac (bêta, pas encore testée)
 
 Une version Mac existe, mais elle n'a pas encore été essayée sur un vrai Mac.
-- **Fabrication** : un `.dmg` ne se fabrique que sur un Mac. Onglet **Actions** du dépôt → **Construire pour Mac**
-  → *Run workflow* (`.github/workflows/mac.yml`, un Mac de GitHub). Le fichier `.dmg` (Intel et Apple Silicon)
-  est à télécharger en bas de la page de l'exécution (*Artifacts*, gardé 14 jours). Rien n'est publié.
+- **Fabrication** : un `.dmg` ne se fabrique que sur un Mac (un Mac de GitHub, gratuit pour un dépôt public) :
+  - à chaque version publiée (étiquette `vX.Y.Z`), le job `mac` de `publier.yml` dépose
+    `LoL-Companion-X.Y.Z-mac.dmg` (Intel et Apple Silicon) dans la même Release, APRÈS le job Windows qui l'a créée ;
+  - pour un essai sans rien publier : onglet **Actions** → **Construire pour Mac** → *Run workflow*
+    (`mac.yml`) ; le `.dmg` est à télécharger en bas de la page de l'exécution (*Artifacts*, gardé 14 jours).
 - **Installation** : ouvrir le `.dmg` et glisser LoL Companion dans *Applications*. L'appli n'est pas signée par
   Apple (compte développeur à 99 $ par an) : macOS la dit « endommagée » ou « d'un développeur non identifié ».
   Pour la débloquer une fois, dans le Terminal :
@@ -247,9 +249,17 @@ Une version Mac existe, mais elle n'a pas encore été essayée sur un vrai Mac.
   - « Démarrer réduit » : macOS ne passe pas d'argument aux applis lancées à l'ouverture de session ; l'appli se fie à
     ce que dit macOS, ou à un Mac allumé depuis moins de 3 minutes (sinon la fenêtre s'ouvre normalement) ;
   - textes adaptés : « notification macOS », « au démarrage du Mac » (attribut `data-mac` dans `src/index.html`) ;
-  - **pas de stats des augments** (la lecture des cartes à l'écran utilise l'OCR de Windows) ;
-  - **pas de mise à jour automatique** (electron-updater exige une appli signée sur Mac) : retélécharger chaque version.
-  Tout cela est testé sous Windows avec de faux résultats Mac, mais pas encore sur un vrai Mac.
+  - **stats des augments** : la carte est capturée avec `screencapture` puis lue par **Vision**, l'OCR de macOS,
+    appelé avec `osascript -l JavaScript` (tous deux fournis avec macOS : rien à installer). `screencapture` compte
+    en points (écran Retina : pixels ÷ 2) et Vision donne des fractions de l'image depuis le BAS : `ocr.js` remet tout
+    en pixels depuis le haut, comme sous Windows. macOS demande l'autorisation **« Enregistrement de l'écran »**
+    (Réglages Système → Confidentialité et sécurité) ; tant qu'elle manque, l'onglet Build l'explique ;
+  - **mise à jour** : sans signature Apple, electron-updater ne peut rien installer. L'appli Mac vérifie donc
+    seulement (15 s après le démarrage puis toutes les 6 h, même case « Mises à jour ») : elle lit `latest.yml` de
+    la dernière Release et, si la version est plus récente, un bandeau propose **« Télécharger la nouvelle
+    version »**, qui ouvre la page des Releases (adresse fixe dans le code). Il reste à installer le `.dmg` à la main.
+  Tout cela est testé sous Windows avec de faux résultats Mac. Seul le vrai OCR Vision est testé sur un Mac de
+  GitHub (`test/ocr-mac.test.js`, sauté sous Windows) ; rien n'a encore été essayé sur un vrai Mac.
 
 ## Technologies
 
@@ -557,7 +567,7 @@ lol-level-calculator/
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
 ├── objectifs.js       # Alerte avant les objectifs en jeu : heures d'apparition, chrono du jeu (API locale), bandeau
 ├── augments.js        # Augments ARAM Mayhem : reconnaissance des cartes, étiquettes, surveillance pendant la partie
-├── ocr.js             # Lecture de texte à l'écran (OCR de Windows, via PowerShell)
+├── ocr.js             # Lecture de texte à l'écran : OCR de Windows (PowerShell) ou de macOS (screencapture + Vision)
 ├── arammayhem.js      # Taux de victoire des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »
 ├── journal.js         # Journal sur le disque (journal.txt), taille limitée

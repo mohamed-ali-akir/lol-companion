@@ -19,8 +19,8 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
     honnête (User-Agent), une page par champion / voie / mode toutes les 3 h au plus, et retour à OP.GG si la page change.
   - arammayhem.com : taux de victoire des augments ARAM Mayhem (`arammayhem.js`, pages publiques, robots.txt
     « Allow: / »), avec les mêmes règles que Lolalytics (User-Agent honnête, cache 3 h, seul le nom du champion dans
-    l'adresse). La lecture des cartes à l'écran (`ocr.js`, OCR de Windows) reste 100 % locale, et seulement pendant
-    une ARAM Mayhem ; l'overlay n'affiche que des stats, il ne choisit jamais.
+    l'adresse). La lecture des cartes à l'écran (`ocr.js`, OCR de Windows, ou Vision sur Mac) reste 100 % locale, et
+    seulement pendant une ARAM Mayhem ; l'overlay n'affiche que des stats, il ne choisit jamais.
   - Conseiller de draft (`draft.js`, décidé le 04/10/2026) : Lolalytics encore (tier list du poste, page de chaque
     adversaire verrouillé pour ses matchups, API `a1.lolalytics.com/mega/?ep=build-team` pour les synergies des
     alliés), mêmes règles. Case de l'onglet Sélection ; il propose seulement, ne choisit jamais.
@@ -28,7 +28,8 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
     de github.com/mohamed-ali-akir/lol-companion (latest.yml + installateur, empreinte sha512 vérifiée). Seule
     exception **activée par défaut** (désactivable : Paramètres → Mises à jour) ; n'envoie rien de personnel ;
     jamais de redémarrage forcé (bandeau, ou installation en quittant). Publication : étiquette `vX.Y.Z` →
-    `.github/workflows/publier.yml`.
+    `.github/workflows/publier.yml`. Sur Mac (16/10/2026, appli non signée) : vérification seulement, même adresse
+    (latest.yml de la dernière Release, via `internet.js`), et le bandeau ouvre la page des Releases (adresse fixe).
   Règles communes (User-Agent honnête, cache 3 h, délai maximal, erreurs claires) : écrites une seule fois dans
   `internet.js` (14/10/2026). Tout nouvel appel à Internet doit passer par ce module.
   Conditions à garder : désactivé par défaut (case de l'onglet Build, ou Sélection pour le conseiller), lecture seule, appels uniquement depuis le

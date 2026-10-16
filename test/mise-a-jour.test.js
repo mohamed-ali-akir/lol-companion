@@ -104,3 +104,81 @@ test("vérification automatique : au démarrage puis à intervalle, seulement si
   assert.strictEqual(await maj.verifierMaintenant(), true); // mais le bouton « Vérifier maintenant » marche
   maj.arreter();
 });
+
+// --- Mac : vérification seulement (pas d'installation sans signature Apple) ---------------------
+
+const M = require("../mise-a-jour.js");
+
+test("Mac : version lue dans latest.yml, comparaison des versions", () => {
+  assert.strictEqual(M.versionDepuisLatestYml("version: 1.2.0\nfiles:\n  - url: x.exe\n"), "1.2.0");
+  assert.strictEqual(M.versionDepuisLatestYml("version: '1.10.3'\r\npath: x"), "1.10.3");
+  assert.strictEqual(M.versionDepuisLatestYml("<html>page d'erreur</html>"), null);
+  assert.strictEqual(M.versionDepuisLatestYml(undefined), null);
+  assert.strictEqual(M.comparerVersions("1.2.0", "1.1.1"), 1);
+  assert.strictEqual(M.comparerVersions("1.10.0", "1.9.9"), 1, "10 > 9 : comparaison en nombres, pas en texte");
+  assert.strictEqual(M.comparerVersions("1.1.1", "1.1.1"), 0);
+  assert.strictEqual(M.comparerVersions("1.0.0", "1.1.0"), -1);
+  assert.strictEqual(M.comparerVersions("abc", "1.0.0"), 0);
+  assert.match(M.ADRESSE_LATEST_YML, /^https:\/\/github\.com\/mohamed-ali-akir\/lol-companion\/releases\/latest\/download\/latest\.yml$/);
+});
+
+function verificationMac({ reponses, version = "1.1.1", actif = () => true }) {
+  const etats = [];
+  const ouvertes = [];
+  const journal = [];
+  const verif = M.creerVerificationMac({
+    lireLatestYml: async () => {
+      const r = reponses.shift();
+      if (r instanceof Error) throw r;
+      return r;
+    },
+    ouvrir: (adresse) => ouvertes.push(adresse),
+    version,
+    actif,
+    envoyer: (e) => etats.push(e),
+    journal: (...m) => journal.push(m.join(" ")),
+  });
+  return { verif, etats, ouvertes, journal };
+}
+
+test("Mac : nouvelle version -> « disponible », le bandeau ouvre la page de téléchargement (adresse fixe)", async () => {
+  const { verif, etats, ouvertes } = verificationMac({ reponses: ["version: 1.2.0\n"] });
+  assert.strictEqual(verif.installer(), false, "rien à ouvrir avant la vérification");
+  assert.strictEqual(await verif.verifierMaintenant(), true);
+  assert.deepStrictEqual(etats.map((e) => e.etape), ["recherche", "disponible"]);
+  assert.strictEqual(verif.lire().nouvelle, "1.2.0");
+  assert.strictEqual(verif.lire().raison, "mac");
+  assert.strictEqual(verif.installer(), true);
+  assert.deepStrictEqual(ouvertes, [M.PAGE_TELECHARGEMENT]);
+});
+
+test("Mac : déjà à jour, erreur réseau, latest.yml illisible ; une version annoncée le reste", async () => {
+  const aJour = verificationMac({ reponses: ["version: 1.1.1\n"] });
+  await aJour.verif.verifierMaintenant();
+  assert.strictEqual(aJour.verif.lire().etape, "a-jour");
+
+  const panne = verificationMac({ reponses: [new Error("GitHub ne répond pas"), "<html>"] });
+  assert.strictEqual(await panne.verif.verifierMaintenant(), false);
+  assert.strictEqual(panne.verif.lire().etape, "erreur");
+  assert.strictEqual(await panne.verif.verifierMaintenant(), false);
+  assert.ok(panne.journal.some((l) => /illisible/.test(l)));
+
+  const garde = verificationMac({ reponses: ["version: 1.3.0", new Error("plus d'Internet")] });
+  await garde.verif.verifierMaintenant();
+  await garde.verif.verifierMaintenant();
+  assert.strictEqual(garde.verif.lire().etape, "disponible");
+  assert.strictEqual(garde.verif.lire().nouvelle, "1.3.0");
+});
+
+test("Mac : case décochée -> pas de vérification automatique, mais « Vérifier maintenant » marche ; minuteries arrêtées", async () => {
+  const { verif, etats } = verificationMac({ reponses: ["version: 1.2.0"], actif: () => false });
+  verif.demarrer();
+  try {
+    verif.arreter();
+    assert.deepStrictEqual(etats, []);
+    assert.strictEqual(await verif.verifierMaintenant(), true);
+    assert.strictEqual(verif.lire().etape, "disponible");
+  } finally {
+    verif.arreter();
+  }
+});

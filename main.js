@@ -8,7 +8,7 @@
 // La page, elle, n'a accès à ces fonctions qu'à travers preload.js.
 // En arrière-plan (fenêtre cachée), l'appli reste dans la zone de notification de Windows
 // et continue de surveiller le client (voir la partie "Arrière-plan" en bas de ce fichier).
-const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, protocol, Notification, screen } = require("electron");
+const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, protocol, Notification, screen, shell, systemPreferences } = require("electron");
 const path = require("path");
 const os = require("os"); // os.uptime() : depuis quand le Mac est allumé (démarrage réduit)
 const { recupererCompteClient, lireToutHistorique, ErreurClient } = require("./lcu.js");
@@ -34,7 +34,8 @@ const { creerSuiviObjectifs, creerLectureJeuPartagee, estFaille } = require("./o
 const { creerSuiviSorts } = require("./sorts.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { alertesDuCompte, creerSuiviAlertes } = require("./session.js");
-const { creerMiseAJour } = require("./mise-a-jour.js");
+const { creerMiseAJour, creerVerificationMac, ADRESSE_LATEST_YML } = require("./mise-a-jour.js");
+const { telecharger } = require("./internet.js"); // règles communes des appels à Internet (User-Agent, délai)
 const { recupererClassee, lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./classee.js");
 const {
   actionFermeture,
@@ -136,7 +137,8 @@ function brancherMessages() {
   ipcMain.handle("config:lire", () => ({
     dossierJeu: stockage.dossierJeu(),
     dossierJeuParDefaut: DOSSIER_JEU_PAR_DEFAUT,
-    plateforme: process.platform, // "win32" ou "darwin" (Mac) : la page cache ce qui ne marche que sous Windows
+    plateforme: process.platform, // "win32" ou "darwin" (Mac) : la page adapte ses textes
+    autorisationEcran: autorisationEcranMac(), // Mac : « Enregistrement de l'écran » donné ? (augments) ; null ailleurs
     dernierCompte: stockage.dernierCompte(), // pour l'afficher même si le client est fermé
     ongletActif: stockage.ongletActif(), // pour rouvrir le même onglet
     lancement, // heure d'ouverture de l'appli (session "depuis l'ouverture")
@@ -284,7 +286,10 @@ function brancherMessages() {
   );
   ipcMain.handle("maj:verifier", () => (miseAJour ? miseAJour.verifierMaintenant() : false));
   ipcMain.handle("maj:installer", () => {
-    if (!miseAJour || miseAJour.lire().etape !== "prete") return false;
+    if (!miseAJour) return false;
+    const etape = miseAJour.lire().etape;
+    if (etape === "disponible") return miseAJour.installer(); // Mac : ouvre la page de téléchargement, l'appli reste ouverte
+    if (etape !== "prete") return false;
     quitteEnCours = true; // la croix ne doit pas juste cacher la fenêtre pendant l'installation
     return miseAJour.installer();
   });
@@ -663,6 +668,19 @@ function ecranJeu() {
   };
 }
 
+/**
+ * Mac : l'autorisation « Enregistrement de l'écran » (nécessaire pour lire les augments à l'écran) est-elle donnée ?
+ * "granted", "denied", "not-determined"... ; null hors Mac ou si macOS ne répond pas.
+ */
+function autorisationEcranMac() {
+  if (process.platform !== "darwin") return null;
+  try {
+    return systemPreferences.getMediaAccessStatus("screen");
+  } catch {
+    return null;
+  }
+}
+
 /** Fenêtre transparente par-dessus le jeu : elle laisse passer les clics et ne prend jamais la main (focus). */
 function creerFenetreAugments() {
   const { bounds } = screen.getPrimaryDisplay();
@@ -772,13 +790,13 @@ async function obtenirIndexAugments() {
 }
 
 function obtenirLecteurEcran() {
-  if (!lecteurEcran) lecteurEcran = creerLecteurEcran({ langue: langueJeu || "en_US" });
+  if (!lecteurEcran) lecteurEcran = creerLecteurEcran({ langue: langueJeu || "en_US", echelle: () => ecranJeu().echelle }); // échelle : Mac (Retina)
   return lecteurEcran;
 }
 
 function demarrerAugments() {
   suiviAugments = creerSuiviAugments({
-    actif: () => process.platform === "win32" && stockage.reglagesBuild().augments, // OCR de Windows (ocr.js) : rien sur Mac
+    actif: () => (process.platform === "win32" || process.platform === "darwin") && stockage.reglagesBuild().augments, // OCR de Windows ou de macOS (ocr.js)
     ecran: ecranJeu,
     lireEcran: (zone) => obtenirLecteurEcran().lire(zone),
     nomsAugments: obtenirIndexAugments,
@@ -1139,7 +1157,20 @@ function lanceeReduite() {
  */
 function demarrerMiseAJour() {
   if (!app.isPackaged) return;
-  // Mac : la mise à jour automatique exige une appli signée par Apple (99 $/an), ce qui n'est pas le cas.
+  // Mac : installer exige une appli signée par Apple (99 $/an) ; on vérifie seulement, et le bandeau ouvre la page
+  // de téléchargement (mise-a-jour.js, creerVerificationMac).
+  if (process.platform === "darwin") {
+    miseAJour = creerVerificationMac({
+      lireLatestYml: () => telecharger({ appeler: (...a) => fetch(...a), adresse: ADRESSE_LATEST_YML, site: "GitHub", Erreur: Error }),
+      ouvrir: (adresse) => shell.openExternal(adresse),
+      version: app.getVersion(),
+      actif: () => stockage.reglagesArrierePlan().majAuto,
+      envoyer: (etat) => envoyerALaPage("maj:etat", etat),
+      journal: noter,
+    });
+    miseAJour.demarrer();
+    return;
+  }
   if (process.platform !== "win32") return;
   try {
     const { autoUpdater } = require("electron-updater"); // chargé seulement ici : inutile pendant le développement

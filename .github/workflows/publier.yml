@@ -29,10 +29,29 @@ jobs:
       # propre Release (vu le 11/10/2026 : deux « v1.1.0 », le lien public tombait sur celle qui n'avait que le .blockmap).
       - name: Créer la Release
         if: github.ref_type == 'tag'
-        run: gh release create "${{ github.ref_name }}" --title "LoL Companion ${{ github.ref_name }}" --notes "Télécharge LoL-Companion-Setup-*.exe ci-dessous. Les applis déjà installées se mettent à jour toutes seules."
+        run: gh release create "${{ github.ref_name }}" --title "LoL Companion ${{ github.ref_name }}" --notes "Windows : télécharge LoL-Companion-Setup-*.exe ci-dessous (les applis déjà installées se mettent à jour toutes seules). Mac (bêta) : LoL-Companion-*-mac.dmg, voir la section Mac du README pour l'installer."
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       - name: Fabriquer et publier l'installateur
         run: npx electron-builder --win --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Version Mac (bêta) : APRÈS le job Windows, qui a déjà créé la Release (sinon electron-builder en créerait une
+  # deuxième, comme pour la v1.1.0). Un .dmg ne se fabrique que sur un Mac. Pas de signature Apple : l'appli Mac ne
+  # fait que vérifier les versions et proposer le téléchargement (mise-a-jour.js, creerVerificationMac).
+  mac:
+    needs: publier
+    if: github.ref_type == 'tag'
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - name: Fabriquer et publier le .dmg
+        run: npx electron-builder --mac --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

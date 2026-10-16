@@ -75,7 +75,8 @@
       "icon": "assets/icon.png",
       "category": "public.app-category.games",
       "identity": "-",
-      "hardenedRuntime": false
+      "hardenedRuntime": false,
+      "artifactName": "LoL-Companion-${version}-mac.${ext}"
     },
     "linux": {
       "target": "AppImage",
