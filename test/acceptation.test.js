@@ -373,3 +373,31 @@ test("faux client : refusé ou annulé pendant le délai -> aucun POST", async (
     await client.fermer();
   }
 });
+
+test("Mac : League au premier plan avec lsappinfo (sans autorisation), sinon false", async () => {
+  assert.strictEqual(A.nomDepuisLsappinfo('"LSDisplayName"="League of Legends"\n'), "League of Legends");
+  assert.strictEqual(A.nomDepuisLsappinfo('"name"="LeagueClientUx"'), "LeagueClientUx");
+  assert.strictEqual(A.nomDepuisLsappinfo("rien d'utile"), null);
+  assert.strictEqual(A.estProgrammeLeague("LeagueofLegends"), true);
+  // Faux lsappinfo : "front" donne l'appli au premier plan, "info" donne son nom.
+  const faux = (nom, { front = "ASN:0x0-0x1a01a:\n" } = {}) => {
+    const appels = [];
+    const executer = (programme, args, options, rappel) => {
+      appels.push([programme, ...args]);
+      if (args[0] === "front") return rappel(null, front);
+      return rappel(null, `"LSDisplayName"="${nom}"\n`);
+    };
+    return { appels, executer };
+  };
+  const league = faux("League of Legends");
+  assert.strictEqual(await A.leagueAuPremierPlan({ plateforme: "darwin", executer: league.executer }), true);
+  assert.deepStrictEqual(league.appels, [["lsappinfo", "front"], ["lsappinfo", "info", "-only", "name", "ASN:0x0-0x1a01a:"]]);
+  assert.strictEqual(await A.leagueAuPremierPlan({ plateforme: "darwin", executer: faux("Safari").executer }), false);
+  assert.strictEqual(await A.leagueAuPremierPlan({ plateforme: "darwin", executer: faux("League of Legends", { front: "" }).executer }), false);
+  const echec = (programme, args, options, rappel) => rappel(new Error("introuvable"));
+  assert.strictEqual(await A.leagueAuPremierPlan({ plateforme: "darwin", executer: echec }), false);
+  const plante = () => {
+    throw new Error("execFile a planté");
+  };
+  assert.strictEqual(await A.leagueAuPremierPlan({ plateforme: "darwin", executer: plante }), false);
+});

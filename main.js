@@ -10,6 +10,7 @@
 // et continue de surveiller le client (voir la partie "Arrière-plan" en bas de ce fichier).
 const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, protocol, Notification, screen } = require("electron");
 const path = require("path");
+const os = require("os"); // os.uptime() : depuis quand le Mac est allumé (démarrage réduit)
 const { recupererCompteClient, lireToutHistorique, ErreurClient } = require("./lcu.js");
 const { creerStockage, ErreurStockage, DOSSIER_JEU_PAR_DEFAUT } = require("./stockage.js");
 const { surveillerClient } = require("./surveillance.js");
@@ -39,6 +40,7 @@ const {
   actionFermeture,
   parametresDemarrageWindows,
   estDemarrageReduit,
+  estDemarrageReduitMac,
   doitPrevenirReduction,
   actionClientDetecte,
   texteClientDetecte,
@@ -691,6 +693,15 @@ function creerFenetreAugments() {
   // le seul panneau des sorts quand la souris passe dessus (voir "overlay:souris").
   fenetreAugments.setIgnoreMouseEvents(true, { forward: true });
   fenetreAugments.setAlwaysOnTop(true, "screen-saver"); // au-dessus du jeu en mode « Sans bordure »
+  if (process.platform === "darwin") {
+    // Mac : un jeu en plein écran a son propre bureau (« Space ») ; sans ça, la fenêtre resterait sur le bureau
+    // normal, invisible pendant la partie. skipTransformProcessType : l'icône du Dock ne disparaît pas.
+    try {
+      fenetreAugments.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+    } catch (erreur) {
+      noter("Overlay sur Mac :", erreur.message); // l'overlay marche quand même hors plein écran
+    }
+  }
   fenetreAugments.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
   fenetreAugments.loadFile(path.join(__dirname, "src", "overlay.html"));
   fenetreAugments.on("closed", () => {
@@ -1107,6 +1118,22 @@ function appliquerDemarrageWindows(reglages) {
 }
 
 /**
+ * L'appli a-t-elle été lancée réduite au démarrage ? Windows : argument --reduit. Mac : le système ne passe pas
+ * d'argument, on regarde le réglage, ce que dit macOS et depuis quand le Mac est allumé (arriere-plan.js).
+ */
+function lanceeReduite() {
+  if (estDemarrageReduit(process.argv)) return true;
+  if (process.platform !== "darwin" || !app.isPackaged) return false;
+  let ouvertAuDemarrage = false;
+  try {
+    ouvertAuDemarrage = app.getLoginItemSettings().wasOpenedAtLogin === true;
+  } catch {
+    // pas fourni par ce macOS : on se fie à l'heure d'allumage du Mac
+  }
+  return estDemarrageReduitMac({ reglages: stockage.reglagesArrierePlan(), ouvertAuDemarrage, uptimeS: os.uptime() });
+}
+
+/**
  * Mise à jour automatique (mise-a-jour.js) : seulement pour l'appli installée. Lancée depuis le projet (npm start),
  * il n'y a rien à mettre à jour (et pas de fichier app-update.yml).
  */
@@ -1169,9 +1196,9 @@ if (!instanceUnique) {
     brancherIcones();
     creerIcone();
     appliquerDemarrageWindows(stockage.reglagesArrierePlan()); // garde Windows d'accord avec le réglage
-    // Lancée par le démarrage de Windows avec "démarrer réduit" : la fenêtre reste cachée
+    // Lancée par le démarrage de Windows (ou du Mac) avec "démarrer réduit" : la fenêtre reste cachée
     // (seulement si l'icône existe, sinon on ne pourrait plus l'ouvrir).
-    creerFenetre({ visible: !(estDemarrageReduit(process.argv) && icone) });
+    creerFenetre({ visible: !(lanceeReduite() && icone) });
     demarrerAcceptation();
     demarrerSelection();
     demarrerAugments();

@@ -95,6 +95,21 @@ function estDemarrageReduit(argv) {
   return Array.isArray(argv) && argv.includes(ARGUMENT_REDUIT);
 }
 
+const DEMARRAGE_RECENT_S = 3 * 60; // Mac allumé depuis moins de 3 min : lancement à l'ouverture de session
+
+/**
+ * Mac : l'appli a-t-elle été lancée réduite à l'ouverture de session ? Sur Mac, le système ne passe PAS les
+ * arguments (--reduit) aux applis lancées à l'ouverture de session : on regarde donc le réglage, plus
+ *  - ouvertAuDemarrage : app.getLoginItemSettings().wasOpenedAtLogin (pas toujours fourni sur les macOS récents) ;
+ *  - ou uptimeS : depuis combien de secondes le Mac est allumé (os.uptime()).
+ * En cas de doute : false (la fenêtre s'ouvre normalement, on ne perd jamais l'appli).
+ */
+function estDemarrageReduitMac({ reglages, ouvertAuDemarrage = false, uptimeS = Infinity }) {
+  const r = normaliserReglagesArrierePlan(reglages);
+  if (!r.lancerAuDemarrage || !r.demarrerReduit) return false;
+  return ouvertAuDemarrage === true || (Number.isFinite(uptimeS) && uptimeS >= 0 && uptimeS < DEMARRAGE_RECENT_S);
+}
+
 /** Faut-il expliquer (une seule fois) que l'appli tourne toujours après avoir caché la fenêtre ? */
 function doitPrevenirReduction({ action, dejaPrevenu }) {
   return action === "cacher" && !dejaPrevenu;
@@ -163,6 +178,7 @@ module.exports = {
   actionFermeture,
   parametresDemarrageWindows,
   estDemarrageReduit,
+  estDemarrageReduitMac,
   doitPrevenirReduction,
   actionClientDetecte,
   texteClientDetecte,

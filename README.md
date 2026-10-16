@@ -204,7 +204,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (402) |
+| `npm test` | Lance les tests (405) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -240,9 +240,16 @@ Une version Mac existe, mais elle n'a pas encore été essayée sur un vrai Mac.
   - dossier du jeu par défaut : `/Applications/League of Legends.app/Contents/LoL` (là où le client écrit son lockfile) ;
   - menu de l'appli en haut de l'écran (LoL Companion, Édition, Fenêtre) : c'est lui qui fait marcher Cmd+C, Cmd+V,
     Cmd+A, Cmd+Z dans les champs de texte, et Cmd+Q / Cmd+H (`modeleMenuMac` dans `arriere-plan.js`) ;
+  - overlay en jeu (objectifs, chronos des sorts) : affiché sur tous les bureaux, y compris celui d'un jeu en plein
+    écran (`setVisibleOnAllWorkspaces`, sinon il resterait sur le bureau normal) ;
+  - notification « Partie trouvée » seulement si League n'est pas au premier plan : sur Mac, l'appli au premier plan
+    est lue avec `lsappinfo` (fourni avec macOS, aucune autorisation à donner) ;
+  - « Démarrer réduit » : macOS ne passe pas d'argument aux applis lancées à l'ouverture de session ; l'appli se fie à
+    ce que dit macOS, ou à un Mac allumé depuis moins de 3 minutes (sinon la fenêtre s'ouvre normalement) ;
+  - textes adaptés : « notification macOS », « au démarrage du Mac » (attribut `data-mac` dans `src/index.html`) ;
   - **pas de stats des augments** (la lecture des cartes à l'écran utilise l'OCR de Windows) ;
-  - **pas de mise à jour automatique** (electron-updater exige une appli signée sur Mac) : retélécharger chaque version ;
-  - l'overlay en jeu (objectifs, chronos des sorts) et la notification de partie trouvée sont à vérifier.
+  - **pas de mise à jour automatique** (electron-updater exige une appli signée sur Mac) : retélécharger chaque version.
+  Tout cela est testé sous Windows avec de faux résultats Mac, mais pas encore sur un vrai Mac.
 
 ## Technologies
 

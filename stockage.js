@@ -32,13 +32,18 @@ const DOSSIERS_JEU_PAR_DEFAUT = {
 /** Dossier du jeu par défaut pour ce système (celui de Windows si le système est inconnu). */
 const dossierJeuParDefaut = (plateforme = process.platform) => DOSSIERS_JEU_PAR_DEFAUT[plateforme] || DOSSIERS_JEU_PAR_DEFAUT.win32;
 const DOSSIER_JEU_PAR_DEFAUT = dossierJeuParDefaut();
+// Exemple de chemin complet, dans le message d'erreur d'un dossier mal écrit.
+const EXEMPLES_DOSSIER_JEU = {
+  win32: "D:\\Jeux\\Riot Games\\League of Legends",
+  darwin: "/Applications/League of Legends.app/Contents/LoL",
+};
 
 // Réglages des anciennes versions (clé API, recherche en ligne) : plus utilisés.
 const ANCIENS_REGLAGES = ["cleApi", "cleApiChiffree", "dernierRiotId", "region"];
 
 class ErreurStockage extends Error {}
 
-function creerStockage({ dossier }) {
+function creerStockage({ dossier, plateforme = process.platform }) {
   const fichier = path.join(dossier, "config.json");
 
   function lire() {
@@ -80,7 +85,7 @@ function creerStockage({ dossier }) {
     const texte = String(dossierDuJeu || "").trim();
     if (!texte) return modifier({ dossierJeu: undefined }); // vide = revenir au dossier par défaut
     if (!path.win32.isAbsolute(texte) && !path.isAbsolute(texte)) {
-      throw new ErreurStockage("Indique un chemin complet, par exemple D:\\Jeux\\Riot Games\\League of Legends.");
+      throw new ErreurStockage(`Indique un chemin complet, par exemple ${EXEMPLES_DOSSIER_JEU[plateforme] || EXEMPLES_DOSSIER_JEU.win32}.`);
     }
     modifier({ dossierJeu: texte });
   }

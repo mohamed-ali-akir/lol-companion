@@ -122,3 +122,15 @@ test("menu Mac : Édition (Cmd+C, Cmd+V...) et Quitter (Cmd+Q), en français", (
   assert.ok(roles("LoL Companion").includes("hide"));
   assert.strictEqual(menu[0].submenu.find((l) => l.role === "quit").label, "Quitter LoL Companion");
 });
+
+test("Mac, démarrer réduit : réglages cochés + lancement à l'ouverture de session (macOS ou Mac allumé depuis < 3 min)", () => {
+  const coches = { lancerAuDemarrage: true, demarrerReduit: true };
+  assert.strictEqual(A.estDemarrageReduitMac({ reglages: coches, ouvertAuDemarrage: true }), true);
+  assert.strictEqual(A.estDemarrageReduitMac({ reglages: coches, uptimeS: 60 }), true);
+  assert.strictEqual(A.estDemarrageReduitMac({ reglages: coches, uptimeS: 3600 }), false, "Mac allumé depuis 1 h : lancé à la main");
+  assert.strictEqual(A.estDemarrageReduitMac({ reglages: coches }), false, "rien ne dit que c'est le démarrage");
+  assert.strictEqual(A.estDemarrageReduitMac({ reglages: coches, uptimeS: NaN }), false);
+  assert.strictEqual(A.estDemarrageReduitMac({ reglages: { lancerAuDemarrage: true, demarrerReduit: false }, ouvertAuDemarrage: true }), false);
+  assert.strictEqual(A.estDemarrageReduitMac({ reglages: { lancerAuDemarrage: false, demarrerReduit: true }, uptimeS: 10 }), false);
+  assert.strictEqual(A.estDemarrageReduitMac({ reglages: undefined, uptimeS: 10 }), false);
+});

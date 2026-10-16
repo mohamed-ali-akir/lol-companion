@@ -15,6 +15,8 @@ async function afficherParametres() {
   if (config.plateforme === "darwin") {
     $("buildAugments").disabled = true;
     $("augmentsMac").hidden = false;
+    // Textes qui parlent de Windows : leur version Mac est dans l'attribut data-mac (index.html).
+    for (const e of document.querySelectorAll("[data-mac]")) e.textContent = e.dataset.mac;
   }
   return config;
 }

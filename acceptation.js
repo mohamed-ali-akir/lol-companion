@@ -152,8 +152,8 @@ async function accepterReadyCheck(dossierJeu) {
 
 // --- La fenêtre de League est-elle au premier plan ? (pour la notification) ---------------
 
-// Programmes de League : le client (LeagueClientUx) et le jeu lui-même.
-const PROGRAMMES_LEAGUE = ["leagueclientux", "leagueclient", "league of legends"];
+// Programmes de League : le client (LeagueClientUx) et le jeu lui-même (Mac : « LeagueofLegends » sans espaces).
+const PROGRAMMES_LEAGUE = ["leagueclientux", "leagueclient", "league of legends", "leagueoflegends"];
 
 /** Le nom du programme au premier plan est-il League ? (fonction pure, testée) */
 function estProgrammeLeague(nom) {
@@ -172,10 +172,36 @@ $id = 0
 (Get-Process -Id $id).ProcessName`;
 
 /**
- * true si League est au premier plan. En cas de doute (autre système que Windows, erreur,
- * délai dépassé), renvoie false : mieux vaut une notification de trop qu'une partie ratée.
+ * Mac : nom de l'appli dans la réponse de « lsappinfo info -only name <appli> », par exemple
+ * "LSDisplayName"="League of Legends" -> "League of Legends". null si la réponse est inattendue.
+ */
+function nomDepuisLsappinfo(sortie) {
+  const m = /"(?:LSDisplayName|name)"\s*=\s*"([^"]*)"/i.exec(String(sortie || ""));
+  return m ? m[1] : null;
+}
+
+/**
+ * Mac : League est-il l'appli au premier plan ? lsappinfo est fourni avec macOS et ne demande aucune autorisation
+ * (contrairement à AppleScript / System Events). Deux étapes : « lsappinfo front » donne l'appli au premier plan
+ * (ex. "ASN:0x0-0x1a01a:"), puis « lsappinfo info -only name » donne son nom.
+ */
+function leagueAuPremierPlanMac(executer) {
+  const lancer = (args) =>
+    new Promise((resoudre) => {
+      executer("lsappinfo", args, { timeout: 3000 }, (erreur, sortie) => resoudre(erreur ? null : String(sortie || "").trim()));
+    });
+  return lancer(["front"]).then((appli) => {
+    if (!appli || !/^ASN:/i.test(appli)) return false;
+    return lancer(["info", "-only", "name", appli]).then((sortie) => estProgrammeLeague(nomDepuisLsappinfo(sortie)));
+  });
+}
+
+/**
+ * true si League est au premier plan (Windows : PowerShell ; Mac : lsappinfo). En cas de doute (autre système,
+ * erreur, délai dépassé), renvoie false : mieux vaut une notification de trop qu'une partie ratée.
  */
 function leagueAuPremierPlan({ executer = execFile, plateforme = process.platform } = {}) {
+  if (plateforme === "darwin") return leagueAuPremierPlanMac(executer).catch(() => false);
   if (plateforme !== "win32") return Promise.resolve(false);
   return new Promise((resoudre) => {
     executer(
@@ -195,5 +221,6 @@ module.exports = {
   creerAcceptation,
   accepterReadyCheck,
   estProgrammeLeague,
+  nomDepuisLsappinfo,
   leagueAuPremierPlan,
 };

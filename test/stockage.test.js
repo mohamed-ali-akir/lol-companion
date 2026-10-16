@@ -107,3 +107,16 @@ test("dossier du jeu par défaut : Windows ou Mac selon le système (Windows si 
   assert.strictEqual(dossierJeuParDefaut("darwin"), "/Applications/League of Legends.app/Contents/LoL");
   assert.strictEqual(dossierJeuParDefaut("linux"), "C:\\Riot Games\\League of Legends");
 });
+
+test("dossier du jeu mal écrit : l'exemple du message correspond au système (Windows ou Mac)", () => {
+  const fsTest = require("fs");
+  const osTest = require("os");
+  const pathTest = require("path");
+  const dossier = fsTest.mkdtempSync(pathTest.join(osTest.tmpdir(), "lol-stockage-"));
+  try {
+    assert.throws(() => creerStockage({ dossier, plateforme: "win32" }).enregistrerDossierJeu("Jeux"), /D:\\Jeux/);
+    assert.throws(() => creerStockage({ dossier, plateforme: "darwin" }).enregistrerDossierJeu("Jeux"), /\/Applications\/League of Legends\.app/);
+  } finally {
+    fsTest.rmSync(dossier, { recursive: true, force: true });
+  }
+});
