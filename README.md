@@ -1,25 +1,39 @@
 # LoL Companion
 
-Appli de bureau, compagnon de **League of Legends** : elle lit ton compte directement dans le client lancé sur ton PC
-(sans clé API, sans Internet) pour suivre ton niveau et ta progression, ta session de jeu, tes stats par champion et ta
-maîtrise.
+**Compagnon de bureau pour League of Legends** (Windows, Mac en bêta). Il lit ton compte directement dans le client
+lancé sur ton PC, sans clé API ni compte à créer : niveau et progression, session du jour, stats par champion,
+maîtrise, conseiller de draft, build automatique (runes, set d'objets, sorts) et aides en jeu.
+
+**[⬇ Télécharger la dernière version](https://github.com/mohamed-ali-akir/lol-companion/releases/latest)**
+(`LoL-Companion-Setup-x.y.z.exe`) · les versions suivantes s'installent toutes seules.
 
 ![Accueil : bilan de session et résumé](docs/captures/accueil.png)
 
-*Captures faites avec un compte fictif et un faux client League (les icônes des champions sont remplacées par des
-lettres ; avec le vrai client, ce sont les icônes du jeu). Le build de l'onglet Build vient des vraies statistiques
-publiques (Lolalytics, OP.GG).*
+*Captures faites avec un compte fictif et un faux client League (les icônes des champions n'y apparaissent pas ;
+avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient des vraies statistiques publiques
+(Lolalytics, OP.GG).*
+
+## En bref
+
+- **Rien à taper** : dès que League est ouvert, l'appli lit ton Riot ID, ton niveau et tes parties, puis se met à jour
+  toute seule après chaque partie. Client fermé, elle affiche tes dernières données.
+- **Toujours là** : l'appli installée se lance avec Windows, réduite près de l'horloge, et te prévient quand League
+  est détecté. La croix cache la fenêtre ; pour quitter : clic droit sur l'icône → Quitter.
+- **Rien d'imposé** : tout ce qui agit sur le client (acceptation, pick/ban, runes, sorts) est **désactivé par
+  défaut** et s'active d'une case.
+- **Respect de ta vie privée** : tes données restent sur ton PC ; les seuls appels à Internet envoient des noms de
+  champions, de postes et de modes, jamais ton Riot ID (voir [Sécurité](#sécurité)).
 
 ## Les onglets
 
 | Onglet | Ce qu'il montre |
 |---|---|
-| **Accueil** | Le bilan de ta session en grand, puis une carte par onglet (niveau, objectif, rythme, stats, temps passé sur LoL, maîtrise, acceptation auto). Chaque carte ouvre l'onglet détaillé |
-| **Niveau** | Le calculateur : parties, heures et jours restants avant ton niveau visé pour 4 modes, et ta courbe de progression |
-| **Stats** | Taux de victoire et KDA par champion et par mode, meilleurs champions, moments où tu gagnes le plus, sur 30 jours ou depuis le début ; temps passé sur LoL depuis la création du compte |
-| **Maîtrise** | Les champions les plus proches du niveau de maîtrise suivant, tes plus joués, la liste complète |
-| **Sélection** | Conseiller de draft : les 5 meilleurs champions pour la draft en cours, avec la raison (matchups, synergies). Pick et ban automatiques (désactivés par défaut) : 3 champions et 3 bans dans l'ordre, par rôle |
-| **Build** | Build de ton champion d'après les statistiques de Lolalytics et d'OP.GG (3 choix par emplacement avec taux de victoire et de sélection, runes, sorts), page de runes et set d'objets créés automatiquement, consultation du build de n'importe quel champion ; en jeu : stats des augments (ARAM Mayhem) et chronos des sorts adverses (Faille) |
+| **Accueil** | Le bilan de ta session (parties, V/D, XP gagnée, temps de jeu, meilleur champion), puis une carte par sujet : niveau, objectif, rythme, acceptation auto, stats, temps passé sur LoL, maîtrise. Chaque carte ouvre l'onglet détaillé |
+| **Niveau** | Le calculateur : parties, heures et jours restants avant ton niveau visé, pour 4 modes, et ta courbe de progression |
+| **Stats** | Taux de victoire et KDA par champion et par mode, meilleurs champions, moments où tu gagnes le plus (30 jours ou tout), import de tout ton historique, temps passé sur LoL depuis la création du compte |
+| **Maîtrise** | Les champions les plus proches du niveau suivant (points et marques manquants, ≈ parties restantes), tes plus joués, la liste complète |
+| **Sélection** | Conseiller de draft (les 5 meilleurs champions pour la draft en cours, avec la raison) et pick/ban automatiques par rôle |
+| **Build** | Build de ton champion (Lolalytics + OP.GG) : page de runes, set d'objets et sorts créés pour toi, set « Champion Rank 1 », chronos des sorts adverses, consultation du build de n'importe quel champion |
 | **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu |
 
 <details>
@@ -51,120 +65,84 @@ publiques (Lolalytics, OP.GG).*
 
 </details>
 
-## Fonctionnalités
+## Fonctionnalités en détail
 
-**Tout vient du client, sans bouton.** Dès que le client est détecté (au lancement de l'appli ou quand tu ouvres League),
-l'appli lit ton Riot ID, ton niveau et ta progression : il n'y a rien à taper ni à cliquer.
-Elle écoute ensuite le client en direct et se met à jour toute seule après chaque partie (« +115 XP environ »).
-Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09 à 18:05 »).
-
+### Suivi du compte
 - **Bilan de session** (Accueil) : parties, victoires / défaites, XP gagnée (estimée, hors missions), temps de jeu et
-  meilleur champion de la session. La session commence à ta première partie du jour (une soirée sans vraie pause
-  continue après minuit). Les alertes de session (pause, temps de jeu, notif « diable ») ont été retirées le 17/10/2026
+  meilleur champion. La session commence à ta première partie du jour ; une soirée sans vraie pause (moins de
+  45 min entre deux parties) continue après minuit.
 - **Niveau** : niveau visé (30 proposé pour la classée, sinon le prochain palier de 25) et temps de jeu par jour.
   Calcul pour ARAM du Chaos, ARAM, Swiftplay et Draft avec **ta** durée moyenne et **ton** taux de victoire (valeurs
   moyennes si tu n'as pas assez de parties), le mode le plus rapide mis en avant, 2 min d'attente comptées par partie,
   boosts d'XP (l'XP des missions n'est pas comptée). Courbe de ton XP dans le temps, rythme réel sur 7 jours et date
-  estimée. Fonctionne au-delà du niveau 50
+  estimée. Fonctionne au-delà du niveau 50.
 - **Stats** : par champion (tableau triable) et par mode, 3 meilleurs champions, taux de victoire selon le moment de
   la journée et le jour de la semaine, série en cours. Périodes **30 derniers jours** et **Tout**. Les parties sont
-  gardées sur ton PC, et **« Importer tout mon historique »** remonte l'historique du client aussi loin qu'il le permet
-- **Temps passé sur LoL** (onglet Stats et carte de l'Accueil, comme wol.gg mais sans clé API ni site extérieur) :
-  le client ne garde qu'une vingtaine de parties et n'a plus de statistiques de carrière (routes `lol-career-stats`
-  absentes, vérifié le 16/10/2026). Le temps est donc :
-  - **compté** sur les parties enregistrées par l'appli : durée exacte + 2 min d'attente par partie (la même valeur
-    que l'onglet Niveau : `ATTENTE_PAR_PARTIE_MIN` dans `src/calculs.js`) ;
-  - **estimé** depuis la création du compte : XP totale du compte (niveau + progression) divisée par l'XP d'une
-    partie moyenne pour toi (ta durée moyenne, ton taux de victoire, formule du wiki). C'est un ordre de grandeur :
-    l'XP des missions et des boosts fait monter l'estimation, les parties contre des bots la font baisser.
-  On affiche le plus grand des deux, en heures et en jours, avec quelques stats amusantes : nombre de films de 2 h,
-  heures par semaine sur 30 jours, plus longue partie, modes et champions où tu as passé le plus de temps, parties
-  entre minuit et 6 h. Fonction `tempsDeJeu` de `src/calculs.js`.
+  gardées sur ton PC, et **« Importer tout mon historique »** remonte l'historique du client aussi loin qu'il le permet.
+- **Temps passé sur LoL** (Stats et Accueil, comme wol.gg mais sans clé API ni site extérieur) : le client ne garde
+  qu'une vingtaine de parties et n'a plus de statistiques de carrière. Le temps est donc **compté** sur les parties
+  enregistrées par l'appli (durée exacte + 2 min d'attente par partie) et **estimé** depuis la création du compte
+  (XP totale divisée par l'XP d'une partie moyenne pour toi : un ordre de grandeur). On affiche le plus grand des
+  deux, avec quelques stats amusantes (films de 2 h, heures par semaine, plus longue partie, modes et champions où tu
+  as passé le plus de temps). Fonction `tempsDeJeu` de `src/calculs.js`.
 - **Maîtrise** : points restants et **marques de maîtrise** manquantes (système de 2024), avec la note à obtenir pour
   en gagner. Estimation « ≈ N parties » à partir de ta moyenne de points par partie sur ce champion, mesurée par
-  l'appli après tes parties. Recherche et tri (par points ou par proximité du niveau suivant)
-- **Acceptation automatique** de la partie trouvée (une seule case, désactivée par défaut) : après 2 s, jamais si tu
-  as déjà répondu, jamais deux fois la même. Notification « Partie trouvée ! » si League n'est pas au premier plan
-- **Conseiller de draft** (onglet Sélection, désactivé par défaut, comme iTero.gg en plus simple) : pendant la
-  sélection, l'appli classe **les champions que tu peux jouer** à ton poste et affiche les 5 meilleurs, mis à jour à
-  chaque champion verrouillé : « Nasus 57,6 % · +3,1 contre Zed · +2,1 contre Yasuo · +0,7 avec Lee Sin ». Le score
-  part du taux de victoire du champion à ton poste (Lolalytics, Émeraude et plus), corrigé par chaque **adversaire**
-  verrouillé (matchup) et chaque **allié** verrouillé (synergie), plus un petit bonus selon **tes** parties sur ce
-  champion (± 2 points au plus). Jamais un champion banni ou déjà pris. Il ne fait que proposer, il ne choisit jamais
-- **Pick et ban automatiques** (onglet Sélection, désactivés par défaut, ⚠ contraires aux règles de Riot : voir
-  Sécurité). Quand c'est **ton** tour, l'appli verrouille ton champion après **10 s** (ban : **5 s**), réglables.
-  3 choix dans l'ordre : si le 1er est banni ou déjà pris, elle prend le 2e, puis le 3e. Une liste par rôle (Haut,
-  Jungle, Milieu, Bas, Support), **pour les picks comme pour les bans**, choisie d'après le rôle attribué en sélection,
-  plus une liste « Par défaut » (partie sans rôles, ou liste du rôle vide ou indisponible). Jamais un champion banni, déjà pris, survolé ou déclaré par un
-  coéquipier. Si tu survoles ou verrouilles un champion toi-même pendant le délai, elle ne fait rien
-- **Build** (onglet Build, chaque option désactivée par défaut, autorisé par Riot comme Blitz ou Porofessor) : quand ton
-  champion est verrouillé (ou attribué en ARAM), l'appli lit les **vraies statistiques** de **Lolalytics** (objets
-  emplacement par emplacement) et d'**OP.GG** (runes, sorts) pour ce champion, ton rôle et le mode (classée/normale et
-  outil d'entraînement avec les stats de classée, ARAM, URF), puis :
-  - compose le build comme Lolalytics : **Départ, Objet 1, Bottes, Objets 2 à 5**, chacun avec **3 choix** (le
-    recommandé + 2 pour t'adapter en partie) ; chaque choix affiche son taux de victoire, sa part des achats, son
-    nombre de parties et la minute d'achat (« ⚠ peu de données » sous 200 parties). Si Lolalytics ne répond pas,
-    le build d'OP.GG prend le relais (objets principaux, bottes, 4e à 6e objet) ;
-  - crée la page de runes « Hwei · Mid · LoL Companion » (champion et poste ; runes d'OP.GG, ou celles **recommandées
-    par Riot** si OP.GG ne répond pas ou si les stats sont désactivées). Si le client refuse ou coupe ce nom (la
-    longueur maximale n'est documentée nulle part), l'appli essaie « Hwei · Mid · LoLC », puis « LoL Companion » ;
-  - choisit tes **sorts d'invocateur** (sa case) : les plus joués d'après OP.GG, en gardant chaque sort sur ta
-    touche habituelle (si Flash est sur F, il y reste). Route du client : `PATCH /lol-champ-select/v1/session/my-selection` ;
-  - crée le set d'objets « LoL Companion - Champion (Rôle) » (toujours, plus de case depuis le 17/10/2026), visible
-    dans la boutique en jeu : un bloc par
-    emplacement avec ses 3 choix, le recommandé en premier. Un seul set « LoL Companion » est gardé (celui du champion
-    actuel) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413).
-    Il est **sélectionné d'office** dans la boutique. Vu en jeu le 17/10/2026 : avec trois sets aux `sortrank` 10188,
-    10187 et 10186, dans cet ordre, la boutique a pris le **dernier**, qui avait aussi le **plus petit** `sortrank`.
-    Nos sets vont donc en **fin de liste**, dans l'ordre inverse, et le set principal (la famille la plus jouée) est
-    tout à la fin avec le `sortrank` 0.
-  - **set « Champion Rank 1 »** (`rank1.js`, sa propre case, désactivée par défaut) : le
-    build du **meilleur joueur du champion sur ton serveur**, comme les « builds des meilleurs joueurs » de Blitz,
-    Mobalytics ou U.GG, mais sans clé d'API de Riot. L'appli lit le classement du champion sur OP.GG
-    (`lol_list_champion_leaderboard`), qui est trié par **nombre de parties** (le n° 1 d'Ahri était Maître, le n° 5
-    Grand Maître) : elle retrie donc les 10 premiers par **vrai rang** (tier puis LP), puis lit les 20 dernières parties
-    du meilleur (`lol_list_summoner_matches`) et garde celles sur ce champion (à ton poste s'il y en a au moins 3).
-    S'il en a moins de 3, elle passe au suivant (3 joueurs au plus). OP.GG ne donne que l'inventaire de **fin** de
-    partie, pas l'ordre d'achat : les objets finis sont rangés du **plus pris au moins pris** (cœur : la moitié des
-    parties ou plus ; souvent : 20 à 50 % ; parfois), avec ses 2 paires de bottes les plus prises ; le **départ** (qui
-    n'est plus dans l'inventaire en fin de partie) est repris du build général. Le set s'appelle « Ahri Rank 1 » ; le
-    set principal reste sélectionné d'office. Blocs aux titres **courts** (la boutique coupe un titre trop long) :
-    « Départ », « Rank 1 · Grand Maître 2145 LP EUW » (le cœur, avec le rang du joueur, jamais son Riot ID),
-    « Bottes · 67 % des parties », « Souvent », « Parfois ». Pas de taux de victoire : sur une douzaine de parties, il
-    ne veut rien dire. Le classement veut le nom **anglais** du champion (« WUKONG », « DR_MUNDO » ; le nom interne
-    « MONKEYKING » y est refusé, vérifié sur les 250 champions) : il vient de la liste d'OP.GG (`lol_list_champions`).
-    Faille seulement ; environ 6 à 8 s, gardé 3 h en mémoire.
-  - **plusieurs sets pour un champion qui se joue de plusieurs façons** (`familles.js`) : Vi combattant ou
-    létalité / critique, Kai'Sa à l'impact ou AP, Kayn rouge (Rhaast) ou bleu (Assassin de l'ombre)... La page
-    Lolalytics donne les combinaisons des 3 premiers objets réellement construites (`itemSets`). Chaque combinaison est
-    rangée d'après son **premier objet** et ses catégories dans le client (Santé, Coup critique, Pénétration...) ;
-    Kayn est un cas à part (bleu = aucun objet avec de la Santé, rouge = au moins un). On garde les familles qui
-    pèsent au moins 10 % des builds et 300 parties (3 au plus), et seulement les objets construits dans au moins
-    200 parties et 10 % des achats de leur emplacement. Chaque set a ses Objets 1 à 3 propres ; le départ, les
-    bottes et les objets 4 et 5 viennent du build général. Un champion qui ne se joue que d'une façon garde un seul set.
-  Tes pages de runes et tes sets (Porofessor...) ne sont jamais modifiés. Tu peux aussi consulter le build de
-  n'importe quel champion, rôle et mode, sans rien appliquer
-- **Augments ARAM Mayhem en jeu** (toujours actif, sans case depuis le 17/10/2026) : quand les 3 augments sont proposés, l'appli
-  affiche **sous chaque carte, directement sur l'écran du jeu**, son **taux de victoire** (arammayhem.com) : avec **ton
-  champion** si l'augment fait partie de ses meilleurs (« 58 % de victoires · avec ton champion · pris 23 % »), sinon
-  tous champions confondus. La carte au meilleur taux est mise en avant (cadre doré), comme le font Porofessor ou
-  Blitz, sauf égalité (moins de 1 point d'écart) ou augment trop rare (moins de 3 %). Le jeu doit être en mode
-  **« Sans bordure »**. L'appli ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png))
-- **Chronos des sorts d'invocateur adverses** (onglet Build, désactivé par défaut, ⚠ voir Sécurité) : un petit panneau
-  en haut à gauche du jeu avec les 5 adversaires (icône du champion) et leurs 2 sorts. Quand tu vois un adversaire
-  utiliser un sort, **tu cliques dessus** : le compte à rebours démarre (bottes de lucidité visibles comptées, TP
-  déchaînée après 10:00) ; un 2e clic l'annule. Le panneau se **déplace** où tu veux en le glissant par sa poignée
-  (« ⠿ ⠿ ⠿ », en haut du panneau) ; sa place est gardée dans `config.json` en part de l'écran (même endroit à une
-  autre résolution) et ramenée dans l'écran si besoin ; un double-clic sur la poignée le remet en haut à gauche.
-  La même case lance aussi le chrono quand un allié (ou toi) pingue le sort dans le chat (voir plus bas).
-  Le reste de l'écran laisse passer les clics au jeu. Mode « Sans bordure » requis (rappel affiché dans l'onglet Build).
-- **Arrière-plan** : une icône dans la zone de notification de Windows (Ouvrir, Acceptation auto à cocher, Quitter).
-  Plus aucun réglage (décidé le 17/10/2026) : l'appli installée **se lance avec Windows**, réduite dans la zone de
-  notification, et se connecte toute seule dès que League s'ouvre. La croix **cache** la fenêtre au lieu de quitter :
-  la surveillance continue (acceptation auto, notifications, mise à jour après chaque partie), et la première fois une
-  notification l'explique. Notification **« LoL Companion est prêt »** quand League est détecté (avec ce qui est
-  actif : acceptation, pick/ban, build), seulement si la fenêtre est cachée, une fois par lancement de League.
-  Pour arrêter l'appli : clic droit sur l'icône → Quitter. Une seule instance à la fois : relancer l'appli réaffiche la fenêtre déjà ouverte
+  l'appli après tes parties. Recherche et tri (par points ou par proximité du niveau suivant).
+
+### Sélection des champions
+- **Acceptation automatique** (Paramètres, une seule case, désactivée par défaut) : accepte la partie trouvée après
+  2 s, jamais si tu as déjà répondu, jamais deux fois la même. Notification « Partie trouvée ! » si League n'est pas au
+  premier plan.
+- **Conseiller de draft** (Sélection, désactivé par défaut, comme iTero.gg en plus simple) : l'appli classe **les
+  champions que tu peux jouer** à ton poste et affiche les 5 meilleurs, mis à jour à chaque champion verrouillé :
+  « Nasus 57,6 % · +3,1 contre Zed · +2,1 contre Yasuo · +0,7 avec Lee Sin ». Le score part du taux de victoire du
+  champion à ton poste (Lolalytics, Émeraude et plus), corrigé par chaque **adversaire** (matchup) et chaque **allié**
+  (synergie) verrouillés, plus un petit bonus selon **tes** parties sur ce champion (± 2 points au plus). Jamais un
+  champion banni ou déjà pris. Il ne fait que proposer.
+- **Pick et ban automatiques** (Sélection, désactivés par défaut, ⚠ contraires aux règles de Riot : voir
+  [Sécurité](#sécurité)) : quand c'est **ton** tour, l'appli verrouille ton champion après **10 s** (ban : **5 s**),
+  réglables. 3 choix dans l'ordre (si le 1er est banni ou déjà pris, le 2e, puis le 3e), une liste par rôle (Haut,
+  Jungle, Milieu, Bas, Support) **pour les picks comme pour les bans**, plus une liste « Par défaut ». Jamais un
+  champion banni, déjà pris, survolé ou déclaré par un coéquipier ; rien si tu choisis toi-même pendant le délai.
+
+### Build automatique (onglet Build)
+Chaque option est désactivée par défaut ; c'est autorisé par Riot, comme Blitz ou Porofessor. Quand ton champion est
+verrouillé (ou attribué en ARAM), l'appli lit les **vraies statistiques** de **Lolalytics** (objets emplacement par
+emplacement) et d'**OP.GG** (runes, sorts) pour ce champion, ton rôle et le mode, puis :
+- compose le build comme Lolalytics : **Départ, Objet 1, Bottes, Objets 2 à 5**, chacun avec **3 choix** (le
+  recommandé + 2 pour t'adapter), avec taux de victoire, part des achats, nombre de parties et minute d'achat
+  (« ⚠ peu de données » sous 200 parties). Si Lolalytics ne répond pas, le build d'OP.GG prend le relais ;
+- crée la **page de runes** « Hwei · Mid · LoL Companion » (runes d'OP.GG, ou celles recommandées par Riot en secours) ;
+- crée le **set d'objets** « LoL Companion - Champion (Rôle) », visible et sélectionné d'office dans la boutique en
+  jeu ; un champion qui se joue de plusieurs façons (Vi combattant ou létalité, Kayn rouge ou bleu...) a un set par
+  façon (`familles.js`) ;
+- choisit tes **sorts d'invocateur** (sa case) : les plus joués d'après OP.GG, chaque sort gardé sur ta touche
+  habituelle (si Flash est sur F, il y reste) ;
+- ajoute le **set « Champion Rank 1 »** (sa case, `rank1.js`) : le build du meilleur joueur du champion sur ton
+  serveur, d'après le classement d'OP.GG retrié par vrai rang (jamais son Riot ID dans le set).
+
+Tes autres pages de runes et sets (Porofessor...) ne sont jamais modifiés. Tu peux aussi **consulter le build** de
+n'importe quel champion, rôle et mode, sans rien appliquer.
+
+### En jeu
+Le jeu doit être en mode **« Sans bordure »** (Échap → Vidéo → Mode de la fenêtre) : en plein écran, Windows ne
+peut rien afficher par-dessus. L'onglet Build le rappelle.
+- **Augments ARAM Mayhem** (toujours actif) : quand les 3 augments sont proposés, l'appli affiche **sous chaque carte**
+  son **taux de victoire** (arammayhem.com), avec **ton champion** si possible, et met en avant la meilleure carte
+  (cadre doré). Elle ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png)).
+- **Chronos des sorts d'invocateur adverses** (Build, désactivé par défaut, ⚠ voir [Sécurité](#sécurité)) : un petit
+  panneau avec les 5 adversaires et leurs 2 sorts. Quand tu vois un sort utilisé, **tu cliques dessus** : le compte à
+  rebours démarre (bottes de lucidité comptées, TP déchaînée après 10:00) ; un 2e clic l'annule. Le chrono démarre
+  aussi tout seul quand un allié (ou toi) **pingue** le sort dans le chat. Le panneau se déplace en le glissant par sa
+  poignée (« ⠿ ⠿ ⠿ ») ; sa place est gardée ; double-clic sur la poignée pour le remettre en haut à gauche.
+  Jamais les ultimes : Riot les interdit.
+
+### Arrière-plan et mises à jour
+- **Icône près de l'horloge** (Ouvrir, Acceptation auto à cocher, Quitter). L'appli installée **se lance avec
+  Windows**, réduite, et se connecte toute seule dès que League s'ouvre ; notification **« LoL Companion est prêt »**
+  quand League est détecté et que la fenêtre est cachée. Une seule copie tourne à la fois.
+- **Mises à jour automatiques** depuis les Releases GitHub (voir [Mises à jour](#mises-à-jour)) : la nouvelle version
+  se télécharge en arrière-plan, puis le bouton « Vérifier maintenant » devient **« Redémarrer l'appli »**.
 
 ## Installation
 
@@ -339,8 +317,7 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   l'appli compare les points d'un champion avec la lecture précédente et compte les nouvelles parties jouées avec lui
   (« +1 800 points en 2 parties »). Si le client a mis à jour l'un mais pas encore l'autre, elle attend la lecture suivante.
 - **Session** : « aujourd'hui » = parties depuis minuit, plus celles de la veille si tu jouais sans pause de plus de
-  45 min au moment de minuit. Alertes seulement si ta dernière partie date de moins de 45 min (sinon tu as déjà fait
-  une pause), une seule notification par série de défaites.
+  45 min au moment de minuit.
 - **Acceptation automatique** : le ready-check n'a pas d'identifiant, un nouveau commence quand l'état passe à
   « `InProgress` + `playerResponse: None` » (en attente de ta réponse) depuis **n'importe quel** autre état, y compris
   « `InProgress` + `Accepted` » : quand un autre joueur refuse, le client peut enchaîner directement sur la partie
@@ -533,7 +510,7 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | Fichier | Contenu |
 |---|---|
 | `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
-| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), de la session et de l'arrière-plan |
+| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`) |
 | `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, sans doublons, 25 000 au maximum par compte |
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |
