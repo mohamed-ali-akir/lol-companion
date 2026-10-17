@@ -1,0 +1,28 @@
+# Tests à chaque envoi sur GitHub (push sur main, ou pull request)
+# ----------------------------------------------------------------
+# Avant (17/10/2026), les tests ne tournaient qu'au moment de publier une version (publier.yml) : un envoi qui cassait
+# quelque chose passait inaperçu jusqu'à la publication suivante. Même PC que la publication (Windows).
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: windows-latest
+    env:
+      ELECTRON_SKIP_BINARY_DOWNLOAD: "1" # les tests n'ouvrent pas l'appli : inutile de télécharger Electron (~100 Mo)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test

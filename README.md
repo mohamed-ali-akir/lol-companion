@@ -192,6 +192,8 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 | `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
 
+Les tests tournent aussi sur GitHub à **chaque envoi** sur `main` (`.github/workflows/tests.yml`).
+
 ### Mises à jour
 
 L'appli installée regarde sur GitHub (dernière Release du dépôt public) s'il existe une version plus récente :
