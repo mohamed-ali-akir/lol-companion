@@ -55,6 +55,7 @@
       "fichiers.js",
       "journal.js",
       "mise-a-jour.js",
+      "maj-appli.js",
       "preload-overlay.js",
       "assets/**/*",
       "src/**/*"

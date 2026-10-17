@@ -591,6 +591,7 @@ lol-level-calculator/
 ├── fichiers.js        # Écriture sûre des fichiers de données (temporaire + renommage, copie .bak relue si abîmé)
 ├── journal.js         # Journal sur le disque (journal.txt), taille limitée
 ├── mise-a-jour.js     # Mise à jour automatique (electron-updater, Releases GitHub) : vérification, bandeau, installation
+├── maj-appli.js       # Mise à jour côté Electron : au lancement (petite fenêtre), puis en arrière-plan ; Mac : vérification
 ├── preload-overlay.js # Pont de la fenêtre transparente par-dessus le jeu : augments, chronos des sorts (src/overlay.html)
 ├── runes.js           # Runes : page « LoL Companion », runes recommandées par Riot (secours)
 ├── arriere-plan.js    # Arrière-plan : la croix, le démarrage de Windows, le menu de l'icône (fonctions pures)

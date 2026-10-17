@@ -34,8 +34,7 @@ const { creerLectureJeuPartagee, estFaille, lireJeu, monAlias } = require("./jeu
 const { creerSuiviSorts } = require("./sorts.js");
 const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
-const { creerMiseAJour, creerVerificationMac, majAuDemarrage, ADRESSE_LATEST_YML } = require("./mise-a-jour.js");
-const { telecharger } = require("./internet.js"); // règles communes des appels à Internet (User-Agent, délai)
+const { creerMajAppli } = require("./maj-appli.js"); // mise à jour de l'appli (au lancement, puis en arrière-plan)
 const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
 const {
   actionFermeture,
@@ -78,7 +77,6 @@ let suiviSorts = null; // chronos des sorts d'invocateur adverses, cliquables en
 const contenuOverlay = { augments: null, sorts: null }; // ce qu'affiche la fenêtre transparente
 const lancement = Date.now(); // ouverture de l'appli : début de session en mode "depuis l'ouverture"
 let icone = null; // icône dans la zone de notification (Tray)
-let miseAJour = null; // mise à jour automatique (mise-a-jour.js), seulement pour l'appli installée
 let quitteEnCours = false; // true quand on quitte vraiment (menu "Quitter") : la croix ne cache plus
 const DOSSIER_ASSETS = path.join(__dirname, "assets");
 
@@ -256,11 +254,16 @@ function brancherMessages() {
   ipcMain.handle("arrierePlan:lire", () => stockage.reglagesArrierePlan());
 
   // Mise à jour de l'appli : état (bandeau, Paramètres), « Vérifier maintenant », « Redémarrer et mettre à jour ».
-  ipcMain.handle("maj:lire", () =>
-    miseAJour ? miseAJour.lire() : { etape: "indisponible", version: app.getVersion(), raison: process.platform === "darwin" ? "mac" : "projet" }
-  );
-  ipcMain.handle("maj:verifier", () => (miseAJour ? miseAJour.verifierMaintenant() : false));
+  ipcMain.handle("maj:lire", () => {
+    const miseAJour = majAppli.suivi();
+    return miseAJour ? miseAJour.lire() : { etape: "indisponible", version: app.getVersion(), raison: process.platform === "darwin" ? "mac" : "projet" };
+  });
+  ipcMain.handle("maj:verifier", () => {
+    const miseAJour = majAppli.suivi();
+    return miseAJour ? miseAJour.verifierMaintenant() : false;
+  });
   ipcMain.handle("maj:installer", () => {
+    const miseAJour = majAppli.suivi();
     if (!miseAJour) return false;
     const etape = miseAJour.lire().etape;
     if (etape === "disponible") return miseAJour.installer(); // Mac : ouvre la page de téléchargement, l'appli reste ouverte
@@ -994,90 +997,15 @@ function lanceeReduite() {
   return estDemarrageReduitMac({ reglages: stockage.reglagesArrierePlan(), ouvertAuDemarrage, uptimeS: os.uptime() });
 }
 
-/**
- * Mise à jour automatique (mise-a-jour.js) : seulement pour l'appli installée. Lancée depuis le projet (npm start),
- * il n'y a rien à mettre à jour (et pas de fichier app-update.yml).
- */
-/**
- * Au lancement (Windows, appli installée, case des mises à jour cochée) : s'il existe une nouvelle version, elle est
- * installée AVANT d'ouvrir l'appli (choix du propriétaire, 17/10/2026 ; mise-a-jour.js, majAuDemarrage). Une petite
- * fenêtre « Mise à jour… » s'affiche alors (pas au démarrage de Windows en réduit : tout se fait sans rien montrer).
- * Renvoie true si l'appli va se fermer pour s'installer (il ne faut alors rien démarrer d'autre).
- */
-let ecranMaj = null; // fenêtre « Mise à jour… » du lancement, fermée APRÈS l'ouverture de la fenêtre principale
-
-async function installerMajAuDemarrage() {
-  if (!app.isPackaged || process.platform !== "win32" || !stockage.reglagesArrierePlan().majAuto) return false;
-  try {
-    const { autoUpdater } = require("electron-updater");
-    const resultat = await majAuDemarrage({
-      updater: autoUpdater,
-      journal: noter,
-      trouvee: () => {
-        if (!lanceeReduite()) ecranMaj = ecranMajDemarrage();
-      },
-    });
-    if (resultat === "installation") {
-      quitteEnCours = true; // rien ne doit retenir la fermeture : l'installateur attend que l'appli soit fermée
-      return true;
-    }
-  } catch (erreur) {
-    console.error("Mise à jour au lancement impossible :", erreur); // pas grave : l'appli démarre normalement
-  }
-  // (La petite fenêtre est fermée par whenReady, une fois la fenêtre principale créée : la fermer avant, alors
-  // qu'aucune autre fenêtre n'existe, déclencherait « window-all-closed » et l'appli quitterait.)
-  return false;
-}
-
-/** Petite fenêtre « Mise à jour de LoL Companion… » (src/maj-demarrage.html : texte seul, aucun script). */
-function ecranMajDemarrage() {
-  const ecran = new BrowserWindow({
-    width: 420,
-    height: 120,
-    frame: false,
-    resizable: false,
-    alwaysOnTop: true,
-    show: false,
-    backgroundColor: "#0a1428",
-    icon: cheminIcone("icon"),
-    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
-  });
-  ecran.loadFile(path.join(__dirname, "src", "maj-demarrage.html"));
-  ecran.once("ready-to-show", () => ecran.show());
-  return ecran;
-}
-
-function demarrerMiseAJour() {
-  if (!app.isPackaged) return;
-  // Mac : installer exige une appli signée par Apple (99 $/an) ; on vérifie seulement, et le bandeau ouvre la page
-  // de téléchargement (mise-a-jour.js, creerVerificationMac).
-  if (process.platform === "darwin") {
-    miseAJour = creerVerificationMac({
-      lireLatestYml: () => telecharger({ appeler: (...a) => fetch(...a), adresse: ADRESSE_LATEST_YML, site: "GitHub", Erreur: Error }),
-      ouvrir: (adresse) => shell.openExternal(adresse),
-      version: app.getVersion(),
-      actif: () => stockage.reglagesArrierePlan().majAuto,
-      envoyer: (etat) => envoyerALaPage("maj:etat", etat),
-      journal: noter,
-    });
-    miseAJour.demarrer();
-    return;
-  }
-  if (process.platform !== "win32") return;
-  try {
-    const { autoUpdater } = require("electron-updater"); // chargé seulement ici : inutile pendant le développement
-    miseAJour = creerMiseAJour({
-      updater: autoUpdater,
-      version: app.getVersion(),
-      actif: () => stockage.reglagesArrierePlan().majAuto,
-      envoyer: (etat) => envoyerALaPage("maj:etat", etat),
-      journal: noter,
-    });
-    miseAJour.demarrer();
-  } catch (erreur) {
-    console.error("Mise à jour automatique impossible :", erreur); // pas grave : l'appli marche sans
-  }
-}
+// Mise à jour de l'appli (au lancement, puis en arrière-plan) : maj-appli.js.
+const majAppli = creerMajAppli({
+  electron: { app, BrowserWindow, shell },
+  actif: () => stockage.reglagesArrierePlan().majAuto,
+  envoyer: (etat) => envoyerALaPage("maj:etat", etat),
+  journal: noter,
+  lanceeReduite,
+  icone: cheminIcone("icon"),
+});
 
 /** Quitter vraiment (menu de l'icône) : la croix ne cache plus la fenêtre, tout s'arrête. */
 function quitter() {
@@ -1110,7 +1038,10 @@ if (!instanceUnique) {
     journal = creerJournal({ fichier: path.join(app.getPath("userData"), "journal.txt") });
     noter(`--- LoL Companion démarre (${app.isPackaged ? "appli installée" : "projet, npm start"}, version ${app.getVersion()})`);
     // Une nouvelle version ? Elle s'installe d'abord, puis l'appli se relance dedans (rien d'autre ne démarre).
-    if (await installerMajAuDemarrage()) return;
+    if (await majAppli.installerAuDemarrage()) {
+      quitteEnCours = true; // rien ne doit retenir la fermeture : l'installateur attend que l'appli soit fermée
+      return;
+    }
     progression = creerProgression({ dossier: app.getPath("userData") });
     historiqueParties = creerHistoriqueParties({ dossier: app.getPath("userData") });
     suiviMaitrise = creerSuiviMaitrise({ dossier: app.getPath("userData") });
@@ -1124,14 +1055,13 @@ if (!instanceUnique) {
     // Lancée par le démarrage de Windows (ou du Mac) avec "démarrer réduit" : la fenêtre reste cachée
     // (seulement si l'icône existe, sinon on ne pourrait plus l'ouvrir).
     creerFenetre({ visible: !(lanceeReduite() && icone) });
-    if (ecranMaj && !ecranMaj.isDestroyed()) ecranMaj.destroy(); // mise à jour du lancement abandonnée (trop longue...)
-    ecranMaj = null;
+    majAppli.fermerEcran(); // petite fenêtre « Mise à jour… » (si la mise à jour du lancement a été abandonnée)
     demarrerAcceptation();
     demarrerSelection();
     demarrerAugments();
     demarrerChronosSorts();
     demarrerSurveillance();
-    demarrerMiseAJour();
+    majAppli.demarrer();
 
     // Sur Mac : menu de l'appli (raccourcis Cmd+C, Cmd+V, Cmd+Q... : arriere-plan.js, modeleMenuMac).
     if (process.platform === "darwin") Menu.setApplicationMenu(Menu.buildFromTemplate(modeleMenuMac(app.getName())));
@@ -1150,7 +1080,7 @@ app.on("before-quit", () => {
   if (acceptation) acceptation.arreter();
   if (selectionAuto) selectionAuto.arreter();
   if (suiviAugments) suiviAugments.arreter(); // arrête aussi la lecture d'écran
-  if (miseAJour) miseAJour.arreter();
+  if (majAppli.suivi()) majAppli.suivi().arreter();
   if (fenetreAugments && !fenetreAugments.isDestroyed()) fenetreAugments.destroy();
   if (icone && !icone.isDestroyed()) icone.destroy();
   icone = null;
