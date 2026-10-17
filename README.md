@@ -130,8 +130,9 @@ n'importe quel champion, rôle et mode, sans rien appliquer.
 Le jeu doit être en mode **« Sans bordure »** (Échap → Vidéo → Mode de la fenêtre) : en plein écran, Windows ne
 peut rien afficher par-dessus. L'onglet Build le rappelle.
 - **Augments ARAM Mayhem** (toujours actif) : quand les 3 augments sont proposés, l'appli affiche **sous chaque carte**
-  sa **note** d'arammayhem.com (« Note S · n° 3 »), avec **ton champion** si possible, sinon tous champions, et met
-  en avant la meilleure carte (cadre doré). Le site ne publie plus de taux de victoire par augment depuis octobre 2026.
+  son **taux de choix** d'arammayhem.com (« Choisi 64 % du temps »), avec **ton champion** si l'augment est dans
+  ses meilleurs, et met en avant la meilleure carte (cadre doré), d'après la note du site (S+, S, A...). Le site ne
+  publie plus de taux de victoire par augment depuis octobre 2026 (ni sur ses pages, ni dans son serveur MCP).
   Appli lancée en pleine partie : le champion est lu dans la partie en cours. Elle ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png)).
 - **Chronos des sorts d'invocateur adverses** (Build, désactivé par défaut, ⚠ voir [Sécurité](#sécurité)) : un petit
   panneau avec les 5 adversaires et leurs 2 sorts. Quand tu vois un sort utilisé, **tu cliques dessus** : le compte à

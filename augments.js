@@ -117,9 +117,14 @@ const { NOTES } = require("./arammayhem.js"); // S+, S, S-... de la meilleure à
  */
 function indexStats({ champion = [], global = [] } = {}) {
   const index = new Map();
+  // choix : taux de choix tous champions (« Pick Rate » de la page des augments : pris quand il est proposé).
+  const choix = new Map();
+  for (const a of Array.isArray(global) ? global : []) if (a && a.nom && Number.isFinite(a.apparition)) choix.set(simplifierNom(a.nom), a.apparition);
   for (const [liste, source] of [[global, "global"], [champion, "champion"]]) {
     for (const a of Array.isArray(liste) ? liste : []) {
-      if (a && a.nom && NOTES.includes(a.note)) index.set(simplifierNom(a.nom), { note: a.note, rang: a.rang, apparition: a.apparition, source });
+      if (!a || !a.nom || !NOTES.includes(a.note)) continue;
+      const cle = simplifierNom(a.nom);
+      index.set(cle, { note: a.note, rang: a.rang, apparition: a.apparition, choix: choix.has(cle) ? choix.get(cle) : null, source });
     }
   }
   return index;
@@ -148,7 +153,9 @@ function etiquettes(cartes, stats, hauteurEcran) {
     let detail = "";
     if (stats && !stat) texte = "Pas de données";
     if (stat) {
-      texte = `Note ${stat.note} · n° ${stat.rang}`;
+      // Des pourcentages, comme avant (17/10/2026) : le site ne publie plus de taux de victoire, on affiche le taux de
+      // choix tous champions ; la note (S+, S...) ne sert qu'à choisir la carte mise en avant.
+      texte = Number.isFinite(stat.choix) ? `Choisi ${pourcent(stat.choix)} du temps` : "Pas de données";
       detail = stat.source === "champion" ? `avec ton champion · pris ${pourcent(stat.apparition)}` : "tous champions";
     }
     return {

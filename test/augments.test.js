@@ -66,15 +66,15 @@ test("cartes trouvées sur la vraie capture : les 3 titres, de gauche à droite,
 });
 
 test("stats : celles du champion passent avant les stats tous champions", () => {
-  assert.deepStrictEqual(STATS.get("infernalconduit"), { note: "S+", rang: 1, apparition: 0.2319, source: "champion" });
-  assert.deepStrictEqual(STATS.get("hellbent"), { note: "B", rang: 150, apparition: 0.0673, source: "global" });
+  assert.deepStrictEqual(STATS.get("infernalconduit"), { note: "S+", rang: 1, apparition: 0.2319, choix: 0.2989, source: "champion" });
+  assert.deepStrictEqual(STATS.get("hellbent"), { note: "B", rang: 150, apparition: 0.0673, choix: 0.0673, source: "global" });
   assert.strictEqual(A.indexStats().size, 0);
   assert.strictEqual(A.indexStats({ global: [{ nom: "Vieux", note: "?", rang: 1, apparition: 0.5 }] }).size, 0); // note inconnue
 });
 
-test("étiquettes (vraie capture) : notes tous champions, meilleure carte = meilleure note", () => {
+test("étiquettes (vraie capture) : taux de choix en pourcentage, meilleure carte = meilleure note", () => {
   const liste = A.etiquettes(A.trouverCartes(LIGNES_CAPTURE, NOMS), STATS, 1440);
-  assert.deepStrictEqual(liste.map((e) => e.texte), ["Note B · n° 150", "Note S · n° 10", "Note A · n° 50"]);
+  assert.deepStrictEqual(liste.map((e) => e.texte), ["Choisi 7 % du temps", "Choisi 29 % du temps", "Choisi 20 % du temps"]);
   assert.deepStrictEqual(liste.map((e) => e.detail), ["tous champions", "tous champions", "tous champions"]);
   assert.deepStrictEqual(liste.map((e) => e.meilleur), [false, true, false]); // Biggest Snowball Ever : S
   assert.strictEqual(liste[0].x, Math.round(746 + 103 / 2)); // centre du titre
@@ -93,7 +93,7 @@ test("mise en avant : un augment du top de ton champion passe devant les notes t
   ];
   const liste = A.etiquettes(cartes, STATS, 1440);
   assert.deepStrictEqual(liste.map((e) => e.meilleur), [false, true, false]);
-  assert.strictEqual(liste[1].texte, "Note S+ · n° 1");
+  assert.strictEqual(liste[1].texte, "Choisi 30 % du temps"); // taux de choix tous champions (pas de taux de victoire publié)
   assert.strictEqual(liste[1].detail, "avec ton champion · pris 23 %");
   assert.strictEqual(liste[2].texte, "Pas de données");
   // Jamais un augment trop rarement pris (< 3 %), même avec une super note
@@ -209,7 +209,7 @@ test("surveillance : affiche quand les cartes apparaissent, une seule fois, puis
   s.demarrer();
   await attendre(150);
   s.arreter();
-  assert.deepStrictEqual(affichages, [["Note B · n° 150", "Note S · n° 10", "Note A · n° 50"], null]);
+  assert.deepStrictEqual(affichages, [["Choisi 7 % du temps", "Choisi 29 % du temps", "Choisi 20 % du temps"], null]);
 });
 
 test("surveillance : option décochée -> aucune lecture affichée ; arrêt -> lecture d'écran coupée", async () => {
