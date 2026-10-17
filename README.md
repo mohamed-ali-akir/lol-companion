@@ -149,6 +149,8 @@ peut rien afficher par-dessus. L'onglet Build le rappelle.
 - **Icône près de l'horloge** (Ouvrir, Acceptation auto à cocher, Quitter). L'appli installée **se lance avec
   Windows**, réduite, et se connecte toute seule dès que League s'ouvre ; notification **« LoL Companion est prêt »**
   quand League est détecté et que la fenêtre est cachée. Une seule copie tourne à la fois.
+  `"LoL Companion.exe" --quitter` ferme l'appli déjà ouverte **proprement**, comme « Quitter » (une mise à jour prête
+  s'installe alors), au lieu de la tuer.
 - **Mises à jour automatiques** depuis les Releases GitHub (voir [Mises à jour](#mises-à-jour)) : la nouvelle version
   se télécharge en arrière-plan, puis le bouton « Vérifier maintenant » devient **« Redémarrer l'appli »**.
 
@@ -188,7 +190,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (422, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (423, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 | `npm run essai` | Essai de bout en bout : la vraie appli sur un faux client League (compte fictif), chaque onglet ouvert, aucune erreur tolérée. `CAPTURES=docs/captures npm run essai` refait aussi les captures du README |
 | `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |

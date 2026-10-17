@@ -12,6 +12,10 @@
  */
 
 const ARGUMENT_REDUIT = "--reduit";
+// « LoL Companion.exe --quitter » : demande à l'appli déjà ouverte de se fermer PROPREMENT (comme « Quitter » dans le
+// menu de l'icône), au lieu de la tuer : une mise à jour téléchargée s'installe alors à la fermeture (17/10/2026 :
+// une fermeture forcée avait fait perdre une mise à jour prête).
+const ARGUMENT_QUITTER = "--quitter";
 
 const REGLAGES_ARRIERE_PLAN_PAR_DEFAUT = {
   fermerReduit: true, // la croix cache la fenêtre au lieu de quitter (activé par défaut)
@@ -106,6 +110,11 @@ function parametresDemarrageWindows(reglages, { executable, dossierAppli, emball
   return { openAtLogin: r.lancerAuDemarrage, path: executable, args };
 }
 
+/** Lancée avec --quitter (voir ARGUMENT_QUITTER) ? */
+function estDemandeQuitter(argv) {
+  return Array.isArray(argv) && argv.includes(ARGUMENT_QUITTER);
+}
+
 /** L'appli a-t-elle été lancée réduite (par le démarrage de Windows) ? */
 function estDemarrageReduit(argv) {
   return Array.isArray(argv) && argv.includes(ARGUMENT_REDUIT);
@@ -189,6 +198,8 @@ function modeleMenuMac(nomAppli = "LoL Companion") {
 
 module.exports = {
   ARGUMENT_REDUIT,
+  ARGUMENT_QUITTER,
+  estDemandeQuitter,
   REGLAGES_ARRIERE_PLAN_PAR_DEFAUT,
   normaliserReglagesArrierePlan,
   imposerReglagesArrierePlan,

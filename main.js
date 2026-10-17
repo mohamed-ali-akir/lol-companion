@@ -40,6 +40,7 @@ const {
   actionFermeture,
   parametresDemarrageWindows,
   estDemarrageReduit,
+  estDemandeQuitter,
   estDemarrageReduitMac,
   doitPrevenirReduction,
   actionClientDetecte,
@@ -1026,11 +1027,13 @@ const copieDeveloppementAutomatique = !app.isPackaged && estDemarrageReduit(proc
 // Une seule instance à la fois : si l'appli tourne déjà, la nouvelle s'arrête tout de suite
 // et l'ancienne réaffiche sa fenêtre (event "second-instance").
 const instanceUnique = !copieDeveloppementAutomatique && app.requestSingleInstanceLock();
-if (!instanceUnique) {
+// Lancée avec --quitter : elle a déjà prévenu l'appli ouverte (second-instance ci-dessous) ; s'il n'y en avait pas, rien à faire.
+if (!instanceUnique || estDemandeQuitter(process.argv)) {
   app.quit();
 } else {
   app.on("second-instance", (_evenement, argv) => {
-    if (!estDemarrageReduit(argv)) afficherFenetre();
+    if (estDemandeQuitter(argv)) quitter(); // fermeture propre demandée de l'extérieur (une mise à jour prête s'installe)
+    else if (!estDemarrageReduit(argv)) afficherFenetre();
   });
 
   app.whenReady().then(async () => {

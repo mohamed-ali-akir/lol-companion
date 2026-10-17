@@ -141,3 +141,11 @@ test("Mac, démarrer réduit : réglages cochés + lancement à l'ouverture de s
   assert.strictEqual(A.estDemarrageReduitMac({ reglages: { lancerAuDemarrage: false, demarrerReduit: true }, uptimeS: 10 }), false);
   assert.strictEqual(A.estDemarrageReduitMac({ reglages: undefined, uptimeS: 10 }), false);
 });
+
+test("--quitter : demande de fermeture propre de l'appli déjà ouverte (pas une fermeture forcée)", () => {
+  assert.strictEqual(A.ARGUMENT_QUITTER, "--quitter");
+  assert.strictEqual(A.estDemandeQuitter(["LoL Companion.exe", "--quitter"]), true);
+  assert.strictEqual(A.estDemandeQuitter(["LoL Companion.exe", "--reduit"]), false);
+  assert.strictEqual(A.estDemandeQuitter(undefined), false);
+  assert.strictEqual(A.estDemarrageReduit(["LoL Companion.exe", "--quitter"]), false, "jamais confondu avec le démarrage réduit");
+});
