@@ -563,6 +563,12 @@ Chaque fichier est écrit de façon **sûre** (`fichiers.js`, depuis le 17/10/20
 devient `fichier.bak` et le nouveau prend sa place. Si le PC s'éteint pendant une écriture, l'appli relit la copie `.bak`
 au lieu de repartir de zéro (avant, tout l'historique pouvait être perdu sans un mot). Un fichier abîmé est signalé dans `journal.txt` et gardé à part (`fichier.abime`) pour pouvoir récupérer ses données.
 
+**Version du format** (`migrations.js`, depuis le 17/10/2026) : `config.json` note `versionDonnees` (1 aujourd'hui).
+Le jour où un format change, une migration le convertit une seule fois au démarrage, après une copie de sécurité
+des fichiers dans `sauvegarde-avant-vN`. Des fichiers écrits par une version plus récente (retour à une ancienne
+appli) sont copiés dans `sauvegarde-donnees-vN` avant d'être réécrits. Une migration qui échoue est notée dans le
+journal, l'appli continue, et l'étape est refaite au lancement suivant.
+
 Pour effacer la courbe ou les parties, supprime ce dossier (appli quittée).
 
 ## Comment fonctionne le calcul d'XP
@@ -605,6 +611,7 @@ lol-level-calculator/
 ├── arammayhem.js      # Notes des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »
 ├── fichiers.js        # Écriture sûre des fichiers de données (temporaire + renommage, copie .bak relue si abîmé)
+├── migrations.js      # Version du format des fichiers de données, migrations au démarrage (copie de sécurité avant)
 ├── journal.js         # Journal sur le disque (journal.txt), taille limitée
 ├── mise-a-jour.js     # Mise à jour automatique (electron-updater, Releases GitHub) : vérification, bandeau, installation
 ├── maj-appli.js       # Mise à jour côté Electron : au lancement (petite fenêtre), puis en arrière-plan ; Mac : vérification

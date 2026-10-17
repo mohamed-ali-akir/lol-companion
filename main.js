@@ -35,6 +35,7 @@ const { creerSuiviSorts } = require("./sorts.js");
 const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { surProbleme } = require("./fichiers.js"); // écriture sûre des fichiers de données
+const { migrerDonnees } = require("./migrations.js"); // version du format des fichiers de données
 const { creerMajAppli } = require("./maj-appli.js"); // mise à jour de l'appli (au lancement, puis en arrière-plan)
 const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
 const {
@@ -1054,6 +1055,8 @@ if (!instanceUnique || estDemandeQuitter(process.argv)) {
       quitteEnCours = true; // rien ne doit retenir la fermeture : l'installateur attend que l'appli soit fermée
       return;
     }
+    // Fichiers de données au format de cette version, AVANT de les lire (migrations.js ; n'échoue jamais).
+    migrerDonnees({ dossier: app.getPath("userData"), journal: noter });
     progression = creerProgression({ dossier: app.getPath("userData") });
     historiqueParties = creerHistoriqueParties({ dossier: app.getPath("userData") });
     suiviMaitrise = creerSuiviMaitrise({ dossier: app.getPath("userData") });
