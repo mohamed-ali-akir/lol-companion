@@ -190,7 +190,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (412, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (413, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 | `npm run essai` | Essai de bout en bout : la vraie appli sur un faux client League (compte fictif), chaque onglet ouvert, aucune erreur tolérée. `CAPTURES=docs/captures npm run essai` refait aussi les captures du README |
 | `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
@@ -547,7 +547,7 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 
 Chaque fichier est écrit de façon **sûre** (`fichiers.js`, depuis le 17/10/2026) : d'abord dans `fichier.tmp`, puis l'ancien
 devient `fichier.bak` et le nouveau prend sa place. Si le PC s'éteint pendant une écriture, l'appli relit la copie `.bak`
-au lieu de repartir de zéro (avant, tout l'historique pouvait être perdu sans un mot).
+au lieu de repartir de zéro (avant, tout l'historique pouvait être perdu sans un mot). Un fichier abîmé est signalé dans `journal.txt` et gardé à part (`fichier.abime`) pour pouvoir récupérer ses données.
 
 Pour effacer la courbe ou les parties, supprime ce dossier (appli quittée).
 

@@ -186,6 +186,7 @@ function etiquettes(cartes, stats, hauteurEcran) {
  * Renvoie { demarrer(), arreter() }.
  */
 function creerSuiviAugments({ actif, ecran, lireEcran, nomsAugments, statsAugments, afficher, arreterLecture = () => {}, intervalleMs = 1000, journal = () => {} }) {
+  let derniereRaison = null; // dernière raison des stats indisponibles notée dans le journal
   let enMarche = false;
   let minuterie = null;
   let affiche = false;
@@ -210,7 +211,14 @@ function creerSuiviAugments({ actif, ecran, lireEcran, nomsAugments, statsAugmen
         const cartes = trouverCartes(lignes, index);
         if (cartes.length >= 2) {
           absences = 0;
-          const stats = await statsAugments().catch(() => null);
+          // Stats indisponibles : notées dans le journal, une fois par raison (avant le 17/10/2026, rien n'était noté :
+          // le changement de format d'arammayhem.com n'a été vu qu'en jeu, avec « Stats indisponibles »).
+          const stats = await statsAugments().catch((erreur) => {
+            const raison = (erreur && erreur.message) || String(erreur);
+            if (raison !== derniereRaison) journal("augments : stats indisponibles :", raison);
+            derniereRaison = raison;
+            return null;
+          });
           const liste = etiquettes(cartes, stats, taille.hauteur);
           const cle = JSON.stringify(liste);
           if (enMarche && cle !== dernier) {

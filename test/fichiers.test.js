@@ -42,3 +42,21 @@ test("rien de lisible : erreur (l'appelant choisit sa valeur par défaut) ; effa
   assert.throws(() => F.lireJson(fichier), "la copie ne revient pas après un effacement");
   F.effacerJson(fichier); // déjà effacé : pas d'erreur
 });
+
+test("fichier abîmé : signalé une fois, gardé à part (.abime) ; la bonne copie .bak n'est jamais écrasée par lui", () => {
+  const fichier = path.join(dossierTemp(), "progression.json");
+  const messages = [];
+  F.surProbleme((m) => messages.push(m));
+  F.ecrireJson(fichier, ["v1"]);
+  F.ecrireJson(fichier, ["v2"]); // .bak = v1
+  fs.writeFileSync(fichier, "[\"v3\""); // abîmé (PC éteint)
+  assert.deepStrictEqual(F.lireJson(fichier), ["v1"], "copie de secours relue");
+  F.lireJson(fichier);
+  assert.strictEqual(messages.length, 1, "signalé une seule fois");
+  assert.match(messages[0], /progression\.json abîmé : copie de secours \(\.bak\) relue/);
+  assert.strictEqual(fs.readFileSync(`${fichier}.abime`, "utf-8"), "[\"v3\"", "fichier abîmé gardé pour récupérer ses données");
+  F.ecrireJson(fichier, ["v4"]); // le fichier abîmé ne doit pas devenir la copie de secours
+  assert.deepStrictEqual(JSON.parse(fs.readFileSync(`${fichier}.bak`, "utf-8")), ["v1"]);
+  assert.deepStrictEqual(F.lireJson(fichier), ["v4"]);
+  F.surProbleme(null);
+});

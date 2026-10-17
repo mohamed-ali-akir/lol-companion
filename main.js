@@ -34,6 +34,7 @@ const { creerLectureJeuPartagee, estFaille, lireJeu, monAlias } = require("./jeu
 const { creerSuiviSorts } = require("./sorts.js");
 const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
+const { surProbleme } = require("./fichiers.js"); // écriture sûre des fichiers de données
 const { creerMajAppli } = require("./maj-appli.js"); // mise à jour de l'appli (au lancement, puis en arrière-plan)
 const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
 const {
@@ -703,7 +704,7 @@ function demarrerAugments() {
       if (lecteurEcran) lecteurEcran.arreter();
       lecteurEcran = null;
     },
-    journal: (...morceaux) => console.error("[LoL Companion]", ...morceaux),
+    journal: noter, // dans journal.txt (avant : seulement dans le terminal, invisible dans l'appli installée)
   });
 }
 
@@ -1039,6 +1040,7 @@ if (!instanceUnique || estDemandeQuitter(process.argv)) {
   app.whenReady().then(async () => {
     stockage = creerStockage({ dossier: app.getPath("userData") });
     journal = creerJournal({ fichier: path.join(app.getPath("userData"), "journal.txt") });
+    surProbleme((message) => noter(`Fichier de données : ${message}`)); // fichiers.js : fichier abîmé, copie .bak relue
     noter(`--- LoL Companion démarre (${app.isPackaged ? "appli installée" : "projet, npm start"}, version ${app.getVersion()})`);
     // Une nouvelle version ? Elle s'installe d'abord, puis l'appli se relance dedans (rien d'autre ne démarre).
     if (await majAppli.installerAuDemarrage()) {
