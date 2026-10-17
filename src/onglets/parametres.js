@@ -132,10 +132,15 @@ function texteMaj(etat) {
   }
 }
 
+let majPrete = false; // une version est téléchargée et prête à installer
+
 function afficherMaj(etat) {
   if (!etat) return;
   $("majVersion").textContent = texteMaj(etat);
-  $("majVerifier").disabled = etat.etape === "indisponible" || etat.etape === "recherche" || etat.etape === "telechargement" || etat.etape === "prete";
+  // Version prête (Windows) : le bouton « Vérifier maintenant » devient « Redémarrer l'appli ».
+  majPrete = etat.etape === "prete";
+  $("majVerifier").textContent = majPrete ? "Redémarrer l'appli" : "Vérifier maintenant";
+  $("majVerifier").disabled = etat.etape === "indisponible" || etat.etape === "recherche" || etat.etape === "telechargement";
   // Windows : version téléchargée, prête à installer. Mac : version disponible, à télécharger soi-même.
   const mac = etat.etape === "disponible";
   $("bandeauMaj").hidden = etat.etape !== "prete" && !mac;
@@ -151,6 +156,11 @@ function brancherMaj() {
   window.appli.lireMaj().then(afficherMaj);
   $("majVerifier").addEventListener("click", () => {
     $("majVerifier").disabled = true;
+    if (majPrete) {
+      $("majVerifier").textContent = "Redémarrage…"; // l'appli va se fermer, installer, puis se relancer
+      window.appli.installerMaj();
+      return;
+    }
     window.appli.verifierMaj();
   });
   $("installerMaj").addEventListener("click", () => {

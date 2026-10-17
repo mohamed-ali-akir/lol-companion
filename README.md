@@ -211,7 +211,7 @@ L'appli installée regarde sur GitHub (dernière Release du dépôt public) s'il
 15 s après le démarrage, puis toutes les 6 h (`mise-a-jour.js`, avec **electron-updater**). Si oui, elle la télécharge en
 arrière-plan, vérifie son empreinte (sha512 du fichier `latest.yml`), puis affiche le bandeau **« Redémarrer et mettre
 à jour »**. Si tu l'ignores, elle s'installe quand tu quittes l'appli : jamais de redémarrage forcé. Désactivable dans
-**Paramètres → Mises à jour** (bouton « Vérifier maintenant » à côté de la version).
+**Paramètres → Mises à jour** (bouton « Vérifier maintenant » à côté de la version ; il devient « Redémarrer l'appli » quand une version est prête).
 
 **Publier une nouvelle version** :
 1. changer `"version"` dans `package.json` (ex. `1.1.0` → `1.2.0`), puis `npm install --package-lock-only` ;
