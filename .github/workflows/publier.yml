@@ -27,11 +27,14 @@ jobs:
       - run: npm test
       # On crée la Release AVANT electron-builder : sinon il envoie ses fichiers en parallèle et chaque envoi crée sa
       # propre Release (vu le 11/10/2026 : deux « v1.1.0 », le lien public tombait sur celle qui n'avait que le .blockmap).
+      # En BROUILLON : invisible tant que les fichiers ne sont pas tous déposés (vu le 17/10/2026 : pendant la
+      # fabrication de la v1.3.1, les applis trouvaient la Release sans latest.yml et affichaient une erreur).
+      # Le job « rendre-publique », à la fin, la publie.
       - name: Créer la Release
         if: github.ref_type == 'tag'
         # Bloc « >- » : le texte peut contenir « : » (sinon YAML le prend pour une clé, vu le 16/10/2026).
         run: >-
-          gh release create "${{ github.ref_name }}" --title "LoL Companion ${{ github.ref_name }}"
+          gh release create "${{ github.ref_name }}" --draft --title "LoL Companion ${{ github.ref_name }}"
           --notes "Windows : télécharge LoL-Companion-Setup-*.exe ci-dessous (les applis déjà installées se mettent à jour toutes seules).
           Mac (bêta) : LoL-Companion-*-mac.dmg, voir la section Mac du README pour l'installer."
         env:
@@ -57,5 +60,17 @@ jobs:
       - run: npm ci
       - name: Fabriquer et publier le .dmg
         run: npx electron-builder --mac --publish always
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Tous les fichiers sont déposés : la Release sort du brouillon et devient la « dernière » (lien latest, mises à
+  # jour). Même si le .dmg Mac a échoué : la version Windows est publiée quand même.
+  rendre-publique:
+    needs: [publier, mac]
+    if: always() && needs.publier.result == 'success' && github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publier la Release
+        run: gh release edit "${{ github.ref_name }}" --repo "${{ github.repository }}" --draft=false --latest
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
