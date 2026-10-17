@@ -290,7 +290,8 @@ const CODE_PRINCIPAL = fs
   .join("\n");
 
 test("ponts : chaque canal a son récepteur dans le processus principal, et chaque message envoyé à une page est écouté", () => {
-  const recus = { invoke: /ipcMain\.handle\(\s*"([^"]+)"/g, send: /ipcMain\.on\(\s*"([^"]+)"/g };
+  // Récepteurs : ipcMain.handle / ipcMain.on, ou leurs enveloppes de messages.js (repondre / ecouterOverlay).
+  const recus = { invoke: /(?:ipcMain\.handle|\brepondre)\(\s*"([^"]+)"/g, send: /(?:ipcMain\.on|\becouterOverlay)\(\s*"([^"]+)"/g };
   const ecoutes = new Set();
   for (const page of Object.values(PAGES)) {
     if (!page.preload) continue;

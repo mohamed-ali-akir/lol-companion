@@ -60,6 +60,7 @@
       "journal.js",
       "mise-a-jour.js",
       "maj-appli.js",
+      "messages.js",
       "preload-overlay.js",
       "assets/**/*",
       "src/**/*"

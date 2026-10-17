@@ -11,8 +11,8 @@
 const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, protocol, Notification, screen, shell, systemPreferences } = require("electron");
 const path = require("path");
 const os = require("os"); // os.uptime() : depuis quand le Mac est allumé (démarrage réduit)
-const { recupererCompteClient, lireToutHistorique, ErreurClient } = require("./lcu.js");
-const { creerStockage, ErreurStockage, DOSSIER_JEU_PAR_DEFAUT } = require("./stockage.js");
+const { recupererCompteClient, lireToutHistorique } = require("./lcu.js");
+const { creerStockage, DOSSIER_JEU_PAR_DEFAUT } = require("./stockage.js");
 const { surveillerClient } = require("./surveillance.js");
 const { creerProgression, creerPoint, riotIdDe } = require("./progression.js");
 const { xpDuCompte } = require("./src/calculs.js"); // même calcul d'XP que la page
@@ -24,10 +24,10 @@ const { creerLecteurEcran } = require("./ocr.js");
 const { creerLecteurArammayhem } = require("./arammayhem.js");
 const { creerSondage, etatPreparation } = require("./sondage.js");
 const { creerJournal } = require("./journal.js");
-const { creerBuildAuto, assemblerBuild, lirePartie, appliquerSet, appliquerSorts } = require("./build.js");
-const { creerLecteurOpgg, ErreurOpgg } = require("./opgg.js");
+const { creerBuildAuto, lirePartie, appliquerSet, appliquerSorts } = require("./build.js");
+const { creerLecteurOpgg } = require("./opgg.js");
 const { creerStatsBuild } = require("./stats-build.js");
-const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
+const { creerLecteurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
 const { creerLectureJeuPartagee, estFaille, lireJeu, monAlias } = require("./jeu.js");
@@ -37,6 +37,7 @@ const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParCham
 const { surProbleme } = require("./fichiers.js"); // écriture sûre des fichiers de données
 const { migrerDonnees } = require("./migrations.js"); // version du format des fichiers de données
 const { creerMajAppli } = require("./maj-appli.js"); // mise à jour de l'appli (au lancement, puis en arrière-plan)
+const { brancherMessages, reponseErreur } = require("./messages.js"); // messages de la page et de la fenêtre du jeu
 const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
 const {
   actionFermeture,
@@ -115,179 +116,47 @@ function proteger(nom, fonction) {
 process.on("uncaughtException", (erreur) => signalerErreur("erreur non rattrapée", erreur));
 process.on("unhandledRejection", (erreur) => signalerErreur("promesse en erreur", erreur));
 
-/** Transforme une erreur en réponse simple pour la page : { ok: false, erreur, probleme }. */
-function reponseErreur(erreur) {
-  const prevue = [ErreurClient, ErreurStockage, ErreurOpgg, ErreurLolalytics].some((type) => erreur instanceof type);
-  return {
-    ok: false,
-    erreur: prevue ? erreur.message : `Erreur inattendue : ${erreur.message}`,
-    probleme: erreur.probleme || null,
-  };
-}
 
 // ---------------------------------------------------------------------------
-// Messages que la page peut envoyer (via preload.js).
+// Messages de la page et de la fenêtre du jeu (via preload.js / preload-overlay.js) : messages.js.
+// Les services sont lus au moment du message (fenêtres et suivis créés plus tard, ou recréés).
 // ---------------------------------------------------------------------------
 
-function brancherMessages() {
-  ipcMain.handle("config:lire", () => ({
-    dossierJeu: stockage.dossierJeu(),
-    dossierJeuParDefaut: DOSSIER_JEU_PAR_DEFAUT,
-    plateforme: process.platform, // "win32" ou "darwin" (Mac) : la page adapte ses textes
-    autorisationEcran: autorisationEcranMac(), // Mac : « Enregistrement de l'écran » donné ? (augments) ; null ailleurs
-    dernierCompte: stockage.dernierCompte(), // pour l'afficher même si le client est fermé
-    ongletActif: stockage.ongletActif(), // pour rouvrir le même onglet
-    lancement, // heure d'ouverture de l'appli (session "depuis l'ouverture")
-  }));
-
-  ipcMain.handle("config:enregistrerOnglet", (_evenement, nom) => {
-    try {
-      stockage.enregistrerOngletActif(nom);
-      return { ok: true };
-    } catch (erreur) {
-      return reponseErreur(erreur);
-    }
+function brancherMessagesAppli() {
+  brancherMessages(ipcMain, {
+    estPage: (evenement) => Boolean(fenetre && !fenetre.isDestroyed() && evenement.sender === fenetre.webContents),
+    estOverlay: (evenement) => Boolean(fenetreAugments && !fenetreAugments.isDestroyed() && evenement.sender === fenetreAugments.webContents),
+    stockage: () => stockage,
+    progression: () => progression,
+    historiqueParties: () => historiqueParties,
+    config: () => ({
+      dossierJeuParDefaut: DOSSIER_JEU_PAR_DEFAUT,
+      plateforme: process.platform, // "win32" ou "darwin" (Mac) : la page adapte ses textes
+      autorisationEcran: autorisationEcranMac(), // Mac : « Enregistrement de l'écran » donné ? (augments) ; null ailleurs
+      lancement, // heure d'ouverture de l'appli (session "depuis l'ouverture")
+    }),
+    lireCompte,
+    lireMaitrise,
+    importerHistorique,
+    obtenirNomsChampions: () => obtenirNomsChampions(),
+    analyserOpgg: (contexte) => analyserOpgg(contexte),
+    analyserLolalytics: (contexte) => analyserLolalytics(contexte),
+    apresReglagesAcceptation: () => mettreAJourMenuIcone(),
+    appliquerDemarrageWindows,
+    // Panneau des sorts : la fenêtre ne prend la souris que quand elle est dessus (sinon tout passe au jeu).
+    souris: (dessus) => fenetreAugments.setIgnoreMouseEvents(!dessus || !contenuOverlay.sorts, { forward: true }),
+    clicSort: (id) => suiviSorts && suiviSorts.clic(id),
+    dernierConseil: () => dernierConseil,
+    clientConnecte: () => clientConnecte,
+    etatAppli: () => etatAppli,
+    majAppli: () => majAppli.suivi(),
+    versionAppli: () => app.getVersion(),
+    avantInstallation: () => {
+      quitteEnCours = true;
+    },
+    proteger,
+    signalerErreur,
   });
-
-  ipcMain.handle("config:enregistrerDossierJeu", (_evenement, dossier) => {
-    try {
-      stockage.enregistrerDossierJeu(dossier);
-      return { ok: true, dossierJeu: stockage.dossierJeu() };
-    } catch (erreur) {
-      return reponseErreur(erreur);
-    }
-  });
-
-  // Compte connecté (Riot ID, niveau, progression) + stats de ses dernières parties,
-  // lus dans le client League lancé sur ce PC.
-  ipcMain.handle("client:recuperer", () => lireCompte());
-
-  // Onglet Maîtrise : niveau, points et marques de chaque champion (lecture seule).
-  ipcMain.handle("maitrise:lire", () => lireMaitrise());
-
-  // Points de progression d'un compte (pour le graphique).
-  ipcMain.handle("progression:lire", (_evenement, compte) => progression.pointsDu(riotIdDe(compte)));
-
-  // Onglet Stats : parties enregistrées pour un compte (disponibles même client fermé).
-  ipcMain.handle("stats:lire", (_evenement, compte) => historiqueParties.partiesDu(riotIdDe(compte)));
-  ipcMain.handle("stats:importer", () => importerHistorique());
-
-  // Acceptation automatique : lire et changer les réglages (onglet Paramètres).
-  ipcMain.handle("acceptation:lire", () => stockage.reglagesAcceptation());
-  ipcMain.handle("acceptation:enregistrer", (_evenement, reglages) => {
-    try {
-      const propres = stockage.enregistrerReglagesAcceptation(reglages);
-      mettreAJourMenuIcone(); // la case "Acceptation auto" du menu de l'icône suit le réglage
-      return { ok: true, reglages: propres };
-    } catch (erreur) {
-      return reponseErreur(erreur);
-    }
-  });
-
-  // Pick et ban automatiques : réglages et listes de champions (onglet Sélection).
-  ipcMain.handle("selection:lire", () => stockage.reglagesSelection());
-  ipcMain.handle("selection:enregistrer", (_evenement, reglages) => {
-    try {
-      return { ok: true, reglages: stockage.enregistrerReglagesSelection(reglages) };
-    } catch (erreur) {
-      return reponseErreur(erreur);
-    }
-  });
-  // Noms de tous les champions, pour les listes de l'onglet Sélection (lus dans les fichiers du client).
-  ipcMain.handle("selection:champions", async () => {
-    const noms = await obtenirNomsChampions();
-    if (noms.size === 0) return { ok: false, erreur: "Lance le client League pour charger la liste des champions." };
-    const champions = [...noms]
-      .filter(([id]) => id > 0)
-      .map(([id, nom]) => ({ id, nom }))
-      .sort((a, b) => a.nom.localeCompare(b.nom, "fr"));
-    return { ok: true, champions };
-  });
-
-  // Fenêtre transparente du jeu : la souris est sur le panneau des sorts (cliquable) ou ailleurs (tout passe au jeu).
-  // On ne prend ces messages que de la fenêtre transparente elle-même.
-  const depuisOverlay = (evenement) => fenetreAugments && !fenetreAugments.isDestroyed() && evenement.sender === fenetreAugments.webContents;
-  ipcMain.on("overlay:souris", (evenement, dessus) => {
-    if (depuisOverlay(evenement)) fenetreAugments.setIgnoreMouseEvents(dessus !== true || !contenuOverlay.sorts, { forward: true });
-  });
-  // Panneau des sorts déplacé (glissé à la souris) : sa nouvelle place, gardée pour les prochaines parties.
-  ipcMain.on("sorts:position", (evenement, position) => {
-    if (depuisOverlay(evenement)) proteger("place du panneau des sorts", () => stockage.enregistrerPositionSorts(position));
-  });
-  ipcMain.on("sorts:clic", (evenement, id) => {
-    if (depuisOverlay(evenement) && typeof id === "string" && suiviSorts) proteger("chronos des sorts", () => suiviSorts.clic(id));
-  });
-
-  // Conseiller de draft : dernier conseil (si la page s'ouvre pendant une sélection).
-  ipcMain.handle("draft:lire", () => dernierConseil);
-
-  // Build automatique : réglages (onglet Build).
-  ipcMain.handle("build:lire", () => stockage.reglagesBuild());
-  ipcMain.handle("build:enregistrer", (_evenement, reglages) => {
-    try {
-      return { ok: true, reglages: stockage.enregistrerReglagesBuild(reglages) };
-    } catch (erreur) {
-      return reponseErreur(erreur);
-    }
-  });
-  // Consulter le build d'un champion à la demande (bouton de l'onglet Build) : lecture seule, rien n'est appliqué.
-  ipcMain.handle("build:consulter", async (_evenement, demande) => {
-    try {
-      const championId = Number(demande && demande.championId);
-      if (!Number.isInteger(championId) || championId <= 0) return { ok: false, erreur: "Choisis un champion." };
-      const role = typeof demande.role === "string" && demande.role ? demande.role : null;
-      const mode = demande.mode === "aram" ? "aram" : "ranked";
-      const contexte = { championId, role, mode };
-      const [opgg, lolalytics] = await Promise.allSettled([analyserOpgg(contexte), analyserLolalytics(contexte)]);
-      if (opgg.status === "rejected" && lolalytics.status === "rejected") throw lolalytics.reason;
-      const { resume } = assemblerBuild({
-        opgg: opgg.status === "fulfilled" ? opgg.value : null,
-        emplacements: lolalytics.status === "fulfilled" ? lolalytics.value : null,
-      });
-      if (!resume) return { ok: false, erreur: "Pas assez de données pour ce champion et ce rôle." };
-      const avertissement = lolalytics.status === "rejected" ? `${lolalytics.reason.message} Objets d'OP.GG affichés.` : null;
-      const noms = await obtenirNomsChampions();
-      return { ok: true, nom: noms.get(championId) || null, role, mode, build: resume, avertissement };
-    } catch (erreur) {
-      return reponseErreur(erreur);
-    }
-  });
-
-  // Arrière-plan : fermer = réduire, lancement au démarrage de Windows (onglet Paramètres).
-  ipcMain.handle("arrierePlan:lire", () => stockage.reglagesArrierePlan());
-
-  // Mise à jour de l'appli : état (bandeau, Paramètres), « Vérifier maintenant », « Redémarrer et mettre à jour ».
-  ipcMain.handle("maj:lire", () => {
-    const miseAJour = majAppli.suivi();
-    return miseAJour ? miseAJour.lire() : { etape: "indisponible", version: app.getVersion(), raison: process.platform === "darwin" ? "mac" : "projet" };
-  });
-  ipcMain.handle("maj:verifier", () => {
-    const miseAJour = majAppli.suivi();
-    return miseAJour ? miseAJour.verifierMaintenant() : false;
-  });
-  ipcMain.handle("maj:installer", () => {
-    const miseAJour = majAppli.suivi();
-    if (!miseAJour) return false;
-    const etape = miseAJour.lire().etape;
-    if (etape === "disponible") return miseAJour.installer(); // Mac : ouvre la page de téléchargement, l'appli reste ouverte
-    if (etape !== "prete") return false;
-    quitteEnCours = true; // la croix ne doit pas juste cacher la fenêtre pendant l'installation
-    return miseAJour.installer();
-  });
-  ipcMain.handle("arrierePlan:enregistrer", (_evenement, reglages) => {
-    try {
-      const propres = stockage.enregistrerReglagesArrierePlan(reglages);
-      appliquerDemarrageWindows(propres);
-      return { ok: true, reglages: propres };
-    } catch (erreur) {
-      return reponseErreur(erreur);
-    }
-  });
-
-  // La page demande si la surveillance en direct est branchée (au démarrage).
-  ipcMain.handle("client:etatConnexion", () => clientConnecte);
-  // État de l'appli pour le bandeau « pas encore prête » (au démarrage de la page ; ensuite : "appli:etat").
-  ipcMain.handle("appli:etat", () => etatAppli);
 }
 
 // Stats de build (noms et alias des champions, objets du client, OP.GG, Lolalytics, set Rank 1) : stats-build.js.
@@ -1063,7 +932,7 @@ if (!instanceUnique || estDemandeQuitter(process.argv)) {
     stockage.nettoyerAnciensReglages(); // efface l'ancienne clé API si elle était enregistrée
     // Appli installée : nom et icône de l'appli dans les notifications Windows (même identifiant que l'installateur).
     if (process.platform === "win32" && app.isPackaged) app.setAppUserModelId("com.lolcalculator.app");
-    brancherMessages();
+    brancherMessagesAppli();
     brancherIcones();
     creerIcone();
     appliquerDemarrageWindows(stockage.reglagesArrierePlan()); // garde Windows d'accord avec le réglage

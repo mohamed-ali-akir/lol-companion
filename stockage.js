@@ -16,7 +16,7 @@
  * L'appli n'utilise plus de clé API Riot.
  */
 const path = require("path");
-const { lireJson, ecrireJson, effacerJson } = require("./fichiers.js"); // écriture sûre (copie .bak)
+const { lireJson, ecrireJson } = require("./fichiers.js"); // écriture sûre (copie .bak)
 const { normaliserReglages } = require("./acceptation.js");
 const { normaliserReglagesSelection } = require("./selection.js");
 const { normaliserReglagesBuild } = require("./build.js");

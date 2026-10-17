@@ -521,6 +521,9 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
 
 - La page n'a pas accès à Node.js (`contextIsolation`, `sandbox`, pas de `nodeIntegration`) : elle passe uniquement
   par les fonctions exposées dans `preload.js`. Une Content-Security-Policy bloque tout script ou contenu extérieur.
+- **Origine des messages vérifiée** (`messages.js`, 17/10/2026) : le processus principal n'accepte une question que de
+  la page de l'appli, et les clics du panneau des sorts que de la fenêtre transparente du jeu (recommandation de
+  sécurité d'Electron). Une erreur inattendue dans un message est écrite dans `journal.txt` au lieu de passer inaperçue.
 - L'appli parle au client League sur `127.0.0.1`. Le certificat auto-signé du client est accepté **seulement** pour
   ces appels (agent HTTPS dédié), jamais pour le reste.
 - **Seules connexions à Internet** (décision du propriétaire, 02/10/2026) : les statistiques de builds d'OP.GG et de
@@ -584,7 +587,8 @@ selon le niveau atteint.
 ```
 lol-level-calculator/
 ├── CLAUDE.md          # Règles du projet (sécurité, tests, pas d'Internet...), relues par Claude Code
-├── main.js            # Processus principal : fenêtre, messages de la page, surveillance, notifications
+├── main.js            # Processus principal : fenêtre, surveillance, notifications ; branche les autres modules
+├── messages.js        # Messages de la page et de la fenêtre du jeu (ipcMain) : origine vérifiée, erreurs notées
 ├── preload.js         # Pont sécurisé entre la page et main.js (contextBridge)
 ├── lcu.js             # Lecture du client League (lockfile, API locale, historique, import)
 ├── surveillance.js    # Écoute du client en direct (WebSocket)
