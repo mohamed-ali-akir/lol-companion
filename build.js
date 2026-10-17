@@ -32,10 +32,10 @@
  */
 const { lireLockfile, lireJson, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
 const { monChampion, pageDepuisRecommandation, nomsPage } = require("./runes.js");
-const { PREFIXE_UID: PREFIXE_UID_RANK1 } = require("./rank1.js"); // identifiant du set « Champion Rank 1 »
+const PREFIXE_UID_RANK1 = "1c0a9a10-0000-4000-9000-"; // identifiant du set « Champion Rank 1 » (les autres sets : ...-8000-)
 
 const PREFIXE_SET = "LoL Companion";
-const PREFIXE_UID_APPLI = "1c0a9a10-0000-4000-"; // identifiants des sets de l'appli (uidSet : ...-8000-, rank1.js : ...-9000-)
+const PREFIXE_UID_APPLI = "1c0a9a10-0000-4000-"; // identifiants des sets de l'appli (uidSet : ...-8000-, set Rank 1 : ...-9000-)
 // Une option est FIABLE si elle est prise dans au moins 10 % des parties ET sur au moins 200 parties.
 // (Avec 5 % seulement, le 6e objet de Hwei était une Ceinture-roquette sur... 4 parties.)
 const SELECTION_MIN = 0.1;
@@ -62,7 +62,7 @@ function normaliserReglagesBuild(brut, ancienRunes) {
     stats: r.stats === true,
     runes: brut && typeof brut === "object" ? r.runes === true : runesAvant,
     objets: true, // set d'objets : toujours, dès que le build est récupéré (décision du 17/10/2026, plus de case)
-    rank1: r.rank1 === true, // + set « Champion Rank 1 » (rank1.js, exception du 17/10/2026)
+    rank1: r.rank1 === true, // + set « Champion Rank 1 » : build des meilleurs joueurs (Lolalytics, stats-build.js)
     augments: true, // stats des augments ARAM Mayhem en jeu (augments.js) : toujours (décision du 17/10/2026, plus de case)
     sorts: r.sorts === true, // chronos des sorts d'invocateur adverses, cliquables en jeu (sorts.js)
     sortsPings: r.sorts === true, // + lancés par les pings lus dans le chat (pings.js) : même case depuis le 17/10/2026
@@ -342,7 +342,7 @@ function etapesFamille(etapes, famille) {
 
 /**
  * Set « Champion Rank 1 » au format du build classique : mêmes blocs (3 choix par emplacement, taux de victoire et
- * part des achats), avec son propre titre et son propre identifiant (PREFIXE_UID de rank1.js : reconnu et remplacé
+ * part des achats), avec son propre titre et son propre identifiant (PREFIXE_UID_RANK1 : reconnu et remplacé
  * à chaque fois, jamais en double).
  */
 function setRank1Classique({ etapes, championId, nomChampion, role, carte = 11 }) {
@@ -548,17 +548,6 @@ function creerBuildAuto({
 
 // --- Appels au client ------------------------------------------------------------------------
 
-/**
- * Serveur du compte (« EUW », « NA »...), pour le classement du set Rank 1. Route vérifiée le 17/10/2026 :
- *   GET /riotclient/region-locale -> { region: "EUW", locale: "en_US", ... }
- */
-async function lireRegion(dossierJeu) {
-  const r = await lireJsonOuNull(lireLockfile(dossierJeu), "/riotclient/region-locale");
-  const region = r && typeof r.region === "string" ? r.region.replace(/[^A-Za-z]/g, "").toUpperCase() : "";
-  if (!region) throw new ErreurClient("Serveur du compte inconnu.");
-  return region;
-}
-
 /** Carte et mode de la partie en cours (session du "gameflow"), ou null hors partie. */
 async function lirePartie(dossierJeu) {
   return lireJsonOuNull(lireLockfile(dossierJeu), "/lol-gameflow/v1/session");
@@ -566,22 +555,18 @@ async function lirePartie(dossierJeu) {
 
 /**
  * Objets du client, lus en une fois : { noms: Map id -> nom (langue du client, pour Lolalytics qui n'a que les numéros),
- * categories: Map id -> ["Health", "Damage"...] (pour repérer les familles de builds, familles.js),
- * details: Map id -> { categories, prix, vers } (objet fini ou composant, pour le set Rank 1) }.
+ * categories: Map id -> ["Health", "Damage"...] (pour repérer les familles de builds, familles.js) }.
  */
 async function lireObjets(dossierJeu) {
   const objets = await lireJsonOuNull(lireLockfile(dossierJeu), "/lol-game-data/assets/v1/items.json");
   const noms = new Map();
   const categories = new Map();
-  const details = new Map(); // id -> { categories, prix, vers } : pour trier les objets du set Rank 1 (rank1.js)
-  const ids = (x) => (Array.isArray(x) ? x.filter(Number.isInteger) : []);
   for (const o of Array.isArray(objets) ? objets : []) {
     if (!o || !Number.isInteger(o.id)) continue;
     if (typeof o.name === "string") noms.set(o.id, o.name);
     if (Array.isArray(o.categories)) categories.set(o.id, o.categories.filter((c) => typeof c === "string"));
-    details.set(o.id, { categories: categories.get(o.id) || [], prix: Number(o.priceTotal) || 0, vers: ids(o.to) });
   }
-  return { noms, categories, details };
+  return { noms, categories };
 }
 
 /** Alias des champions (nom interne, ex. "MonkeyKing"), pour OP.GG : Map id -> alias. */
@@ -638,7 +623,6 @@ module.exports = {
   creerBuildAuto,
   lirePartie,
   lireObjets,
-  lireRegion,
   lireAliasChampions,
   appliquerSet,
   appliquerSorts,

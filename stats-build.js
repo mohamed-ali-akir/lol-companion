@@ -43,7 +43,7 @@ function lecturesClient() {
 function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = lecturesClient() }) {
   let nomsChampions = new Map(); // id -> nom, lu une fois dans le client
   let aliasChampions = new Map(); // id -> nom interne ("MonkeyKing"), pour OP.GG et Lolalytics
-  let objetsClient = { noms: new Map(), categories: new Map(), details: new Map() }; // noms, catégories et prix des objets
+  let objetsClient = { noms: new Map(), categories: new Map() }; // noms et catégories des objets
 
   /** Noms des champions, lus une seule fois dans le client (puis gardés en mémoire). */
   async function obtenirNomsChampions() {

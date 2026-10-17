@@ -190,7 +190,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (423, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (412, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 | `npm run essai` | Essai de bout en bout : la vraie appli sur un faux client League (compte fictif), chaque onglet ouvert, aucune erreur tolérée. `CAPTURES=docs/captures npm run essai` refait aussi les captures du README |
 | `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
@@ -581,7 +581,6 @@ lol-level-calculator/
 ├── internet.js        # Règles communes des appels à Internet : User-Agent honnête, cache de 3 h, délai, erreurs
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
 ├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
-├── rank1.js           # Set « Champion Rank 1 » : identifiant du set (le build vient de Lolalytics, meilleurs joueurs) ; ancien calcul OP.GG
 ├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies ; cache
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
 ├── pings.js           # Pings des sorts lus dans le chat : capture, OCR, reconnaissance « ChampionEnnemi Sort »

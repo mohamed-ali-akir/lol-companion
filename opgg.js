@@ -23,7 +23,6 @@
  */
 
 const { creerCache, telecharger } = require("./internet.js"); // cache 3 h, User-Agent, délai maximal
-const { joueursParRang, partiesDuChampion, nomClassement, nomsAnglais, JOUEURS_ESSAYES, MIN_PARTIES } = require("./rank1.js"); // set « Rank 1 »
 
 const URL_OPGG = "https://mcp-api.op.gg/mcp";
 const LANGUE = "fr_FR"; // noms des objets et des runes en français
@@ -38,20 +37,6 @@ const CHAMPS_DEMANDES = [
   "data.sixth_items[].{ids[],ids_names[],pick_rate,play,win}",
   "data.summoner_spells.{ids[],ids_names[],pick_rate,play,win}",
   "data.runes.{primary_page_id,primary_page_name,primary_rune_ids[],primary_rune_names[],secondary_page_id,secondary_page_name,secondary_rune_ids[],secondary_rune_names[],stat_mod_ids[],pick_rate,play,win}",
-];
-
-// Set « Rank 1 » (rank1.js) : champs lus dans le classement d'un champion et dans l'historique d'un joueur.
-const CHAMPS_CLASSEMENT = [
-  "leaderboard[].rank",
-  "leaderboard[].summoner.{game_name,tagline}",
-  "leaderboard[].summoner.league_stats[].{game_type}",
-  "leaderboard[].summoner.league_stats[].tier_info.{tier,lp}",
-  "leaderboard[].most_champion_stat.{play,win}",
-];
-const CHAMPS_HISTORIQUE = [
-  "data.game_history[].{game_type}",
-  "data.game_history[].participants[].{champion_id,items[],position}",
-  "data.game_history[].participants[].stats.result",
 ];
 
 // Rôles du client -> positions d'OP.GG.
@@ -281,40 +266,10 @@ function creerLecteurOpgg({ url = URL_OPGG, appeler = (...a) => fetch(...a), mai
     });
   }
 
-  /**
-   * Set « Rank 1 » (rank1.js, exception du 17/10/2026) : le meilleur joueur du champion sur ton serveur et ses
-   * parties récentes dessus. Envoie le champion et le serveur, puis le Riot ID PUBLIC des joueurs du classement
-   * (jamais le tien). Vérifié le 17/10/2026 : outils lol_list_champion_leaderboard et lol_list_summoner_matches.
-   * -> { joueur: { tier, lp, parties, victoires }, parties: [{ ids, role, victoire }] } (sans le Riot ID du joueur).
-   */
-  async function rank1({ alias, championId, region }) {
-    const serveur = String(region || "").replace(/[^A-Za-z]/g, "").toUpperCase();
-    if (!nomOpgg(alias) || !Number.isInteger(championId) || !serveur) throw new ErreurOpgg("Champion ou serveur inconnu.");
-    return avecCache(`rank1|${championId}|${serveur}`, async () => {
-      // Le classement veut le nom anglais (« WUKONG », pas « MONKEYKING ») : liste des champions d'OP.GG, gardée 3 h.
-      const noms = await avecCache("champions|en_US", async () => nomsAnglais(await appelerOutil("lol_list_champions", { lang: "en_US" })));
-      const champion = noms.has(championId) ? nomClassement(noms.get(championId)) : nomOpgg(alias);
-      const classement = await appelerOutil("lol_list_champion_leaderboard", {
-        champion, region: serveur, desired_output_fields: CHAMPS_CLASSEMENT,
-      });
-      const joueurs = joueursParRang(classement);
-      if (joueurs.length === 0) throw new ErreurOpgg("Pas de classement OP.GG pour ce champion sur ton serveur.");
-      for (const joueur of joueurs.slice(0, JOUEURS_ESSAYES)) {
-        const historique = await appelerOutil("lol_list_summoner_matches", {
-          game_name: joueur.nom, tag_line: joueur.tag, region: serveur, limit: 20, lang: LANGUE, desired_output_fields: CHAMPS_HISTORIQUE,
-        });
-        const parties = partiesDuChampion(historique, championId);
-        const { nom, tag, ...rangPublic } = joueur; // le Riot ID ne sort pas d'ici (ni affiché, ni gardé)
-        if (parties.length >= MIN_PARTIES) return { joueur: rangPublic, parties };
-      }
-      throw new ErreurOpgg("Les meilleurs joueurs du classement n'ont pas joué ce champion récemment.");
-    });
-  }
-
   // (Les augments ARAM viennent d'arammayhem.js : l'outil lol_list_aram_augments d'OP.GG ne donne qu'une
   //  « popularité » sans taux de victoire, aux chiffres douteux ; abandonné le 02/10/2026.)
 
-  return { analyser, rank1 };
+  return { analyser };
 }
 
 module.exports = {
