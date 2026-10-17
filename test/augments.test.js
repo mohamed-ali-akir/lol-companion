@@ -74,7 +74,7 @@ test("stats : celles du champion passent avant les stats tous champions", () => 
 
 test("étiquettes (vraie capture) : taux de choix en pourcentage, meilleure carte = meilleure note", () => {
   const liste = A.etiquettes(A.trouverCartes(LIGNES_CAPTURE, NOMS), STATS, 1440);
-  assert.deepStrictEqual(liste.map((e) => e.texte), ["Choisi 7 % du temps", "Choisi 29 % du temps", "Choisi 20 % du temps"]);
+  assert.deepStrictEqual(liste.map((e) => e.texte), ["Top 150 · choisi 7 %", "Top 10 · choisi 29 %", "Top 50 · choisi 20 %"]);
   assert.deepStrictEqual(liste.map((e) => e.detail), ["tous champions", "tous champions", "tous champions"]);
   assert.deepStrictEqual(liste.map((e) => e.meilleur), [false, true, false]); // Biggest Snowball Ever : S
   assert.strictEqual(liste[0].x, Math.round(746 + 103 / 2)); // centre du titre
@@ -93,7 +93,7 @@ test("mise en avant : un augment du top de ton champion passe devant les notes t
   ];
   const liste = A.etiquettes(cartes, STATS, 1440);
   assert.deepStrictEqual(liste.map((e) => e.meilleur), [false, true, false]);
-  assert.strictEqual(liste[1].texte, "Choisi 30 % du temps"); // taux de choix tous champions (pas de taux de victoire publié)
+  assert.strictEqual(liste[1].texte, "Top 1 · choisi 30 %"); // rang avec ton champion, taux de choix tous champions ; jamais la note
   assert.strictEqual(liste[1].detail, "avec ton champion · pris 23 %");
   assert.strictEqual(liste[2].texte, "Pas de données");
   // Jamais un augment trop rarement pris (< 3 %), même avec une super note
@@ -209,7 +209,7 @@ test("surveillance : affiche quand les cartes apparaissent, une seule fois, puis
   s.demarrer();
   await attendre(150);
   s.arreter();
-  assert.deepStrictEqual(affichages, [["Choisi 7 % du temps", "Choisi 29 % du temps", "Choisi 20 % du temps"], null]);
+  assert.deepStrictEqual(affichages, [["Top 150 · choisi 7 %", "Top 10 · choisi 29 %", "Top 50 · choisi 20 %"], null]);
 });
 
 test("surveillance : option décochée -> aucune lecture affichée ; arrêt -> lecture d'écran coupée", async () => {

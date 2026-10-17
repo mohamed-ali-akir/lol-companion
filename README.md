@@ -130,7 +130,7 @@ n'importe quel champion, rôle et mode, sans rien appliquer.
 Le jeu doit être en mode **« Sans bordure »** (Échap → Vidéo → Mode de la fenêtre) : en plein écran, Windows ne
 peut rien afficher par-dessus. L'onglet Build le rappelle.
 - **Augments ARAM Mayhem** (toujours actif) : quand les 3 augments sont proposés, l'appli affiche **sous chaque carte**
-  son **taux de choix** d'arammayhem.com (« Choisi 64 % du temps »), avec **ton champion** si l'augment est dans
+  son **classement** et son **taux de choix** d'arammayhem.com (« Top 3 · choisi 64 % »), avec **ton champion** si l'augment est dans
   ses meilleurs, et met en avant la meilleure carte (cadre doré), d'après la note du site (S+, S, A...). Le site ne
   publie plus de taux de victoire par augment depuis octobre 2026 (ni sur ses pages, ni dans son serveur MCP).
   Appli lancée en pleine partie : le champion est lu dans la partie en cours. Elle ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png)).

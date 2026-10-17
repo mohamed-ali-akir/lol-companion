@@ -153,9 +153,11 @@ function etiquettes(cartes, stats, hauteurEcran) {
     let detail = "";
     if (stats && !stat) texte = "Pas de données";
     if (stat) {
-      // Des pourcentages, comme avant (17/10/2026) : le site ne publie plus de taux de victoire, on affiche le taux de
-      // choix tous champions ; la note (S+, S...) ne sert qu'à choisir la carte mise en avant.
-      texte = Number.isFinite(stat.choix) ? `Choisi ${pourcent(stat.choix)} du temps` : "Pas de données";
+      // 17/10/2026 : le site ne publie plus de taux de victoire. On affiche son classement (« Top 3 », avec ton champion
+      // ou tous champions) et le taux de choix tous champions ; la note (S+, S...) n'est pas affichée, elle ne sert
+      // qu'à choisir la carte mise en avant.
+      const choisi = Number.isFinite(stat.choix) ? ` · choisi ${pourcent(stat.choix)}` : "";
+      texte = Number.isFinite(stat.rang) ? `Top ${stat.rang}${choisi}` : choisi ? `Choisi ${pourcent(stat.choix)}` : "Pas de données";
       detail = stat.source === "champion" ? `avec ton champion · pris ${pourcent(stat.apparition)}` : "tous champions";
     }
     return {
