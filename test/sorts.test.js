@@ -164,7 +164,7 @@ test("ping « Zed Flash » lu dans le chat : le chrono démarre (bottes ionienne
   assert.strictEqual(flashDe(etat.vus.at(-1), "Zed").restantS, Math.ceil(300 / 1.1) - 10);
 });
 
-test("ping après un clic d'annulation : pas relancé tant que le même message est encore à l'écran (30 s)", async (t) => {
+test("ping après un clic d'annulation : pas relancé tant que le même message reste à l'écran, même après 30 s", async (t) => {
   const { s, etat } = suiviPings({ lignes: ["wDark (Ahri): Jinx Flash"] });
   t.after(() => s.arreter());
   s.demarrer();
@@ -177,6 +177,12 @@ test("ping après un clic d'annulation : pas relancé tant que le même message 
   etat.horloge = 5000;
   await s.lireChatMaintenant();
   assert.strictEqual(flashDe(etat.vus.at(-1), "Jinx").restantS, 0, "pas relancé");
+  etat.horloge = 35000; // vu en partie le 17/10/2026 : le message était encore là après 30 s, et le chrono repartait
+  await s.lireChatMaintenant();
+  assert.strictEqual(flashDe(etat.vus.at(-1), "Jinx").restantS, 0, "toujours pas relancé");
+  etat.lignes = ["wDark (Ahri): Jinx Flash", "wDark (Ahri): Jinx Flash"]; // un allié pingue de nouveau
+  await s.lireChatMaintenant();
+  assert.ok(flashDe(etat.vus.at(-1), "Jinx").restantS > 0, "nouveau ping : relancé");
 });
 
 test("case des pings décochée, ou rien de reconnu : aucun chrono ne démarre", async (t) => {

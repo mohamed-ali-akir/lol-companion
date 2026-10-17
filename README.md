@@ -205,7 +205,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (434, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (437, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -396,12 +396,18 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   décidée le 16/10/2026) : quand un allié (ou toi) clique sur le sort d'un adversaire dans le tableau des scores, le
   jeu écrit « Pseudo (Champion): ChampionEnnemi Sort » (ex. « wDark (Ashe): Vex Flash »), sans heure ni temps
   restant. Aucune API ne donne le chat : chaque seconde, l'appli capture la zone du chat (en bas à gauche, à sa place
-  par défaut), la **nettoie** (agrandie 3 fois, seuls les pixels vifs et saturés du texte gardés, en noir sur blanc :
-  sans ça, l'OCR lisait « V c y Rash » pour « Vex Flash »), la lit avec l'OCR du système, puis cherche à la FIN de
+  par défaut), la **nettoie** (agrandie 3 fois, seuls les pixels du texte gardés, en noir sur blanc : sans ça, l'OCR
+  lisait « V c y Rash » pour « Vex Flash »). Un pixel est gardé s'il a une **teinte du chat** (rouge, orange ou bleu :
+  le vert et le jaune de l'herbe ne passent jamais) et s'il est assez vif par rapport aux pixels les plus vifs de la
+  zone : ce **seuil adaptatif** suit la lumière du décor (le texte paraît terne sur un fond sombre ; avec un seuil
+  fixe, plus aucun ping n'était retrouvé une fois les captures assombries). Puis l'appli la lit avec l'OCR du système et cherche à la FIN de
   chaque ligne un des 5 adversaires suivi d'un de SES sorts. Les erreurs de lecture courantes sont tolérées
   (« Karnna », « K a I-nn a » pour « Karma ») ; jamais les lignes « Wait For… » (ses propres sorts), les runes ni les
-  alliés. Le chrono démarre au moment du ping, jamais relancé s'il tourne déjà ; un clic l'annule. Essai sur 7 vraies
-  captures : 5 pings retrouvés sur 5, aucune fausse détection, environ 100 ms par lecture sous Windows. Les captures
+  alliés. Le chrono démarre au moment du ping, jamais relancé s'il tourne déjà ; un clic l'annule. Un message pouvant
+  rester plus de 30 s à l'écran, l'appli **compte** les lignes de chaque sort : un ping n'est nouveau que si une ligne
+  de plus apparaît (un chrono annulé n'est donc jamais relancé par un vieux message). Essai sur 7 vraies captures,
+  normales et assombries jusqu'à 30 % : 5 pings retrouvés sur 5, aucune fausse détection, environ 100 ms par lecture
+  sous Windows. Les captures
   sont effacées aussitôt ; seuls les pings reconnus (champion + sort, jamais de pseudo) vont dans le journal.
 - **Build** (`build.js`, `lolalytics.js`, `opgg.js`, `runes.js`) : l'appli attend que ton pick soit verrouillé
   (`completed`) ; en ARAM, où il n'y a pas d'action « pick », le champion attribué suffit, et une relance de champion

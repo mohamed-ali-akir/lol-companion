@@ -88,15 +88,61 @@ test("texte du chat : couleurs vives et saturées oui, décor sombre ou terne no
   assert.ok(!I.estTexteChat(230, 230, 230, r), "blanc (non saturé)");
 });
 
-test("nettoyerChat : agrandi 3 fois, texte en noir sur blanc", () => {
+test("nettoyerChat (seuils fixes) : agrandi 3 fois, texte en noir sur blanc", () => {
   // 2 x 1 pixels RVB : un pixel « texte rouge » et un pixel « décor ».
   const image = { largeur: 2, hauteur: 1, canaux: 3, pixels: Buffer.from([230, 60, 60, 40, 60, 40]) };
-  const propre = I.nettoyerChat(image);
+  const propre = I.nettoyerChat(image, { adaptatif: false });
   assert.deepStrictEqual([propre.largeur, propre.hauteur], [6, 3]);
   assert.strictEqual(propre.pixels[0], 0, "à gauche : texte -> noir");
   assert.strictEqual(propre.pixels[5], 255, "à droite : décor -> blanc");
   // RVBA marche aussi ; une image vide est refusée
-  const rvba = I.nettoyerChat({ largeur: 1, hauteur: 1, canaux: 4, pixels: Buffer.from([250, 170, 40, 255]) }, { facteur: 2 });
+  const rvba = I.nettoyerChat({ largeur: 1, hauteur: 1, canaux: 4, pixels: Buffer.from([250, 170, 40, 255]) }, { facteur: 2, adaptatif: false });
   assert.deepStrictEqual([...rvba.pixels], [0, 0, 0, 0]);
   assert.throws(() => I.nettoyerChat({ largeur: 0, hauteur: 0, canaux: 3, pixels: Buffer.alloc(0) }), /vide/);
+});
+
+test("teintes du chat : rouge, orange et bleu gardés ; vert et jaune du décor jamais", () => {
+  const r = { luminosite: 100, saturation: 60 };
+  assert.ok(I.estTexteChat(230, 60, 60, r), "rouge");
+  assert.ok(I.estTexteChat(250, 170, 40, r), "orange");
+  assert.ok(I.estTexteChat(70, 170, 235, r), "bleu");
+  assert.ok(!I.estTexteChat(120, 210, 60, r), "herbe verte saturée");
+  assert.ok(!I.estTexteChat(220, 220, 60, r), "jaune");
+  assert.ok(I.estTexteChat(120, 210, 60, { ...r, teintes: null }), "sans tri des teintes, l'herbe passait");
+  assert.strictEqual(Math.round(I.teinte(255, 0, 0)), 0);
+  assert.strictEqual(Math.round(I.teinte(0, 255, 0)), 120);
+  assert.strictEqual(Math.round(I.teinte(0, 0, 255)), 240);
+});
+
+/** Fausse zone de chat 40 x 10 : une bande de « texte » orange, le reste du décor ; tout multiplié par `lumiere`. */
+function fauxChat({ lumiere = 1, decor = [40, 60, 40] } = {}) {
+  const px = Buffer.alloc(40 * 10 * 3);
+  for (let i = 0; i < 400; i++) {
+    const texte = Math.floor(i / 40) === 4; // la 5e ligne de pixels
+    const [r, v, b] = texte ? [250, 170, 40] : decor;
+    px[i * 3] = Math.round(r * lumiere);
+    px[i * 3 + 1] = Math.round(v * lumiere);
+    px[i * 3 + 2] = Math.round(b * lumiere);
+  }
+  return { largeur: 40, hauteur: 10, canaux: 3, pixels: px };
+}
+const ligneNoire = (propre, ligne) => [...propre.pixels.subarray(ligne * propre.largeur, (ligne + 1) * propre.largeur)].every((p) => p === 0);
+const toutBlanc = (propre, de, a) => [...propre.pixels.subarray(de * propre.largeur, a * propre.largeur)].every((p) => p === 255);
+
+test("seuil adaptatif : le texte est gardé aussi bien sur un décor clair que terne et sombre (x 0,3)", () => {
+  for (const lumiere of [1, 0.6, 0.3]) {
+    const propre = I.nettoyerChat(fauxChat({ lumiere }), { facteur: 1 });
+    assert.ok(ligneNoire(propre, 4), `texte gardé (lumière ${lumiere})`);
+    assert.ok(toutBlanc(propre, 0, 3) && toutBlanc(propre, 6, 10), `décor effacé (lumière ${lumiere})`);
+    // Avec l'ancien seuil fixe (160), le texte terne disparaissait
+    if (lumiere < 0.6) assert.ok(!ligneNoire(I.nettoyerChat(fauxChat({ lumiere }), { facteur: 1, adaptatif: false }), 4));
+  }
+});
+
+test("seuil adaptatif : herbe verte vive effacée ; zone sans couleur du chat -> image blanche", () => {
+  const herbe = I.nettoyerChat(fauxChat({ decor: [110, 220, 60] }), { facteur: 1 });
+  assert.ok(ligneNoire(herbe, 4) && toutBlanc(herbe, 0, 3));
+  const vide = { largeur: 10, hauteur: 10, canaux: 3, pixels: Buffer.alloc(300, 30) };
+  assert.strictEqual(I.luminositeReference(vide, { teintes: I.TEINTES_CHAT, proportion: 0.45 }), null);
+  assert.ok(I.nettoyerChat(vide).pixels.every((p) => p === 255));
 });

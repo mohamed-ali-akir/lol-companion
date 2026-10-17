@@ -19,7 +19,7 @@
  * Aucun pseudo n'est affiché : seulement les champions.
  */
 const { lireJeu, monEquipe } = require("./objectifs.js");
-const { NOMS_SORTS, pingDepuisLigne, creerMemoirePings } = require("./pings.js"); // pings des sorts lus dans le chat
+const { NOMS_SORTS, pingDepuisLigne, creerCompteurPings } = require("./pings.js"); // pings des sorts lus dans le chat
 
 /**
  * Temps de recharge de base (secondes) sur la Faille. Vérifié le 10/10/2026 sur le wiki officiel
@@ -147,7 +147,7 @@ function creerSuiviSorts({ reglages, lire = lireJeu, afficher, intervalleMs = 10
   let chatEnCours = false;
   let dernierEnvoi = null;
   let derniereErreurChat = { texte: null, quand: 0 }; // une erreur répétée n'est notée qu'une fois par minute
-  const memoire = creerMemoirePings({ maintenant }); // un même ping, vu plusieurs secondes, ne compte qu'une fois
+  const compteur = creerCompteurPings(); // un ping n'est nouveau que si une ligne de plus apparaît dans le chat
 
   /** Temps de jeu estimé maintenant (la dernière lecture + le temps écoulé depuis). */
   const tempsActuel = () => (dernier ? dernier.jeu.tempsS + (maintenant() - dernier.lu) / 1000 : null);
@@ -184,7 +184,7 @@ function creerSuiviSorts({ reglages, lire = lireJeu, afficher, intervalleMs = 10
       if (!jeu) return envoyer(null);
       if (dernier && jeu.tempsS < dernier.jeu.tempsS - 5) {
         fins.clear(); // nouvelle partie
-        memoire.vider();
+        compteur.vider();
       }
       dernier = { jeu, lu: maintenant() };
       envoyer(panneau());
@@ -229,9 +229,8 @@ function creerSuiviSorts({ reglages, lire = lireJeu, afficher, intervalleMs = 10
       const cibles = ciblesPings(dernier.jeu);
       if (cibles.length === 0) return;
       let change = false;
-      for (const ligne of (await lireChat()) || []) {
-        const id = pingDepuisLigne(ligne, cibles);
-        if (!id || !memoire.nouveau(id)) continue;
+      const ids = ((await lireChat()) || []).map((ligne) => pingDepuisLigne(ligne, cibles)).filter(Boolean);
+      for (const id of compteur.nouveaux(ids)) {
         const lance = lancer(id, { basculer: false });
         if (lance) {
           change = true;
@@ -263,7 +262,7 @@ function creerSuiviSorts({ reglages, lire = lireJeu, afficher, intervalleMs = 10
     minuterie = null;
     minuterieChat = null;
     fins.clear();
-    memoire.vider();
+    compteur.vider();
     dernier = null;
     envoyer(null);
   }

@@ -84,14 +84,20 @@ test("zone du chat et agrandissement selon l'écran", () => {
   assert.strictEqual(P.facteurChat(undefined), 3);
 });
 
-test("mémoire : un même sort signalé plusieurs fois ne compte qu'une fois en 30 s", () => {
-  let maintenant = 0;
-  const memoire = P.creerMemoirePings({ maintenant: () => maintenant });
-  assert.strictEqual(memoire.nouveau("karma|0"), true);
-  assert.strictEqual(memoire.nouveau("karma|0"), false);
-  assert.strictEqual(memoire.nouveau("vex|0"), true);
-  maintenant = 30000;
-  assert.strictEqual(memoire.nouveau("karma|0"), true);
+test("compteur : un ping n'est nouveau que si une ligne de plus apparaît (message resté à l'écran : rien)", () => {
+  const c = P.creerCompteurPings();
+  assert.deepStrictEqual(c.nouveaux(["karma|0", "karma|0"]), ["karma|0"], "2 lignes d'un coup : un seul ping");
+  assert.deepStrictEqual(c.nouveaux(["karma|0", "karma|0"]), [], "les mêmes lignes encore à l'écran");
+  assert.deepStrictEqual(c.nouveaux(["karma|0"]), [], "une ligne ratée par l'OCR...");
+  assert.deepStrictEqual(c.nouveaux(["karma|0", "karma|0"]), [], "... puis relue : pas un nouveau ping");
+  assert.deepStrictEqual(c.nouveaux(["karma|0", "karma|0", "karma|0", "vex|0"]), ["karma|0", "vex|0"], "une ligne de plus");
+  // Le chat s'efface, puis un nouveau ping
+  c.nouveaux([]);
+  c.nouveaux([]);
+  c.nouveaux([]);
+  assert.deepStrictEqual(c.nouveaux(["karma|0"]), ["karma|0"]);
+  c.vider();
+  assert.deepStrictEqual(c.nouveaux(["karma|0"]), ["karma|0"]);
 });
 
 test("lecteur du chat : capture, nettoyage, OCR et regroupement ; fichiers toujours effacés", async () => {
@@ -126,7 +132,8 @@ test("lecteur du chat : capture, nettoyage, OCR et regroupement ; fichiers toujo
     },
   };
   try {
-    const chat = P.creerLecteurChat({ lecteur, ecran: () => ({ largeur: 2560, hauteur: 1440 }), dossierTemp });
+    // Image de 2 pixels : trop petite pour le seuil adaptatif (il lui faut au moins 20 pixels colorés), seuils fixes.
+    const chat = P.creerLecteurChat({ lecteur, ecran: () => ({ largeur: 2560, hauteur: 1440 }), dossierTemp, nettoyage: { adaptatif: false } });
     assert.deepStrictEqual(await chat.lire(), ["wDark (Ashe): Vex Flash"]);
     assert.deepStrictEqual(appels[0], ["capturer", P.zoneChat({ largeur: 2560, hauteur: 1440 })]);
     assert.deepStrictEqual(appels[1], ["lireImage", { largeur: 6, hauteur: 3 }, 0], "image agrandie 3 fois, texte en noir");

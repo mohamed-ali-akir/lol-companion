@@ -119,25 +119,81 @@ function ecrirePngGris({ largeur, hauteur, pixels }) {
   return Buffer.concat([SIGNATURE, morceauPng("IHDR", entete), morceauPng("IDAT", zlib.deflateSync(brut, { level: 1 })), morceauPng("IEND", Buffer.alloc(0))]);
 }
 
-/** Un pixel ressemble-t-il au texte du chat ? Vif (canal le plus fort assez haut) ET saturé (couleurs bien distinctes). */
-const estTexteChat = (r, v, b, { saturation, luminosite }) => {
+/** Teinte d'une couleur, en degrés (0 = rouge, 30 = orange, 120 = vert, 200 = bleu). */
+function teinte(r, v, b) {
   const max = Math.max(r, v, b);
-  return max >= luminosite && max - Math.min(r, v, b) >= saturation;
+  const ecart = max - Math.min(r, v, b);
+  if (ecart === 0) return 0;
+  let h;
+  if (max === r) h = ((v - b) / ecart + 6) % 6;
+  else if (max === v) h = (b - r) / ecart + 2;
+  else h = (r - v) / ecart + 4;
+  return h * 60;
+}
+
+// Teintes du texte du chat (mesurées le 17/10/2026 sur de vraies captures) : rouge des ennemis (vers 0°), orange des
+// sorts (20 à 45°), bleu des pseudos (180 à 220°). Le vert et le jaune du décor (50 à 170°) ne sont jamais gardés :
+// sur l'herbe, ils passaient pour du texte et gênaient l'OCR.
+const TEINTES_CHAT = [[330, 360], [0, 50], [170, 235]];
+const dansTeintes = (h, teintes) => teintes.some(([de, a]) => h >= de && h <= a);
+
+/**
+ * Un pixel ressemble-t-il au texte du chat ? Assez vif, saturé (couleurs bien distinctes) ET d'une teinte du chat.
+ * teintes : null pour ne pas regarder la teinte.
+ */
+const estTexteChat = (r, v, b, { saturation = 0, proportion = 0, luminosite, teintes = TEINTES_CHAT }) => {
+  const max = Math.max(r, v, b);
+  const ecart = max - Math.min(r, v, b);
+  // saturation : écart minimal en valeur fixe ; proportion : écart minimal en part de la luminosité (seuil adaptatif)
+  if (max < luminosite || ecart < saturation || ecart < proportion * max) return false;
+  return !teintes || dansTeintes(teinte(r, v, b), teintes);
 };
+
+/**
+ * Seuil ADAPTATIF (17/10/2026) : le texte du chat est ce qu'il y a de plus vif, d'une teinte du chat, dans la zone.
+ * On prend donc la luminosité des pixels les plus vifs de ces teintes (les 2 % du haut) comme référence. Sur un décor
+ * clair, elle est haute ; sur un décor sombre, où le texte un peu transparent paraît terne, elle est plus basse, et le
+ * seuil baisse avec elle. Avec un seuil fixe, aucun réglage ne marchait partout (essais sur captures assombries).
+ * Renvoie null s'il n'y a presque rien de ces teintes (chat vide).
+ */
+function luminositeReference(image, { teintes, proportion }) {
+  const { largeur, hauteur, canaux, pixels } = image;
+  if (canaux < 3) return null;
+  const valeurs = [];
+  for (let i = 0; i < largeur * hauteur * canaux; i += canaux) {
+    const r = pixels[i];
+    const v = pixels[i + 1];
+    const b = pixels[i + 2];
+    const max = Math.max(r, v, b);
+    if (max < 40 || max - Math.min(r, v, b) < proportion * max) continue;
+    if (teintes && !dansTeintes(teinte(r, v, b), teintes)) continue;
+    valeurs.push(max);
+  }
+  if (valeurs.length < 20) return null;
+  valeurs.sort((a, b) => a - b);
+  return valeurs[Math.floor(0.98 * (valeurs.length - 1))];
+}
 
 /**
  * Zone du chat (lirePng) -> image en gris agrandie `facteur` fois : texte du chat en noir, tout le reste en blanc.
  * Agrandissement « bilinéaire » (on mélange les 4 pixels voisins) AVANT le tri des couleurs : les lettres restent
- * lisses. Réglages vérifiés sur de vraies captures : saturation 110, luminosité 160.
+ * lisses. Par défaut (adaptatif) : un pixel est du texte s'il a une teinte du chat, s'il est saturé (l'écart entre
+ * ses couleurs fait au moins `proportion` de sa luminosité) et s'il atteint `part` de la luminosité de référence.
+ * adaptatif: false : seuils fixes `luminosite` et `saturation` (premiers essais : 160 et 110).
  */
-function nettoyerChat(image, { facteur = 3, saturation = 110, luminosite = 160 } = {}) {
+function nettoyerChat(image, { facteur = 3, adaptatif = true, part = 0.6, proportion = 0.45, saturation = 110, luminosite = 160, teintes = TEINTES_CHAT } = {}) {
   const { largeur, hauteur, canaux, pixels } = image;
   if (!(largeur > 0 && hauteur > 0) || !pixels || pixels.length < largeur * hauteur * canaux) throw new ErreurImage("Image vide.");
   const f = Math.max(1, Math.min(4, Math.round(facteur)));
   const L = largeur * f;
   const H = hauteur * f;
   const sortie = Buffer.alloc(L * H, 255);
-  const reglages = { saturation, luminosite };
+  let reglages = { saturation, luminosite, teintes };
+  if (adaptatif) {
+    const reference = luminositeReference(image, { teintes, proportion });
+    if (reference === null) return { largeur: L, hauteur: H, pixels: sortie }; // rien de la couleur du chat : image blanche
+    reglages = { luminosite: Math.max(45, reference * part), proportion, teintes };
+  }
   const canal = (x, y, c) => pixels[(y * largeur + x) * canaux + (canaux >= 3 ? c : 0)];
   for (let oy = 0; oy < H; oy++) {
     const sy = Math.min(hauteur - 1, Math.max(0, (oy + 0.5) / f - 0.5));
@@ -157,4 +213,4 @@ function nettoyerChat(image, { facteur = 3, saturation = 110, luminosite = 160 }
   return { largeur: L, hauteur: H, pixels: sortie };
 }
 
-module.exports = { ErreurImage, lirePng, ecrirePngGris, nettoyerChat, estTexteChat, crc32 };
+module.exports = { ErreurImage, TEINTES_CHAT, lirePng, ecrirePngGris, nettoyerChat, estTexteChat, luminositeReference, teinte, crc32 };

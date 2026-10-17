@@ -136,7 +136,7 @@ function facteurChat(hauteurEcran) {
  * Lecteur du chat : lire() -> lignes de texte du chat (capture, nettoyage, OCR, regroupement).
  *  lecteur : lecteur d'écran d'ocr.js (capturer, lireImage) ; ecran() : { largeur, hauteur } en pixels réels.
  */
-function creerLecteurChat({ lecteur, ecran, dossierTemp = os.tmpdir(), systemeFichiers = fs }) {
+function creerLecteurChat({ lecteur, ecran, dossierTemp = os.tmpdir(), systemeFichiers = fs, nettoyage = {} }) {
   const capture = path.join(dossierTemp, `lol-companion-chat-${process.pid}.png`);
   const propre = path.join(dossierTemp, `lol-companion-chat-propre-${process.pid}.png`);
   return {
@@ -144,7 +144,7 @@ function creerLecteurChat({ lecteur, ecran, dossierTemp = os.tmpdir(), systemeFi
       const e = ecran();
       try {
         await lecteur.capturer(zoneChat(e), capture);
-        const image = nettoyerChat(lirePng(systemeFichiers.readFileSync(capture)), { facteur: facteurChat(e.hauteur) });
+        const image = nettoyerChat(lirePng(systemeFichiers.readFileSync(capture)), { facteur: facteurChat(e.hauteur), ...nettoyage });
         systemeFichiers.writeFileSync(propre, ecrirePngGris(image));
         return regrouperLignes(await lecteur.lireImage(propre, { largeur: image.largeur, hauteur: image.hauteur }));
       } finally {
@@ -155,20 +155,30 @@ function creerLecteurChat({ lecteur, ecran, dossierTemp = os.tmpdir(), systemeFi
 }
 
 /**
- * Mémoire courte : un même sort signalé plusieurs fois (le message reste quelques secondes à l'écran, et on spamme
- * souvent le ping) ne compte qu'une fois par dureeMs. nouveau(id) : true la première fois.
+ * Quels pings sont NOUVEAUX ? Un message reste à l'écran plusieurs secondes (parfois plus de 30 s, vu en partie le
+ * 17/10/2026) : on compte, à chaque lecture, combien de lignes visent chaque sort. Un ping est nouveau seulement si ce
+ * nombre DÉPASSE le plus grand des `fenetre` lectures précédentes (une ligne de plus est apparue). Ainsi, un message
+ * resté à l'écran ne relance jamais un chrono que le joueur a annulé, et une ligne ratée une fois par l'OCR puis relue
+ * ne compte pas comme un nouveau ping.
+ * nouveaux(ids) : ids des sorts reconnus dans CETTE lecture (avec répétitions) -> ids des pings nouveaux.
  */
-function creerMemoirePings({ dureeMs = 30000, maintenant = Date.now } = {}) {
-  const vus = new Map(); // id du sort -> quand on l'a vu
+function creerCompteurPings({ fenetre = 3 } = {}) {
+  let precedentes = []; // les dernières lectures : Map id -> nombre de lignes
   return {
-    nouveau(id) {
-      const t = maintenant();
-      for (const [cle, quand] of vus) if (t - quand >= dureeMs) vus.delete(cle);
-      if (vus.has(id)) return false;
-      vus.set(id, t);
-      return true;
+    nouveaux(ids) {
+      const comptes = new Map();
+      for (const id of ids) comptes.set(id, (comptes.get(id) || 0) + 1);
+      const resultat = [];
+      for (const [id, n] of comptes) {
+        const avant = Math.max(0, ...precedentes.map((p) => p.get(id) || 0));
+        if (n > avant) resultat.push(id);
+      }
+      precedentes = [comptes, ...precedentes].slice(0, fenetre);
+      return resultat;
     },
-    vider: () => vus.clear(),
+    vider: () => {
+      precedentes = [];
+    },
   };
 }
 
@@ -182,5 +192,5 @@ module.exports = {
   zoneChat,
   facteurChat,
   creerLecteurChat,
-  creerMemoirePings,
+  creerCompteurPings,
 };
