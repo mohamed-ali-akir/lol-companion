@@ -21,14 +21,14 @@ const LIGNES_CAPTURE = [
 // Extrait de la liste du client (cherry-augments.json) : noms dans la langue du jeu.
 const NOMS = A.indexNoms(["Hellbent", "Biggest Snowball Ever", "Overloaded", "Ult Bot", "Juiced", "Stats on Stats on Stats!", "Vi"]);
 
-// Stats d'arammayhem.com (02/10/2026, extrait) : meilleurs augments de Hwei + taux tous champions.
+// Stats d'arammayhem.com (format du 17/10/2026, extrait) : meilleurs augments de Hwei + notes tous champions.
 const ARAMMAYHEM = {
-  champion: [{ nom: "Infernal Conduit", rarete: "Prismatic", apparition: 0.2319, tauxVictoire: 0.5776 }],
+  champion: [{ nom: "Infernal Conduit", rarete: "Prismatic", note: "S+", rang: 1, apparition: 0.2319 }],
   global: [
-    { nom: "Hellbent", rarete: "Prismatic", apparition: 0.0673, tauxVictoire: 0.4933 },
-    { nom: "Biggest Snowball Ever", rarete: "Prismatic", apparition: 0.2928, tauxVictoire: 0.5367 },
-    { nom: "Overloaded", rarete: "Prismatic", apparition: 0.2011, tauxVictoire: 0.5 },
-    { nom: "Infernal Conduit", rarete: "Prismatic", apparition: 0.2989, tauxVictoire: 0.5776 },
+    { nom: "Hellbent", rarete: "Prismatic", note: "B", rang: 150, apparition: 0.0673 },
+    { nom: "Biggest Snowball Ever", rarete: "Prismatic", note: "S", rang: 10, apparition: 0.2928 },
+    { nom: "Overloaded", rarete: "Prismatic", note: "A", rang: 50, apparition: 0.2011 },
+    { nom: "Infernal Conduit", rarete: "Prismatic", note: "S", rang: 12, apparition: 0.2989 },
   ],
 };
 const STATS = A.indexStats(ARAMMAYHEM);
@@ -66,25 +66,26 @@ test("cartes trouvées sur la vraie capture : les 3 titres, de gauche à droite,
 });
 
 test("stats : celles du champion passent avant les stats tous champions", () => {
-  assert.deepStrictEqual(STATS.get("infernalconduit"), { tauxVictoire: 0.5776, apparition: 0.2319, source: "champion" });
-  assert.deepStrictEqual(STATS.get("hellbent"), { tauxVictoire: 0.4933, apparition: 0.0673, source: "global" });
+  assert.deepStrictEqual(STATS.get("infernalconduit"), { note: "S+", rang: 1, apparition: 0.2319, source: "champion" });
+  assert.deepStrictEqual(STATS.get("hellbent"), { note: "B", rang: 150, apparition: 0.0673, source: "global" });
   assert.strictEqual(A.indexStats().size, 0);
+  assert.strictEqual(A.indexStats({ global: [{ nom: "Vieux", note: "?", rang: 1, apparition: 0.5 }] }).size, 0); // note inconnue
 });
 
-test("étiquettes (vraie capture) : taux de victoire tous champions, meilleure carte = meilleur taux", () => {
+test("étiquettes (vraie capture) : notes tous champions, meilleure carte = meilleure note", () => {
   const liste = A.etiquettes(A.trouverCartes(LIGNES_CAPTURE, NOMS), STATS, 1440);
-  assert.deepStrictEqual(liste.map((e) => e.texte), ["49 % de victoires", "54 % de victoires", "50 % de victoires"]);
+  assert.deepStrictEqual(liste.map((e) => e.texte), ["Note B · n° 150", "Note S · n° 10", "Note A · n° 50"]);
   assert.deepStrictEqual(liste.map((e) => e.detail), ["tous champions", "tous champions", "tous champions"]);
-  assert.deepStrictEqual(liste.map((e) => e.meilleur), [false, true, false]); // Biggest Snowball Ever : 53,7 %
+  assert.deepStrictEqual(liste.map((e) => e.meilleur), [false, true, false]); // Biggest Snowball Ever : S
   assert.strictEqual(liste[0].x, Math.round(746 + 103 / 2)); // centre du titre
   assert.strictEqual(liste[0].y, Math.round(581 + 1440 * A.DECALAGE_ETIQUETTE)); // dans le bas de la carte
-  // Stats indisponibles (champion inconnu, pas d'Internet) : on le dit, sans inventer
+  // Stats indisponibles (site en panne, pas d'Internet) : on le dit, sans inventer
   assert.deepStrictEqual(A.etiquettes(A.trouverCartes(LIGNES_CAPTURE, NOMS), null, 1440).map((e) => e.texte), [
     "Stats indisponibles", "Stats indisponibles", "Stats indisponibles",
   ]);
 });
 
-test("mise en avant : un augment du top de ton champion passe devant les taux tous champions", () => {
+test("mise en avant : un augment du top de ton champion passe devant les notes tous champions", () => {
   const cartes = [
     { nom: "Biggest Snowball Ever", x: 0, y: 581, largeur: 10, hauteur: 20 },
     { nom: "Infernal Conduit", x: 500, y: 581, largeur: 10, hauteur: 20 },
@@ -92,41 +93,54 @@ test("mise en avant : un augment du top de ton champion passe devant les taux to
   ];
   const liste = A.etiquettes(cartes, STATS, 1440);
   assert.deepStrictEqual(liste.map((e) => e.meilleur), [false, true, false]);
+  assert.strictEqual(liste[1].texte, "Note S+ · n° 1");
   assert.strictEqual(liste[1].detail, "avec ton champion · pris 23 %");
   assert.strictEqual(liste[2].texte, "Pas de données");
-  // Jamais un augment trop rarement pris (< 3 %), même avec un super taux
-  const rare = A.indexStats({ global: [{ nom: "Hellbent", apparition: 0.01, tauxVictoire: 0.9 }, { nom: "Overloaded", apparition: 0.2, tauxVictoire: 0.5 }, { nom: "Biggest Snowball Ever", apparition: 0.2, tauxVictoire: 0.52 }] });
+  // Jamais un augment trop rarement pris (< 3 %), même avec une super note
+  const rare = A.indexStats({ global: [
+    { nom: "Hellbent", note: "S+", rang: 1, apparition: 0.01 },
+    { nom: "Overloaded", note: "A", rang: 40, apparition: 0.2 },
+    { nom: "Biggest Snowball Ever", note: "S", rang: 9, apparition: 0.2 },
+  ] });
   assert.deepStrictEqual(A.etiquettes(A.trouverCartes(LIGNES_CAPTURE, NOMS), rare, 1440).map((e) => e.meilleur), [false, true, false]);
-  // Presque à égalité (moins de 1 point) : pas de mise en avant (vu sur une capture : 50,4 % contre 50,1 %)
-  const egalite = A.indexStats({ global: [{ nom: "Hellbent", apparition: 0.2, tauxVictoire: 0.501 }, { nom: "Overloaded", apparition: 0.2, tauxVictoire: 0.504 }, { nom: "Biggest Snowball Ever", apparition: 0.2, tauxVictoire: 0.49 }] });
+  // Même note pour les 2 meilleures : pas de mise en avant (le rang seul départagerait de trop peu)
+  const egalite = A.indexStats({ global: [
+    { nom: "Hellbent", note: "S", rang: 5, apparition: 0.2 },
+    { nom: "Overloaded", note: "S", rang: 3, apparition: 0.2 },
+    { nom: "Biggest Snowball Ever", note: "A", rang: 30, apparition: 0.2 },
+  ] });
   assert.deepStrictEqual(A.etiquettes(A.trouverCartes(LIGNES_CAPTURE, NOMS), egalite, 1440).map((e) => e.meilleur), [false, false, false]);
 });
 
 // --- arammayhem.com : lecture des pages (fausses pages au format réel, sans Internet) ------------------
 
-// Extrait au format réel de https://arammayhem.com/build/hwei/ (02/10/2026)
-const PAGE_CHAMPION = `<html><script>var x = "<div>Win rate:</div>";</script><h2>Best Augments for Hwei</h2>
-<h3>Prismatic</h3><div><span>Infernal Conduit</span><span>Appearance rate:</span><b>23.19%</b><span>Win rate:</span><b>57.76%</b></div>
-<div><span>Quest: Wooglet&#39;s Witchcap</span><span>Appearance rate:</span><b>8.70%</b><span>Win rate:</span><b>55.66%</b></div>
-<h3>Gold</h3><div><span>Combusting Interest</span><span>Appearance rate:</span><b>21.76%</b><span>Win rate:</span><b>58.53%</b></div></html>`;
-// Extrait au format réel de https://arammayhem.com/augments/
-const PAGE_GLOBALE = `<table><tr><td>Hellbent</td><td>Prismatic</td><td>6.73%</td><td>49.33%</td><td>6.73%</td><td>153</td></tr>
-<tr><td>Biggest Snowball Ever</td><td>Prismatic</td><td>29.28%</td><td>53.67%</td><td>29.28%</td><td>60</td></tr></table>`;
+// Extrait au format réel de https://arammayhem.com/build/hwei/ (17/10/2026)
+const PAGE_CHAMPION = `<html><script>var x = "<div>Appearance rate:</div>";</script><h2>Best Augments for Hwei</h2>
+<h3>Prismatic Augments</h3><div><span>Infernal Conduit</span><span>S+ · #1</span><span>Overall S · #12</span><span>Appearance rate:</span><b>23.19%</b></div>
+<div><span>Quest: Wooglet&#39;s Witchcap</span><span>A+ · #11</span><span>Overall A+ · #27</span><span>Appearance rate:</span><b>8.70%</b></div>
+<h3>Gold Augments</h3><div><span>Combusting Interest</span><span>S · #2</span><span>Overall S+ · #5</span><span>Appearance rate:</span><b>21.76%</b></div></html>`;
+// Extrait au format réel de https://arammayhem.com/augments/ (17/10/2026) : un augment retiré (« Deleted ») est ignoré
+const PAGE_GLOBALE = `<table><tr><th>Rank</th><th>Augment</th><th>Tier</th><th>Pick Rate</th><th>Top Champions</th></tr>
+<tr><td>150</td><td>Hellbent</td><td>Prismatic</td><td>6.73%</td><td>B</td><td>6.73%</td></tr>
+<tr><td>5</td><td>Combusting Interest</td><td>Deleted</td><td>Gold</td><td>37.77%</td><td>S+</td><td>37.77%</td></tr>
+<tr><td>10</td><td>Biggest Snowball Ever</td><td>Prismatic</td><td>29.28%</td><td>S</td><td>29.28%</td></tr></table>`;
 
-test("arammayhem : page d'un champion -> ses meilleurs augments par rareté (taux d'apparition et de victoire)", () => {
+test("arammayhem : page d'un champion -> ses meilleurs augments par rareté (note, rang, apparition)", () => {
   assert.deepStrictEqual(M.augmentsDuChampion(M.texteVisible(PAGE_CHAMPION)), [
-    { nom: "Infernal Conduit", rarete: "Prismatic", apparition: 0.2319, tauxVictoire: 0.5776 },
-    { nom: "Quest: Wooglet's Witchcap", rarete: "Prismatic", apparition: 0.087, tauxVictoire: 0.5566 },
-    { nom: "Combusting Interest", rarete: "Gold", apparition: 0.2176, tauxVictoire: 0.5853 },
+    { nom: "Infernal Conduit", rarete: "Prismatic", note: "S+", rang: 1, apparition: 0.2319 },
+    { nom: "Quest: Wooglet's Witchcap", rarete: "Prismatic", note: "A+", rang: 11, apparition: 0.087 },
+    { nom: "Combusting Interest", rarete: "Gold", note: "S", rang: 2, apparition: 0.2176 },
   ]);
   assert.deepStrictEqual(M.augmentsDuChampion(M.texteVisible("<p>page changée</p>")), []);
 });
 
-test("arammayhem : page des augments -> tous les augments (taux tous champions)", () => {
+test("arammayhem : page des augments -> tous les augments (notes tous champions)", () => {
   assert.deepStrictEqual(M.augmentsGlobaux(M.texteVisible(PAGE_GLOBALE)), [
-    { nom: "Hellbent", rarete: "Prismatic", apparition: 0.0673, tauxVictoire: 0.4933 },
-    { nom: "Biggest Snowball Ever", rarete: "Prismatic", apparition: 0.2928, tauxVictoire: 0.5367 },
+    { nom: "Hellbent", rarete: "Prismatic", note: "B", rang: 150, apparition: 0.0673 },
+    { nom: "Biggest Snowball Ever", rarete: "Prismatic", note: "S", rang: 10, apparition: 0.2928 },
   ]);
+  assert.deepStrictEqual(M.noteEtRang("S- · #6"), { note: "S-", rang: 6 });
+  assert.strictEqual(M.noteEtRang("Overall S · #9"), null);
   assert.strictEqual(M.pourcentage("57.76%"), 0.5776);
   assert.strictEqual(M.pourcentage("abc"), null);
   assert.strictEqual(M.nomArammayhem("MonkeyKing"), "wukong");
@@ -160,6 +174,12 @@ test("arammayhem : champion inconnu -> stats tous champions quand même ; site e
   const r = await sansChampion.augments({ alias: "NouveauChampion" });
   assert.deepStrictEqual(r.champion, []);
   assert.strictEqual(r.global.length, 2);
+  // Champion pas connu du tout (appli lancée en pleine partie, jeu illisible) : seulement le global, sans erreur.
+  for (const alias of [null, undefined]) {
+    const g = await sansChampion.augments({ alias });
+    assert.deepStrictEqual(g.champion, []);
+    assert.strictEqual(g.global.length, 2);
+  }
   const enPanne = M.creerLecteurArammayhem({ appeler: fauxSite({ "https://arammayhem.com/augments/": new TypeError("fetch failed") }).appeler });
   await assert.rejects(enPanne.augments({ alias: "Hwei" }), /ne répond pas/);
   const change = M.creerLecteurArammayhem({ appeler: fauxSite({ "https://arammayhem.com/augments/": "<p>nouveau site</p>" }).appeler });
@@ -189,7 +209,7 @@ test("surveillance : affiche quand les cartes apparaissent, une seule fois, puis
   s.demarrer();
   await attendre(150);
   s.arreter();
-  assert.deepStrictEqual(affichages, [["49 % de victoires", "54 % de victoires", "50 % de victoires"], null]);
+  assert.deepStrictEqual(affichages, [["Note B · n° 150", "Note S · n° 10", "Note A · n° 50"], null]);
 });
 
 test("surveillance : option décochée -> aucune lecture affichée ; arrêt -> lecture d'écran coupée", async () => {

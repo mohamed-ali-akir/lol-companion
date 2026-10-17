@@ -47,6 +47,23 @@ function monEquipe(actif, joueurs) {
   return [actif.riotId, actif.summonerName, actif.riotIdGameName].map((n) => equipes.get(simplifier(n))).find(Boolean) || null;
 }
 
+/**
+ * Ton joueur dans la partie (activePlayer retrouvé dans allPlayers par son nom), ou null.
+ * Sert à connaître ton champion quand l'appli a été lancée en pleine partie (sans la sélection des champions).
+ */
+function monJoueur(actif, joueurs) {
+  if (!actif || !Array.isArray(joueurs)) return null;
+  const miens = new Set([actif.riotId, actif.summonerName, actif.riotIdGameName, simplifier(actif.riotId).split("#")[0]].map(simplifier).filter(Boolean));
+  return joueurs.find((j) => j && [j.riotId, j.summonerName, j.riotIdGameName].some((n) => miens.has(simplifier(n)))) || null;
+}
+
+/** Nom interne de ton champion dans la partie (« MonkeyKing »), d'après rawChampionName, ou null. */
+function monAlias(actif, joueurs) {
+  const moi = monJoueur(actif, joueurs);
+  const alias = moi ? String(moi.rawChampionName || "").replace(/^game_character_displayname_/, "") : "";
+  return alias || null;
+}
+
 /** Réponse de /liveclientdata/allgamedata -> { tempsS, evenements, joueurs, actif }, ou null si illisible. */
 function lireDonneesJeu(donnees) {
   const temps = donnees && donnees.gameData ? donnees.gameData.gameTime : undefined;
@@ -116,6 +133,8 @@ function creerLectureJeuPartagee({ lire = lireJeu, dureeMs = 900, maintenant = D
 
 module.exports = {
   PORT_JEU,
+  monJoueur,
+  monAlias,
   estFaille,
   equipesDesJoueurs,
   monEquipe,

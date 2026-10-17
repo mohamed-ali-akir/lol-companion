@@ -108,18 +108,18 @@ function trouverCartes(lignes, index) {
 }
 
 const APPARITION_MIN = 0.03; // un augment pris dans moins de 3 % des parties n'est pas mis en avant (trop peu sûr)
-const ECART_MIN = 0.01; // mise en avant seulement si la meilleure carte dépasse la 2e d'au moins 1 point
+const { NOTES } = require("./arammayhem.js"); // S+, S, S-... de la meilleure à la moins bonne
 
 /**
- * Stats d'arammayhem.com -> Map nom simplifié -> { tauxVictoire, apparition, source }.
- * source "champion" : taux de victoire avec TON champion (ses meilleurs augments) ; "global" : tous champions.
+ * Stats d'arammayhem.com -> Map nom simplifié -> { note, rang, apparition, source }.
+ * source "champion" : note avec TON champion (ses meilleurs augments) ; "global" : tous champions.
  * Les stats du champion passent avant les stats globales.
  */
 function indexStats({ champion = [], global = [] } = {}) {
   const index = new Map();
   for (const [liste, source] of [[global, "global"], [champion, "champion"]]) {
     for (const a of Array.isArray(liste) ? liste : []) {
-      if (a && a.nom) index.set(simplifierNom(a.nom), { tauxVictoire: a.tauxVictoire, apparition: a.apparition, source });
+      if (a && a.nom && NOTES.includes(a.note)) index.set(simplifierNom(a.nom), { note: a.note, rang: a.rang, apparition: a.apparition, source });
     }
   }
   return index;
@@ -129,19 +129,18 @@ const pourcent = (x) => `${Math.round(x * 100)} %`;
 
 /**
  * Étiquettes à afficher sous les cartes : [{ nom, x, y, texte, detail, source, meilleur }] (pixels réels de l'écran).
- * stats : Map (indexStats) ou null si indisponibles (champion inconnu, pas d'Internet...).
- * Mise en avant (comme Porofessor ou Blitz : selon le TAUX DE VICTOIRE) : parmi les cartes qui sont dans les
- * meilleurs augments de ton champion, celle au meilleur taux ; sinon, parmi les autres, celle au meilleur taux
- * tous champions. Jamais un augment pris dans moins de 3 % des parties, et rien si les 2 meilleures sont à moins
- * de 1 point d'écart (presque à égalité).
+ * stats : Map (indexStats) ou null si indisponibles (site en panne, pas d'Internet...).
+ * Mise en avant : parmi les cartes qui sont dans les meilleurs augments de ton champion, celle à la meilleure note ;
+ * sinon, parmi les autres, celle à la meilleure note tous champions. Jamais un augment pris dans moins de 3 % des
+ * parties, et rien si les 2 meilleures ont la même note (presque à égalité : ce serait trompeur).
  */
 function etiquettes(cartes, stats, hauteurEcran) {
   const avecStats = cartes.map((c) => ({ carte: c, stat: stats ? stats.get(simplifierNom(c.nom)) || null : null }));
   const candidates = (source) => avecStats.filter((a) => a.stat && a.stat.source === source && a.stat.apparition >= APPARITION_MIN);
   const groupe = candidates("champion").length > 0 ? candidates("champion") : candidates("global").length >= 2 ? candidates("global") : [];
-  const classees = [...groupe].sort((a, b) => b.stat.tauxVictoire - a.stat.tauxVictoire);
-  // Presque à égalité avec la 2e (moins de 1 point d'écart) : pas de mise en avant, ce serait trompeur.
-  const nette = classees.length === 1 || (classees.length > 1 && classees[0].stat.tauxVictoire - classees[1].stat.tauxVictoire >= ECART_MIN);
+  const rangNote = (a) => NOTES.indexOf(a.stat.note);
+  const classees = [...groupe].sort((a, b) => rangNote(a) - rangNote(b) || a.stat.rang - b.stat.rang);
+  const nette = classees.length === 1 || (classees.length > 1 && rangNote(classees[0]) < rangNote(classees[1]));
   const meilleure = nette ? classees[0] : null;
   return avecStats.map((a) => {
     const { carte, stat } = a;
@@ -149,7 +148,7 @@ function etiquettes(cartes, stats, hauteurEcran) {
     let detail = "";
     if (stats && !stat) texte = "Pas de données";
     if (stat) {
-      texte = `${pourcent(stat.tauxVictoire)} de victoires`;
+      texte = `Note ${stat.note} · n° ${stat.rang}`;
       detail = stat.source === "champion" ? `avec ton champion · pris ${pourcent(stat.apparition)}` : "tous champions";
     }
     return {

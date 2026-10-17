@@ -5,6 +5,20 @@ const https = require("https");
 const J = require("../jeu.js");
 const certificat = require("./fixtures/certificat-test.js");
 
+test("monAlias : ton champion dans la partie en cours (appli lancée en pleine partie)", () => {
+  const joueurs = [
+    { riotId: "Allie#EUW", summonerName: "Allie", rawChampionName: "game_character_displayname_Ahri", team: "ORDER" },
+    { riotId: "Moi#EUW", riotIdGameName: "Moi", summonerName: "Moi", rawChampionName: "game_character_displayname_MonkeyKing", team: "ORDER" },
+  ];
+  assert.strictEqual(J.monAlias({ riotId: "Moi#EUW" }, joueurs), "MonkeyKing");
+  assert.strictEqual(J.monAlias({ summonerName: "moi" }, joueurs), "MonkeyKing"); // majuscules ignorées
+  assert.strictEqual(J.monJoueur({ riotId: "Moi#EUW" }, joueurs).team, "ORDER");
+  assert.strictEqual(J.monAlias({ riotId: "Inconnu#EUW" }, joueurs), null);
+  assert.strictEqual(J.monAlias(null, joueurs), null);
+  assert.strictEqual(J.monAlias({ riotId: "Moi#EUW" }, null), null);
+  assert.strictEqual(J.monAlias({ riotId: "Allie#EUW" }, [{ riotId: "Allie#EUW" }]), null); // pas de champion
+});
+
 test("carte : Faille (11) oui, ARAM (12) non, données abîmées non", () => {
   assert.strictEqual(J.estFaille({ map: { id: 11 } }), true);
   assert.strictEqual(J.estFaille({ gameData: { queue: { mapId: 11 } } }), true);

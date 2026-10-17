@@ -3,14 +3,14 @@
  * -----------------------------------------------
  * Tourne dans le processus principal (Node). Utilisé par augments.js (stats sous chaque carte, en jeu).
  *
- * Pourquoi ce site (décision du propriétaire, 02/10/2026) : les bons outils (Porofessor, Blitz) recommandent les
- * augments selon leur TAUX DE VICTOIRE avec ton champion. OP.GG ne donne qu'une « popularité » sans taux de victoire
- * (et dont le total dépasse 360 % pour Hwei : pas un vrai taux de sélection) ; League of Graphs (source de
- * Porofessor) refuse les accès automatiques. arammayhem.com donne, mis à jour à chaque patch :
- *  - page d'un champion  https://arammayhem.com/build/<champion>/ : les 6 meilleurs augments par rareté
- *    (prismatique, or, argent) avec « Appearance rate » et « Win rate » pour CE champion ;
- *  - page des augments   https://arammayhem.com/augments/ : TOUS les augments, taux de victoire tous champions
- *    (nom | rareté | % sélection | % victoire | ... | rang).
+ * Pourquoi ce site (décision du propriétaire, 02/10/2026) : OP.GG ne donne qu'une « popularité » ; League of Graphs
+ * (source de Porofessor) refuse les accès automatiques. arammayhem.com donne, mis à jour à chaque patch :
+ *  - page d'un champion  https://arammayhem.com/build/<champion>/ : les 6 meilleurs augments par rareté pour CE
+ *    champion, avec leur NOTE et leur rang (« S · #3 »), la note tous champions et le taux d'apparition ;
+ *  - page des augments   https://arammayhem.com/augments/ : TOUS les augments, tous champions
+ *    (rang | nom | rareté | % sélection | note).
+ * Depuis le 17/10/2026, le site n'affiche plus de taux de victoire par augment : seulement ces notes (S+ à D),
+ * calculées par le site. L'appli s'en sert donc pour comparer les cartes.
  * Pas d'API : on lit les pages publiques (site statique). robots.txt : "User-agent: * Allow: /".
  * Bonne conduite : identification honnête (User-Agent), une page par champion toutes les 3 h au plus, rien de personnel
  * envoyé (seulement le nom du champion dans l'adresse). Si les pages changent, l'appli le dit (« Stats indisponibles »).
@@ -21,6 +21,8 @@ const { IDENTITE, creerCache, telecharger } = require("./internet.js"); // cache
 
 const URL_ARAMMAYHEM = "https://arammayhem.com";
 const RARETES = ["Prismatic", "Gold", "Silver"];
+// Notes du site, de la meilleure à la moins bonne (vues le 17/10/2026 : S+ S S- A+ A A- B+ B B- C D).
+const NOTES = ["S+", "S", "S-", "A+", "A", "A-", "B+", "B", "B-", "C+", "C", "C-", "D+", "D", "D-"];
 const EXCEPTIONS_NOMS = { monkeyking: "wukong" };
 
 class ErreurArammayhem extends Error {}
@@ -54,37 +56,49 @@ function pourcentage(texte) {
   return m ? Number((Number(m[1]) / 100).toFixed(6)) : null; // toFixed : 23.19 % -> 0.2319 (pas 0.23190000000000002)
 }
 
+/** "S · #3" -> { note: "S", rang: 3 }, sinon null. */
+function noteEtRang(texte) {
+  const m = /^([SABCD][+-]?) · #(\d+)$/.exec(String(texte || "").trim());
+  return m && NOTES.includes(m[1]) ? { note: m[1], rang: Number(m[2]) } : null;
+}
+
 /**
- * Page d'un champion -> [{ nom, rarete, apparition, tauxVictoire }] (ses meilleurs augments par rareté).
- * Format vérifié : <rareté> puis, pour chaque augment : nom | "Appearance rate:" | x% | "Win rate:" | y%.
+ * Page d'un champion -> [{ nom, rarete, note, rang, apparition }] (ses meilleurs augments par rareté, pour CE champion).
+ * Format vérifié le 17/10/2026 : « Prismatic Augments », puis pour chaque augment :
+ * nom | « S · #3 » (avec ce champion) | « Overall S · #9 » | « Appearance rate: » | x%.
  */
 function augmentsDuChampion(lignes) {
   const resultat = [];
   let rarete = null;
   for (let i = 0; i < lignes.length; i++) {
-    if (RARETES.includes(lignes[i])) rarete = lignes[i];
-    if (lignes[i] !== "Appearance rate:" || lignes[i + 2] !== "Win rate:") continue;
+    const titre = /^(Prismatic|Gold|Silver) Augments$/.exec(lignes[i]);
+    if (titre) rarete = titre[1];
+    if (lignes[i] !== "Appearance rate:" || i < 3 || !/^Overall /.test(lignes[i - 1])) continue;
+    const notation = noteEtRang(lignes[i - 2]);
     const apparition = pourcentage(lignes[i + 1]);
-    const tauxVictoire = pourcentage(lignes[i + 3]);
-    const nom = lignes[i - 1];
-    if (nom && apparition !== null && tauxVictoire !== null) resultat.push({ nom, rarete, apparition, tauxVictoire });
+    const nom = lignes[i - 3];
+    if (nom && notation && apparition !== null) resultat.push({ nom, rarete, ...notation, apparition });
   }
   return resultat;
 }
 
 /**
- * Page de tous les augments -> [{ nom, rarete, apparition, tauxVictoire }] (tous champions confondus).
- * Format vérifié : nom | rareté | x% (sélection) | y% (victoire) | ... ; on garde la première ligne de chaque nom.
+ * Page de tous les augments -> [{ nom, rarete, note, rang, apparition }] (tous champions confondus).
+ * Format vérifié le 17/10/2026, après l'en-tête « Rank | Augment | Tier | Pick Rate | Top Champions » :
+ * rang | nom | (« Deleted » : augment retiré, ignoré) | rareté | x% (sélection) | note | x%.
  */
 function augmentsGlobaux(lignes) {
   const resultat = new Map();
-  for (let i = 0; i + 3 < lignes.length; i++) {
-    if (!RARETES.includes(lignes[i + 1])) continue;
-    const apparition = pourcentage(lignes[i + 2]);
-    const tauxVictoire = pourcentage(lignes[i + 3]);
-    const nom = lignes[i];
-    if (apparition === null || tauxVictoire === null || RARETES.includes(nom) || pourcentage(nom) !== null) continue;
-    if (!resultat.has(nom)) resultat.set(nom, { nom, rarete: lignes[i + 1], apparition, tauxVictoire });
+  const debut = lignes.indexOf("Top Champions");
+  for (let i = Math.max(0, debut); i + 4 < lignes.length; i++) {
+    if (!/^\d+$/.test(lignes[i])) continue;
+    const nom = lignes[i + 1];
+    if (lignes[i + 2] === "Deleted") continue;
+    const rarete = lignes[i + 2];
+    const apparition = pourcentage(lignes[i + 3]);
+    const note = lignes[i + 4];
+    if (!RARETES.includes(rarete) || apparition === null || !NOTES.includes(note)) continue;
+    if (!resultat.has(nom)) resultat.set(nom, { nom, rarete, note, rang: Number(lignes[i]), apparition });
   }
   return [...resultat.values()];
 }
@@ -112,12 +126,12 @@ function creerLecteurArammayhem({ appeler = (...a) => fetch(...a), maintenant = 
   /**
    * Stats pour un champion : { champion: [...], global: [...] }.
    * La page globale est indispensable ; celle du champion est un plus (si elle échoue, on garde le global).
+   * Champion inconnu (alias absent) : seulement les stats tous champions (champion: []).
    */
-  async function augments({ alias }) {
-    const nom = nomArammayhem(alias);
-    if (!nom) throw new ErreurArammayhem("Champion inconnu.");
+  async function augments({ alias } = {}) {
+    const nom = alias ? nomArammayhem(alias) : null;
     const [pageChampion, pageGlobale] = await Promise.allSettled([
-      lirePage(`${URL_ARAMMAYHEM}/build/${nom}/`),
+      nom ? lirePage(`${URL_ARAMMAYHEM}/build/${nom}/`) : Promise.reject(new ErreurArammayhem("Champion inconnu.")),
       lirePage(`${URL_ARAMMAYHEM}/augments/`),
     ]);
     if (pageGlobale.status === "rejected") throw pageGlobale.reason;
@@ -132,6 +146,8 @@ function creerLecteurArammayhem({ appeler = (...a) => fetch(...a), maintenant = 
 
 module.exports = {
   URL_ARAMMAYHEM,
+  NOTES,
+  noteEtRang,
   IDENTITE,
   ErreurArammayhem,
   nomArammayhem,

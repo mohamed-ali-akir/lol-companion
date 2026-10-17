@@ -29,7 +29,7 @@ const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg
 const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
-const { creerLectureJeuPartagee, estFaille } = require("./jeu.js");
+const { creerLectureJeuPartagee, estFaille, lireJeu, monAlias } = require("./jeu.js");
 const { creerSuiviSorts } = require("./sorts.js");
 const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
@@ -768,9 +768,15 @@ function demarrerAugments() {
     lireEcran: (zone) => obtenirLecteurEcran().lire(zone),
     nomsAugments: obtenirIndexAugments,
     // Taux de victoire d'arammayhem.com (arammayhem.js) : avec ton champion, sinon tous champions.
+    // Champion retenu pendant la sélection ; appli lancée en pleine partie (vu le 17/10/2026 : « Stats
+    // indisponibles ») : on le lit dans la partie en cours (jeu.js) ; sinon, stats tous champions seulement.
     statsAugments: async () => {
-      const alias = championPartie ? (await obtenirAliasChampions()).get(championPartie) : null;
-      return alias ? indexStats(await lecteurArammayhem.augments({ alias })) : null;
+      let alias = championPartie ? (await obtenirAliasChampions()).get(championPartie) : null;
+      if (!alias) {
+        const jeu = await lireJeu();
+        alias = jeu ? monAlias(jeu.actif, jeu.joueurs) : null;
+      }
+      return indexStats(await lecteurArammayhem.augments({ alias }));
     },
     afficher: afficherAugments,
     arreterLecture: () => {

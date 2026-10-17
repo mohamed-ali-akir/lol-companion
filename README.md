@@ -128,8 +128,9 @@ n'importe quel champion, rôle et mode, sans rien appliquer.
 Le jeu doit être en mode **« Sans bordure »** (Échap → Vidéo → Mode de la fenêtre) : en plein écran, Windows ne
 peut rien afficher par-dessus. L'onglet Build le rappelle.
 - **Augments ARAM Mayhem** (toujours actif) : quand les 3 augments sont proposés, l'appli affiche **sous chaque carte**
-  son **taux de victoire** (arammayhem.com), avec **ton champion** si possible, et met en avant la meilleure carte
-  (cadre doré). Elle ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png)).
+  sa **note** d'arammayhem.com (« Note S · n° 3 »), avec **ton champion** si possible, sinon tous champions, et met
+  en avant la meilleure carte (cadre doré). Le site ne publie plus de taux de victoire par augment depuis octobre 2026.
+  Appli lancée en pleine partie : le champion est lu dans la partie en cours. Elle ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png)).
 - **Chronos des sorts d'invocateur adverses** (Build, désactivé par défaut, ⚠ voir [Sécurité](#sécurité)) : un petit
   panneau avec les 5 adversaires et leurs 2 sorts. Quand tu vois un sort utilisé, **tu cliques dessus** : le compte à
   rebours démarre (bottes de lucidité comptées, TP déchaînée après 10:00) ; un 2e clic l'annule. Le chrono démarre
@@ -180,7 +181,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (408, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (409, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -422,10 +423,12 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   - on ne garde que les textes qui sont de **vrais noms d'augments** (liste complète du client :
     `/lol-game-data/assets/v1/cherry-augments.json`, dans la langue du jeu), alignés à la même hauteur ; une erreur
     d'une lettre sur huit est tolérée (distance d'édition) ; il faut au moins 2 cartes reconnues ;
-  - stats : **arammayhem.com** (`arammayhem.js`) : page de ton champion (retenu pendant la sélection) avec ses 6
-    meilleurs augments par rareté (taux d'apparition et de victoire avec lui), et page de tous les augments (taux tous
-    champions) en secours. Mise en avant : meilleur taux parmi les augments du top de ton champion, sinon parmi les
-    taux tous champions ; jamais sous 3 % d'apparition ni en cas de quasi-égalité (moins de 1 point). Choix fait le
+  - stats : **arammayhem.com** (`arammayhem.js`) : page de ton champion (retenu pendant la sélection ; appli lancée en
+    pleine partie : lu dans l'API « Live Client Data », `monAlias` de `jeu.js`) avec ses 6 meilleurs augments par
+    rareté (**note** S+ à D et rang avec lui, taux d'apparition), et page de tous les augments (notes tous champions) en
+    secours. Vu le 17/10/2026 : le site n'affiche plus de taux de victoire par augment, seulement ces notes. Mise en
+    avant : meilleure note parmi les augments du top de ton champion, sinon parmi les notes tous champions ; jamais
+    sous 3 % d'apparition ni si les deux meilleures ont la même note. Choix fait le
     02/10/2026 après comparaison : l'outil d'OP.GG (`lol_list_aram_augments`) ne donnait qu'une « popularité » sans taux
     de victoire (total de plus de 360 % pour Hwei : pas un vrai taux de sélection), et la carte « la plus prise » était
     rarement la bonne ; League of Graphs (source de Porofessor) refuse les accès automatiques. Pas d'API : pages
@@ -554,7 +557,7 @@ lol-level-calculator/
 ├── jeu.js             # Lecture de la partie en cours (API locale « Live Client Data ») : temps de jeu, joueurs
 ├── augments.js        # Augments ARAM Mayhem : reconnaissance des cartes, étiquettes, surveillance pendant la partie
 ├── ocr.js             # Lecture de texte à l'écran : OCR de Windows (PowerShell) ou de macOS (screencapture + Vision)
-├── arammayhem.js      # Taux de victoire des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
+├── arammayhem.js      # Notes des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »
 ├── journal.js         # Journal sur le disque (journal.txt), taille limitée
 ├── mise-a-jour.js     # Mise à jour automatique (electron-updater, Releases GitHub) : vérification, bandeau, installation
