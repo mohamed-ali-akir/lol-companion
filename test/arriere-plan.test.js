@@ -102,12 +102,19 @@ test("menu de l'icône : Ouvrir, Acceptation auto (cochée selon le réglage), Q
   assert.strictEqual(menu[menu.length - 1].id, "quitter"); // Quitter en dernier, comme d'habitude sous Windows
 });
 
-test("stockage : réglages d'arrière-plan et « déjà prévenu » enregistrés", () => {
+test("stockage : arrière-plan imposé (démarrage avec Windows, réduit), seule la mise à jour se règle", () => {
   const stockage = creerStockage({ dossier: fs.mkdtempSync(path.join(os.tmpdir(), "arriere-plan-")) });
-  assert.deepStrictEqual(stockage.reglagesArrierePlan(), A.REGLAGES_ARRIERE_PLAN_PAR_DEFAUT);
-  const propres = stockage.enregistrerReglagesArrierePlan({ fermerReduit: false, lancerAuDemarrage: true, demarrerReduit: true });
+  assert.deepStrictEqual(stockage.reglagesArrierePlan(), {
+    fermerReduit: true, lancerAuDemarrage: true, demarrerReduit: true, prevenirClientDetecte: true, ouvrirAvecLeague: false, majAuto: true,
+  });
+  // Un ancien choix (avant le 17/10/2026) est ignoré, sauf la case des mises à jour.
+  const propres = stockage.enregistrerReglagesArrierePlan({ fermerReduit: false, lancerAuDemarrage: false, ouvrirAvecLeague: true, majAuto: false });
   assert.deepStrictEqual(stockage.reglagesArrierePlan(), propres);
+  assert.strictEqual(propres.lancerAuDemarrage, true);
   assert.strictEqual(propres.demarrerReduit, true);
+  assert.strictEqual(propres.fermerReduit, true);
+  assert.strictEqual(propres.ouvrirAvecLeague, false);
+  assert.strictEqual(propres.majAuto, false);
   assert.strictEqual(stockage.dejaPrevenuReduction(), false);
   stockage.noterPrevenuReduction();
   assert.strictEqual(stockage.dejaPrevenuReduction(), true);

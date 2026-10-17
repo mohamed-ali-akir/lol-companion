@@ -33,7 +33,6 @@ const { creerLectureJeuPartagee, estFaille } = require("./jeu.js");
 const { creerSuiviSorts } = require("./sorts.js");
 const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
-const { alertesDuCompte, creerSuiviAlertes } = require("./session.js");
 const { creerMiseAJour, creerVerificationMac, ADRESSE_LATEST_YML } = require("./mise-a-jour.js");
 const { telecharger } = require("./internet.js"); // règles communes des appels à Internet (User-Agent, délai)
 const { lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
@@ -80,7 +79,6 @@ let suiviAugments = null;
 let suiviSorts = null; // chronos des sorts d'invocateur adverses, cliquables en jeu (sorts.js), désactivé par défaut
 const contenuOverlay = { augments: null, sorts: null }; // ce qu'affiche la fenêtre transparente
 const lancement = Date.now(); // ouverture de l'appli : début de session en mode "depuis l'ouverture"
-const suiviAlertes = creerSuiviAlertes(); // alertes de pause déjà notifiées
 let icone = null; // icône dans la zone de notification (Tray)
 let miseAJour = null; // mise à jour automatique (mise-a-jour.js), seulement pour l'appli installée
 let quitteEnCours = false; // true quand on quitte vraiment (menu "Quitter") : la croix ne cache plus
@@ -143,16 +141,6 @@ function brancherMessages() {
     lancement, // heure d'ouverture de l'appli (session "depuis l'ouverture")
   }));
 
-  // Bilan de session : réglages (début de session, alertes de pause).
-  ipcMain.handle("session:lire", () => stockage.reglagesSession());
-  ipcMain.handle("session:enregistrer", (_evenement, reglages) => {
-    try {
-      return { ok: true, reglages: stockage.enregistrerReglagesSession(reglages) };
-    } catch (erreur) {
-      return reponseErreur(erreur);
-    }
-  });
-
   ipcMain.handle("config:enregistrerOnglet", (_evenement, nom) => {
     try {
       stockage.enregistrerOngletActif(nom);
@@ -178,20 +166,12 @@ function brancherMessages() {
   // Onglet Maîtrise : niveau, points et marques de chaque champion (lecture seule).
   ipcMain.handle("maitrise:lire", () => lireMaitrise());
 
-  // Points de progression d'un compte (pour le graphique), et effacement de l'historique.
+  // Points de progression d'un compte (pour le graphique).
   ipcMain.handle("progression:lire", (_evenement, compte) => progression.pointsDu(riotIdDe(compte)));
-  ipcMain.handle("progression:effacer", () => {
-    progression.effacer();
-    return { ok: true };
-  });
 
-  // Onglet Stats : parties enregistrées pour un compte (disponibles même client fermé), et effacement.
+  // Onglet Stats : parties enregistrées pour un compte (disponibles même client fermé).
   ipcMain.handle("stats:lire", (_evenement, compte) => historiqueParties.partiesDu(riotIdDe(compte)));
   ipcMain.handle("stats:importer", () => importerHistorique());
-  ipcMain.handle("stats:effacer", () => {
-    historiqueParties.effacer();
-    return { ok: true };
-  });
 
   // Acceptation automatique : lire et changer les réglages (onglet Paramètres).
   ipcMain.handle("acceptation:lire", () => stockage.reglagesAcceptation());
@@ -848,33 +828,6 @@ async function surPhase(phase) {
 }
 
 // ---------------------------------------------------------------------------
-// Bilan de session : alertes douces (défaites d'affilée, temps de jeu), session.js
-// Le message s'affiche toujours dans l'appli (la page le calcule elle-même) ; ici, on envoie
-// en plus une notification Windows, seulement si l'option est cochée. Jamais de blocage.
-// ---------------------------------------------------------------------------
-
-function notifierAlertesSession(compte, { silencieux }) {
-  try {
-    const reglages = stockage.reglagesSession();
-    const { alertes } = alertesDuCompte({
-      parties: historiqueParties.partiesDu(riotIdDe(compte)),
-      reglages,
-      lancement,
-      niveau: compte.niveau,
-    });
-    const aNotifier = suiviAlertes.aNotifier(alertes, { silencieux: silencieux || !reglages.notifier });
-    if (!Notification.isSupported()) return;
-    for (const alerte of aNotifier) {
-      const notification = new Notification({ title: alerte.titre, body: alerte.message, silent: true }); // sans son : c'est un conseil, pas une urgence
-      notification.on("click", afficherFenetre);
-      notification.show();
-    }
-  } catch (erreur) {
-    console.error("Alertes de session impossibles :", erreur); // pas grave : le message reste visible dans l'appli
-  }
-}
-
-// ---------------------------------------------------------------------------
 // Surveillance en direct : le client prévient quand une partie se termine.
 // ---------------------------------------------------------------------------
 
@@ -956,8 +909,6 @@ function demarrerSurveillance() {
       const reponse = await lireCompte();
       if (reponse.ok) {
         envoyerALaPage("client:miseAJour", { ...reponse, raison });
-        // Alertes de pause : notification seulement après une partie (pas au lancement du client).
-        notifierAlertesSession(reponse, { silencieux: raison !== "fin-de-partie" });
       }
       const maitrise = await lireMaitrise(); // après lireCompte : les nouvelles parties sont déjà enregistrées
       if (maitrise.ok) envoyerALaPage("maitrise:miseAJour", maitrise);

@@ -73,7 +73,6 @@
               </div>
               <button type="button" class="lien" data-vers="parametres">Réglages</button>
             </div>
-            <div id="sessionAlertes" class="session-alertes"></div>
             <p id="sessionVide" class="aide"></p>
             <div id="sessionContenu" class="tuiles tuiles-session" hidden>
               <div class="tuile">
@@ -527,100 +526,13 @@
           <h2>Paramètres</h2>
 
           <h3>Partie trouvée</h3>
-          <p class="aide">
-            Quand une partie est trouvée, l'appli peut l'accepter à ta place après un court délai (pour te laisser
-            le temps de refuser), et te prévenir par une notification si tu n'es pas sur League.
-            Elle n'accepte jamais si tu as déjà répondu, ni deux fois la même partie.
-          </p>
           <form id="formAcceptation" class="reglages-acceptation">
-            <div class="ligne-reglage">
-              <label class="check">
-                <input type="checkbox" id="autoAccepter">
-                <span>Accepter automatiquement après</span>
-              </label>
-              <input type="number" id="delaiAcceptation" min="0" max="8" step="0.5" value="2" aria-label="Délai avant d'accepter (secondes)">
-              <span>s</span>
-            </div>
             <label class="check">
-              <input type="checkbox" id="notifierPartie" checked>
-              <span>Me prévenir par une notification <span data-mac="macOS">Windows</span> <small>(si League n'est pas au premier plan)</small></span>
+              <input type="checkbox" id="autoAccepter">
+              <span>Accepter automatiquement</span>
             </label>
           </form>
           <p id="etatAcceptation" class="etat" hidden></p>
-
-          <h3>Session et pauses</h3>
-          <p class="aide">
-            Le bilan de session (Accueil) compte tes parties, tes victoires, l'XP gagnée et ton temps de jeu.
-            Les alertes sont de simples conseils : l'appli ne bloque jamais rien.
-          </p>
-          <form id="formSession" class="reglages-session">
-            <label class="field">
-              <span>Ta session commence</span>
-              <select id="modeSession">
-                <option value="aujourdhui">À ta première partie du jour</option>
-                <option value="ouverture">À l'ouverture de l'appli</option>
-              </select>
-            </label>
-            <div class="ligne-reglage">
-              <label class="check">
-                <input type="checkbox" id="alerteDefaites">
-                <span>Me proposer une pause après</span>
-              </label>
-              <input type="number" id="seuilDefaites" min="2" max="10" step="1" aria-label="Nombre de défaites d'affilée">
-              <span>défaites d'affilée</span>
-            </div>
-            <div class="ligne-reglage">
-              <label class="check">
-                <input type="checkbox" id="rappelDuree">
-                <span>Me rappeler mon temps de jeu toutes les</span>
-              </label>
-              <input type="number" id="heuresRappel" min="1" max="6" step="0.5" aria-label="Heures avant le rappel">
-              <span>h</span>
-            </div>
-            <div class="ligne-reglage">
-              <label class="check">
-                <input type="checkbox" id="alerteVictoires">
-                <span>😈 Notif diable : me pousser à relancer après</span>
-              </label>
-              <input type="number" id="seuilVictoires" min="2" max="10" step="1" aria-label="Nombre de victoires d'affilée">
-              <span>victoires d'affilée</span>
-            </div>
-            <label class="check">
-              <input type="checkbox" id="notifierSession">
-              <span>Me prévenir aussi par une notification <span data-mac="macOS">Windows</span> <small>(sinon, juste un message dans l'appli)</small></span>
-            </label>
-          </form>
-          <p id="etatSession" class="etat" hidden></p>
-
-          <h3>Arrière-plan</h3>
-          <p class="aide">
-            Fenêtre cachée, l'appli reste dans la zone de notification (à côté de l'horloge) et continue de surveiller
-            le client : acceptation auto, notifications, mise à jour après chaque partie. Clic droit sur son icône pour
-            l'ouvrir ou la quitter.
-          </p>
-          <form id="formArrierePlan" class="reglages-session">
-            <label class="check">
-              <input type="checkbox" id="fermerReduit">
-              <span>Fermer la fenêtre la réduit dans la zone de notification <small>(sinon, la croix quitte l'appli)</small></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="lancerAuDemarrage">
-              <span>Lancer LoL Companion au démarrage <span data-mac="du Mac">de Windows</span></span>
-            </label>
-            <label class="check sous-option">
-              <input type="checkbox" id="demarrerReduit">
-              <span>Démarrer réduit <small>(sans ouvrir la fenêtre)</small></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="prevenirClientDetecte">
-              <span>Me prévenir quand League est détecté <small>(notification « LoL Companion est prêt », seulement si la fenêtre est cachée)</small></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="ouvrirAvecLeague">
-              <span>Ouvrir la fenêtre quand League se lance <small>(avec « Lancer au démarrage <span data-mac="du Mac">de Windows</span> » et « Démarrer réduit », l'appli s'ouvre toute seule avec League)</small></span>
-            </label>
-          </form>
-          <p id="etatArrierePlan" class="etat" hidden></p>
 
           <h3>Mises à jour</h3>
           <p class="aide">
@@ -651,22 +563,6 @@
           </form>
           <p id="etatDossier" class="etat" hidden></p>
 
-          <h3>Historique de progression</h3>
-          <p class="aide">
-            Les points de ta courbe sont enregistrés sur ce PC uniquement
-            (<code>%APPDATA%\lol-level-calculator\progression.json</code>).
-          </p>
-          <button type="button" id="effacerProgression" class="bouton-secondaire">Effacer l'historique</button>
-          <p id="etatProgression" class="etat" hidden></p>
-
-          <h3>Historique des parties (onglet Stats)</h3>
-          <p class="aide">
-            Tes parties sont gardées sur ce PC uniquement
-            (<code>%APPDATA%\lol-level-calculator\parties.json</code>), pour que tes stats portent sur plus de parties
-            que celles que le client garde en mémoire.
-          </p>
-          <button type="button" id="effacerStats" class="bouton-secondaire">Effacer l'historique des parties</button>
-          <p id="etatStats" class="etat" hidden></p>
         </div>
       </section>
     </div>

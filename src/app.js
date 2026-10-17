@@ -34,8 +34,8 @@ async function initialiser() {
   // Page ouverte hors de l'appli (dans un navigateur) : pas de client, donc pas d'estimation.
   if (!window.appli) {
     activerOnglet(ONGLET_PAR_DEFAUT, { memoriser: false });
-    ["effacerProgression", "effacerStats", "boutonImport"].forEach((id) => ($(id).disabled = true));
-    for (const id of ["formAcceptation", "formArrierePlan", "formMaj", "formSelection", "formBuild", "formConsulterBuild"]) {
+    ["boutonImport"].forEach((id) => ($(id).disabled = true));
+    for (const id of ["formAcceptation", "formMaj", "formSelection", "formBuild", "formConsulterBuild"]) {
       for (const element of $(id).elements) element.disabled = true;
     }
     afficherEtat("etatClient", "Lance l'appli avec npm start : le niveau est lu dans le client League.", "info");

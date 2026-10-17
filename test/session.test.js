@@ -1,14 +1,9 @@
-// Tests du bilan de session : découpage des sessions, défaites d'affilée, XP, temps de jeu, alertes.
+// Tests du bilan de session : découpage des sessions, XP, temps de jeu.
 // Les dates sont créées en heure locale (new Date(année, mois, jour, h, min)) : les tests passent
 // quel que soit le fuseau horaire de la machine.
 const test = require("node:test");
 const assert = require("node:assert");
-const fs = require("fs");
-const os = require("os");
-const path = require("path");
 const C = require("../src/calculs.js");
-const { alertesDuCompte, creerSuiviAlertes } = require("../session.js");
-const { creerStockage } = require("../stockage.js");
 
 const MIN = 60 * 1000;
 const le = (jour, h, m = 0) => new Date(2026, 8, jour, h, m).getTime(); // septembre 2026, heure locale
@@ -69,20 +64,6 @@ test("partiesDeSession : données abîmées et parties dans le futur ignorées",
 
 // --- Défaites d'affilée, XP, temps de jeu ----------------------------------------------------------------
 
-test("defaitesDAffilee : depuis la partie la plus récente, remakes ignorés", () => {
-  const liste = [
-    partie({ date: le(30, 10), victoire: true }),
-    partie({ date: le(30, 11), victoire: false }),
-    partie({ date: le(30, 12), victoire: true, minutes: 3 }), // remake : ne casse pas la série
-    partie({ date: le(30, 13), victoire: false }),
-    partie({ date: le(30, 14), victoire: false, minutes: 4 }), // remake : ne compte pas
-    partie({ date: le(30, 15), victoire: false }),
-  ];
-  assert.strictEqual(C.defaitesDAffilee(liste), 3);
-  assert.strictEqual(C.defaitesDAffilee([partie({ date: le(30, 10) })]), 0);
-  assert.strictEqual(C.defaitesDAffilee([]), 0);
-});
-
 test("xpDePartie : formule du wiki, bots réduits, parties trop courtes à 0", () => {
   const victoire = partie({ date: 0, minutes: 30, victoire: true });
   const defaite = partie({ date: 0, minutes: 30, victoire: false });
@@ -114,7 +95,6 @@ test("bilanSession : parties, V/D, XP, temps de jeu, meilleur champion (remakes 
   assert.strictEqual(b.fin, le(30, 14, 40));
   assert.strictEqual(b.meilleur.nom, "Ahri"); // 2 victoires contre 1
   assert.strictEqual(b.meilleur.victoires, 2);
-  assert.strictEqual(b.defaitesDAffilee, 0);
   assert.strictEqual(C.bilanSession([]), null);
   assert.strictEqual(C.bilanSession([partie({ date: le(30, 10), minutes: 2 })]), null); // seulement un remake
 });
@@ -135,127 +115,3 @@ test("texteDuree", () => {
 });
 
 // --- Réglages et alertes -----------------------------------------------------------------------------
-
-test("normaliserReglagesSession : valeurs par défaut (rappel de durée et notification désactivés)", () => {
-  assert.deepStrictEqual(C.normaliserReglagesSession(undefined), {
-    mode: "aujourdhui",
-    alerteDefaites: true,
-    seuilDefaites: 3,
-    rappelDuree: false,
-    heuresRappel: 2,
-    alerteVictoires: false,
-    seuilVictoires: 3,
-    notifier: false,
-  });
-  const r = C.normaliserReglagesSession({ mode: "ouverture", seuilDefaites: 50, heuresRappel: "1.3", notifier: "oui", alerteDefaites: false });
-  assert.strictEqual(r.mode, "ouverture");
-  assert.strictEqual(r.seuilDefaites, 10); // borné
-  assert.strictEqual(r.heuresRappel, 1.5); // arrondi à la demi-heure
-  assert.strictEqual(r.notifier, false); // pas un booléen : valeur par défaut
-  assert.strictEqual(r.alerteDefaites, false);
-  assert.strictEqual(C.normaliserReglagesSession({ mode: "n'importe quoi", seuilDefaites: "" }).mode, "aujourdhui");
-  assert.strictEqual(C.normaliserReglagesSession({ seuilDefaites: null }).seuilDefaites, 3);
-});
-
-function soireeDeDefaites(nombre, debut = le(30, 20)) {
-  return Array.from({ length: nombre }, (_, i) => partie({ date: debut + i * 35 * MIN, minutes: 30, victoire: false }));
-}
-
-test("alertesSession : pause proposée à partir de 3 défaites d'affilée, message bienveillant", () => {
-  const trois = C.bilanSession(soireeDeDefaites(3));
-  const maintenant = trois.fin + 2 * MIN;
-  const [alerte, ...autres] = C.alertesSession(trois, {}, maintenant);
-  assert.strictEqual(autres.length, 0);
-  assert.strictEqual(alerte.type, "pause");
-  assert.strictEqual(alerte.titre, "3 défaites d'affilée. Une pause de 10 minutes ?");
-  assert.doesNotMatch(`${alerte.titre} ${alerte.message}`, /arrête|interdit|bloqu|nul|mauvais/i);
-  assert.deepStrictEqual(C.alertesSession(C.bilanSession(soireeDeDefaites(2)), {}, maintenant), []);
-  assert.deepStrictEqual(C.alertesSession(trois, { alerteDefaites: false }, maintenant), []); // désactivée
-  assert.deepStrictEqual(C.alertesSession(trois, { seuilDefaites: 4 }, maintenant), []); // seuil réglable
-  assert.deepStrictEqual(C.alertesSession(trois, {}, trois.fin + 60 * MIN), []); // pause déjà faite
-  assert.deepStrictEqual(C.alertesSession(null, {}, maintenant), []);
-});
-
-test("alertesSession : rappel « Tu joues depuis 2 h » seulement s'il est activé", () => {
-  const parties = Array.from({ length: 4 }, (_, i) => partie({ date: le(30, 14) + i * 35 * MIN, victoire: i % 2 === 0 }));
-  const bilan = C.bilanSession(parties); // de 14:00 à 16:15
-  const maintenant = le(30, 16, 20);
-  assert.deepStrictEqual(C.alertesSession(bilan, {}, maintenant), []); // désactivé par défaut
-  const [rappel] = C.alertesSession(bilan, { rappelDuree: true }, maintenant);
-  assert.strictEqual(rappel.type, "duree");
-  assert.strictEqual(rappel.titre, "Tu joues depuis 2 h.");
-  assert.deepStrictEqual(C.alertesSession(bilan, { rappelDuree: true, heuresRappel: 3 }, maintenant), []);
-});
-
-test("victoiresDAffilee : depuis la partie la plus récente, remakes ignorés", () => {
-  const debut = le(30, 20);
-  const parties = [
-    partie({ date: debut, victoire: false }),
-    partie({ date: debut + 35 * MIN, victoire: true }),
-    partie({ date: debut + 70 * MIN, victoire: true }),
-    partie({ date: debut + 105 * MIN, minutes: 3, victoire: false }), // remake : ne casse pas la série
-    partie({ date: debut + 110 * MIN, victoire: true }),
-  ];
-  assert.strictEqual(C.victoiresDAffilee(parties), 3);
-  assert.strictEqual(C.defaitesDAffilee(parties), 0);
-  assert.strictEqual(C.victoiresDAffilee([]), 0);
-  const bilan = C.bilanSession(parties);
-  assert.strictEqual(bilan.victoiresDAffilee, 3);
-  assert.strictEqual(bilan.idDebutVictoires, parties[1].id);
-});
-
-test("alertesSession : notif « diable » après 3 victoires d'affilée, seulement si activée, une par victoire en plus", () => {
-  const serie = (n) => Array.from({ length: n }, (_, i) => partie({ date: le(30, 20) + i * 35 * MIN, victoire: true }));
-  const trois = C.bilanSession(serie(3));
-  const maintenant = trois.fin + 2 * MIN;
-  assert.deepStrictEqual(C.alertesSession(trois, {}, maintenant), []); // désactivée par défaut
-  const [diable, ...autres] = C.alertesSession(trois, { alerteVictoires: true }, maintenant);
-  assert.strictEqual(autres.length, 0);
-  assert.strictEqual(diable.type, "diable");
-  assert.strictEqual(diable.titre, "😈 3 victoires d'affilée. Encore une ?");
-  assert.deepStrictEqual(C.alertesSession(C.bilanSession(serie(2)), { alerteVictoires: true }, maintenant), []);
-  assert.deepStrictEqual(C.alertesSession(trois, { alerteVictoires: true, seuilVictoires: 4 }, maintenant), []); // seuil réglable
-  assert.deepStrictEqual(C.alertesSession(trois, { alerteVictoires: true }, trois.fin + 60 * MIN), []); // pause déjà faite
-
-  const cinq = C.bilanSession(serie(5));
-  const [encore] = C.alertesSession(cinq, { alerteVictoires: true }, cinq.fin + 2 * MIN);
-  assert.match(encore.titre, /5 victoires d'affilée. Personne ne t'arrête/);
-  assert.notStrictEqual(encore.cle, diable.cle); // nouvelle victoire : nouvelle notification
-});
-
-test("creerSuiviAlertes : une seule notification par alerte ; rien au lancement", () => {
-  const suivi = creerSuiviAlertes();
-  const pause = { type: "pause", cle: "pause-12", titre: "t", message: "m" };
-  assert.deepStrictEqual(suivi.aNotifier([pause]), [pause]);
-  assert.deepStrictEqual(suivi.aNotifier([pause]), []); // 4e défaite de la même série : pas de nouvelle notification
-  const autre = { ...pause, cle: "pause-20" }; // nouvelle série (après une victoire)
-  assert.deepStrictEqual(suivi.aNotifier([autre]), [autre]);
-
-  const auLancement = creerSuiviAlertes();
-  assert.deepStrictEqual(auLancement.aNotifier([pause], { silencieux: true }), []); // série déjà en cours au lancement
-  assert.deepStrictEqual(auLancement.aNotifier([pause]), []);
-  assert.deepStrictEqual(auLancement.aNotifier(undefined), []);
-});
-
-test("alertesDuCompte : de l'historique complet aux alertes du moment", () => {
-  const parties = [partie({ date: le(29, 15), victoire: false }), ...soireeDeDefaites(3)];
-  const derniere = parties[parties.length - 1];
-  const { bilan, alertes } = alertesDuCompte({
-    parties,
-    reglages: C.normaliserReglagesSession({}),
-    lancement: le(30, 19),
-    niveau: 25,
-    maintenant: derniere.date + 35 * MIN,
-  });
-  assert.strictEqual(bilan.parties, 3); // la défaite d'hier ne fait pas partie de la session
-  assert.strictEqual(alertes.length, 1);
-  assert.strictEqual(alertes[0].cle, `pause-${parties[1].id}`);
-});
-
-test("stockage : réglages de session enregistrés et nettoyés", () => {
-  const stockage = creerStockage({ dossier: fs.mkdtempSync(path.join(os.tmpdir(), "session-")) });
-  assert.strictEqual(stockage.reglagesSession().alerteDefaites, true);
-  const propres = stockage.enregistrerReglagesSession({ mode: "ouverture", seuilDefaites: 1, rappelDuree: true });
-  assert.strictEqual(propres.seuilDefaites, 2);
-  assert.deepStrictEqual(stockage.reglagesSession(), propres);
-});

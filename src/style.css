@@ -1103,48 +1103,6 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
   white-space: nowrap;
 }
 
-/* Alertes douces : couleurs calmes (pas de rouge), un simple "OK" pour fermer. */
-.session-alertes {
-  display: grid;
-  gap: 8px;
-}
-
-.session-alertes:not(:empty) {
-  margin: 12px 0 4px;
-}
-
-.session-alerte {
-  align-items: center;
-  background: rgba(10, 200, 185, 0.08);
-  border: 1px solid rgba(10, 200, 185, 0.35);
-  border-radius: 8px;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  padding: 10px 14px;
-}
-
-/* Notif « diable » (série de victoires) : rouge, pour la distinguer des conseils de pause */
-.session-alerte.alerte-diable {
-  background: rgba(226, 91, 91, 0.1);
-  border-color: rgba(226, 91, 91, 0.45);
-}
-
-.session-alerte strong {
-  color: var(--gold-light);
-}
-
-.session-alerte p {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-  margin: 2px 0 0;
-}
-
-.session-alerte button {
-  flex: none;
-  padding: 6px 14px;
-}
-
 .reglages-session {
   display: flex;
   flex-direction: column;

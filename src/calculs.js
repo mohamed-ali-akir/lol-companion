@@ -682,37 +682,6 @@ const PAUSE_MAX_SESSION_MS = 45 * 60 * 1000; // au-delà de 45 min sans jouer, u
 const DUREE_REMAKE_S = 5 * 60; // une partie de moins de 5 min est un remake : elle ne compte pas
 const FILES_BOTS = new Set([830, 840, 850, 870, 880, 890]); // parties contre des bots (XP réduite)
 
-const REGLAGES_SESSION_PAR_DEFAUT = {
-  mode: "aujourdhui", // "aujourdhui" ou "ouverture" (depuis l'ouverture de l'appli)
-  alerteDefaites: true, // message dans l'appli après plusieurs défaites d'affilée
-  seuilDefaites: 3, // de 2 à 10
-  rappelDuree: false, // rappel "Tu joues depuis 2 h" (désactivé par défaut)
-  heuresRappel: 2, // de 1 à 6 h, par demi-heure
-  alerteVictoires: false, // notif « diable » : t'encourager à relancer après une série de victoires (désactivée par défaut)
-  seuilVictoires: 3, // de 2 à 10
-  notifier: false, // notification Windows en plus du message dans l'appli
-};
-
-/** Réglages de session toujours valides (valeur abîmée ou absente -> valeur par défaut, nombres bornés). */
-function normaliserReglagesSession(r) {
-  const s = r && typeof r === "object" ? r : {};
-  const d = REGLAGES_SESSION_PAR_DEFAUT;
-  const borne = (n, min, max, pas, defaut) => {
-    const valeur = typeof n === "number" ? n : typeof n === "string" && n.trim() !== "" ? Number(n) : NaN;
-    return Number.isFinite(valeur) ? Math.min(max, Math.max(min, Math.round(valeur / pas) * pas)) : defaut;
-  };
-  return {
-    mode: s.mode === "ouverture" ? "ouverture" : d.mode,
-    alerteDefaites: typeof s.alerteDefaites === "boolean" ? s.alerteDefaites : d.alerteDefaites,
-    seuilDefaites: borne(s.seuilDefaites, 2, 10, 1, d.seuilDefaites),
-    rappelDuree: typeof s.rappelDuree === "boolean" ? s.rappelDuree : d.rappelDuree,
-    heuresRappel: borne(s.heuresRappel, 1, 6, 0.5, d.heuresRappel),
-    alerteVictoires: typeof s.alerteVictoires === "boolean" ? s.alerteVictoires : d.alerteVictoires,
-    seuilVictoires: borne(s.seuilVictoires, 2, 10, 1, d.seuilVictoires),
-    notifier: typeof s.notifier === "boolean" ? s.notifier : d.notifier,
-  };
-}
-
 const estRemake = (p) => Number.isFinite(p.dureeS) && p.dureeS < DUREE_REMAKE_S;
 const finDePartie = (p) => p.date + (Number.isFinite(p.dureeS) && p.dureeS > 0 ? p.dureeS : 0) * 1000;
 
@@ -750,30 +719,8 @@ function xpDePartie(partie, niveau = 1) {
   return FILES_BOTS.has(partie.file) ? xp * multiplicateurBots(niveau) : xp;
 }
 
-/** Parties du même résultat d'affilée (victoires si "victoire" est vrai), depuis la plus récente (remakes ignorés). */
-function serieDAffilee(parties, victoire) {
-  const triees = (Array.isArray(parties) ? parties : []).filter((p) => p && !estRemake(p)).sort((a, b) => b.date - a.date);
-  let nombre = 0;
-  for (const p of triees) {
-    if (Boolean(p.victoire) !== victoire) break;
-    nombre++;
-  }
-  return nombre;
-}
-
-/** Défaites d'affilée en partant de la partie la plus récente (remakes ignorés). */
-function defaitesDAffilee(parties) {
-  return serieDAffilee(parties, false);
-}
-
-/** Victoires d'affilée en partant de la partie la plus récente (remakes ignorés). */
-function victoiresDAffilee(parties) {
-  return serieDAffilee(parties, true);
-}
-
 /**
- * Bilan d'une session : { parties, victoires, defaites, xp, dureeS, debut, fin, defaitesDAffilee, idDebutSerie,
- * victoiresDAffilee, idDebutVictoires, meilleur }
+ * Bilan d'une session : { parties, victoires, defaites, xp, dureeS, debut, fin, meilleur }
  * ou null si aucune partie. Les remakes ne comptent pas. Meilleur champion : le plus de victoires,
  * puis le meilleur taux, puis le meilleur KDA.
  */
@@ -781,8 +728,6 @@ function bilanSession(parties, { niveau = 1 } = {}) {
   const jouees = (Array.isArray(parties) ? parties : []).filter((p) => p && Number.isFinite(p.date) && !estRemake(p)).sort((a, b) => a.date - b.date);
   if (jouees.length === 0) return null;
   const victoires = jouees.filter((p) => p.victoire).length;
-  const serie = defaitesDAffilee(jouees);
-  const serieVictoires = victoiresDAffilee(jouees);
   const [meilleur] = statsParChampion(jouees).sort(
     (a, b) => b.victoires - a.victoires || b.tauxVictoire - a.tauxVictoire || b.kda.valeur - a.kda.valeur || b.parties - a.parties
   );
@@ -794,10 +739,6 @@ function bilanSession(parties, { niveau = 1 } = {}) {
     dureeS: jouees.reduce((total, p) => total + (Number.isFinite(p.dureeS) && p.dureeS > 0 ? p.dureeS : 0), 0),
     debut: jouees[0].date,
     fin: finDePartie(jouees[jouees.length - 1]),
-    defaitesDAffilee: serie,
-    idDebutSerie: serie > 0 ? jouees[jouees.length - serie].id : null, // identifie la série (pour ne prévenir qu'une fois)
-    victoiresDAffilee: serieVictoires,
-    idDebutVictoires: serieVictoires > 0 ? jouees[jouees.length - serieVictoires].id : null,
     meilleur: meilleur ? { championId: meilleur.championId, nom: meilleur.nom, parties: meilleur.parties, victoires: meilleur.victoires, kda: meilleur.kda } : null,
   };
 }
@@ -809,52 +750,6 @@ function texteDuree(secondes) {
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
   return m ? `${h} h ${String(m).padStart(2, "0")}` : `${h} h`;
-}
-
-/**
- * Alertes douces à afficher : [{ type, cle, titre, message }]. Jamais de blocage.
- * Seulement pendant que tu joues (dernière partie finie il y a moins de 45 min).
- *  - "pause" : au moins N défaites d'affilée (si l'alerte est activée) ;
- *  - "duree" : tu joues depuis X h sans vraie pause (si le rappel est activé), une fois par tranche de X h ;
- *  - "diable" : au moins N victoires d'affilée (si la notif « diable » est activée), une fois par victoire en plus.
- * "cle" identifie l'alerte : la même alerte n'est notifiée qu'une fois.
- */
-function alertesSession(bilan, reglages, maintenant = Date.now()) {
-  if (!bilan) return [];
-  const r = normaliserReglagesSession(reglages);
-  // Dernière partie finie il y a moins de 45 min : tu es toujours en train de jouer.
-  // Sinon, tu as déjà fait une vraie pause : aucune alerte.
-  if (maintenant - bilan.fin > PAUSE_MAX_SESSION_MS) return [];
-  const alertes = [];
-  if (r.alerteDefaites && bilan.defaitesDAffilee >= r.seuilDefaites) {
-    alertes.push({
-      type: "pause",
-      cle: `pause-${bilan.idDebutSerie}`,
-      titre: `${bilan.defaitesDAffilee} défaites d'affilée. Une pause de 10 minutes ?`,
-      message: "Ça arrive à tout le monde. Te lever, boire un verre d'eau et revenir plus frais aide souvent à repartir du bon pied.",
-    });
-  }
-  const tranche = r.heuresRappel * 60 * 60 * 1000;
-  const dureeMs = maintenant - bilan.debut;
-  if (r.rappelDuree && dureeMs >= tranche) {
-    const palier = Math.floor(dureeMs / tranche);
-    alertes.push({
-      type: "duree",
-      cle: `duree-${bilan.debut}-${palier}`,
-      titre: `Tu joues depuis ${texteDuree((palier * tranche) / 1000)}.`,
-      message: "Pense à t'étirer et à reposer tes yeux quelques minutes.",
-    });
-  }
-  if (r.alerteVictoires && bilan.victoiresDAffilee >= r.seuilVictoires) {
-    const n = bilan.victoiresDAffilee;
-    alertes.push({
-      type: "diable",
-      cle: `diable-${bilan.idDebutVictoires}-${n}`, // une notification par victoire en plus dans la série
-      titre: n >= 5 ? `😈 ${n} victoires d'affilée. Personne ne t'arrête ce soir.` : `😈 ${n} victoires d'affilée. Encore une ?`,
-      message: "Tu es en feu : relance tant que la série est chaude.",
-    });
-  }
-  return alertes;
 }
 
 // ---------------------------------------------------------------------------
@@ -928,15 +823,10 @@ function tempsDeJeu({ parties, compte, maintenant = Date.now() }) {
 if (typeof module !== "undefined") {
   module.exports = {
     tempsDeJeu,
-    REGLAGES_SESSION_PAR_DEFAUT,
-    normaliserReglagesSession,
     partiesDeSession,
     xpDePartie,
-    defaitesDAffilee,
-    victoiresDAffilee,
     bilanSession,
     texteDuree,
-    alertesSession,
     estimerPartiesMaitrise,
     texteNotesRequises,
     trierMaitrises,

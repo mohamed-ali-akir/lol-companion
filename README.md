@@ -20,7 +20,7 @@ publiques (Lolalytics, OP.GG).*
 | **Maîtrise** | Les champions les plus proches du niveau de maîtrise suivant, tes plus joués, la liste complète |
 | **Sélection** | Conseiller de draft : les 5 meilleurs champions pour la draft en cours, avec la raison (matchups, synergies). Pick et ban automatiques (désactivés par défaut) : 3 champions et 3 bans dans l'ordre, par rôle |
 | **Build** | Build de ton champion d'après les statistiques de Lolalytics et d'OP.GG (3 choix par emplacement avec taux de victoire et de sélection, runes, sorts), page de runes et set d'objets créés automatiquement, consultation du build de n'importe quel champion ; en jeu : stats des augments (ARAM Mayhem) et chronos des sorts adverses (Faille) |
-| **Paramètres** | Acceptation automatique, session et pauses, arrière-plan, dossier du jeu, effacement des historiques |
+| **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu |
 
 <details>
 <summary><strong>Voir une capture de chaque onglet</strong></summary>
@@ -60,12 +60,7 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 
 - **Bilan de session** (Accueil) : parties, victoires / défaites, XP gagnée (estimée, hors missions), temps de jeu et
   meilleur champion de la session. La session commence à ta première partie du jour (une soirée sans vraie pause
-  continue après minuit) ou à l'ouverture de l'appli, au choix. **Alertes douces** : « 3 défaites d'affilée. Une pause
-  de 10 minutes ? » (nombre réglable, désactivable, remakes ignorés) et, si tu l'actives, « Tu joues depuis 2 h ».
-  En option aussi, la **notif « diable »** 😈 : « 3 victoires d'affilée. Encore une ? », puis une à chaque victoire en
-  plus de la série (nombre réglable, désactivée par défaut). Changer un nombre (défaites, heures, victoires) coche
-  l'option qui va avec : les nombres restent toujours modifiables.
-  Un simple « OK » pour fermer : jamais de blocage, jamais de reproche. Notification Windows seulement si tu la coches
+  continue après minuit). Les alertes de session (pause, temps de jeu, notif « diable ») ont été retirées le 17/10/2026
 - **Niveau** : niveau visé (30 proposé pour la classée, sinon le prochain palier de 25) et temps de jeu par jour.
   Calcul pour ARAM du Chaos, ARAM, Swiftplay et Draft avec **ta** durée moyenne et **ton** taux de victoire (valeurs
   moyennes si tu n'as pas assez de parties), le mode le plus rapide mis en avant, 2 min d'attente comptées par partie,
@@ -88,8 +83,8 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 - **Maîtrise** : points restants et **marques de maîtrise** manquantes (système de 2024), avec la note à obtenir pour
   en gagner. Estimation « ≈ N parties » à partir de ta moyenne de points par partie sur ce champion, mesurée par
   l'appli après tes parties. Recherche et tri (par points ou par proximité du niveau suivant)
-- **Acceptation automatique** de la partie trouvée (désactivée par défaut) : après un délai réglable, jamais si tu as
-  déjà répondu, jamais deux fois la même. Notification « Partie trouvée ! » si League n'est pas au premier plan
+- **Acceptation automatique** de la partie trouvée (une seule case, désactivée par défaut) : après 2 s, jamais si tu
+  as déjà répondu, jamais deux fois la même. Notification « Partie trouvée ! » si League n'est pas au premier plan
 - **Conseiller de draft** (onglet Sélection, désactivé par défaut, comme iTero.gg en plus simple) : pendant la
   sélection, l'appli classe **les champions que tu peux jouer** à ton poste et affiche les 5 meilleurs, mis à jour à
   chaque champion verrouillé : « Nasus 57,6 % · +3,1 contre Zed · +2,1 contre Yasuo · +0,7 avec Lee Sin ». Le score
@@ -164,14 +159,12 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   La même case lance aussi le chrono quand un allié (ou toi) pingue le sort dans le chat (voir plus bas).
   Le reste de l'écran laisse passer les clics au jeu. Mode « Sans bordure » requis (rappel affiché dans l'onglet Build).
 - **Arrière-plan** : une icône dans la zone de notification de Windows (Ouvrir, Acceptation auto à cocher, Quitter).
-  La croix **cache** la fenêtre au lieu de quitter (réglable) : la surveillance continue (acceptation auto,
-  notifications, mise à jour après chaque partie), et la première fois une notification l'explique. Option
-  « Lancer au démarrage de Windows » (désactivée par défaut), éventuellement « réduit » : l'appli tourne alors cachée
-  et se connecte toute seule dès que League s'ouvre. Notification **« LoL Companion est prêt »** quand League est
-  détecté (avec ce qui est actif : acceptation, pick/ban, build), seulement si la fenêtre est cachée, une fois par
-  lancement de League, désactivable. Option **« Ouvrir la fenêtre quand League se lance »** (désactivée par défaut) :
-  avec le démarrage de Windows en réduit, l'appli s'affiche toute seule dès que tu lances League (sans prendre le
-  clavier au client), au lieu de la notification. Une seule instance à la fois : relancer l'appli réaffiche la fenêtre déjà ouverte
+  Plus aucun réglage (décidé le 17/10/2026) : l'appli installée **se lance avec Windows**, réduite dans la zone de
+  notification, et se connecte toute seule dès que League s'ouvre. La croix **cache** la fenêtre au lieu de quitter :
+  la surveillance continue (acceptation auto, notifications, mise à jour après chaque partie), et la première fois une
+  notification l'explique. Notification **« LoL Companion est prêt »** quand League est détecté (avec ce qui est
+  actif : acceptation, pick/ban, build), seulement si la fenêtre est cachée, une fois par lancement de League.
+  Pour arrêter l'appli : clic droit sur l'icône → Quitter. Une seule instance à la fois : relancer l'appli réaffiche la fenêtre déjà ouverte
 
 ## Installation
 
@@ -209,7 +202,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (437, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (408, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -545,7 +538,7 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |
 
-Effacer la courbe ou les parties : onglet **Paramètres**. Pour tout effacer, supprime ce dossier.
+Pour effacer la courbe ou les parties, supprime ce dossier (appli quittée).
 
 ## Comment fonctionne le calcul d'XP
 
@@ -569,7 +562,6 @@ lol-level-calculator/
 ├── parties.js         # Historique local des parties (parties.json)
 ├── champions.js       # Noms et icônes des champions (protocole lcu-image), pour plusieurs onglets et l'overlay
 ├── maitrise.js        # Maîtrise : lecture tolérante, mesure des points par partie (maitrise.json)
-├── session.js         # Session : quelles alertes de pause notifier (une seule fois chacune)
 ├── acceptation.js     # Acceptation automatique + détection du premier plan
 ├── selection.js       # Pick et ban automatiques (rôle, listes, champions disponibles, délais)
 ├── draft.js           # Conseiller de draft : picks verrouillés, score (matchups, synergies, confort), suivi

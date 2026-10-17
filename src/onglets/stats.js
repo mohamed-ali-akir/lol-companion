@@ -333,14 +333,6 @@ function renduCarteAccueilStats() {
   ].filter(Boolean).join(" · ");
 }
 
-async function effacerStats() {
-  if (!window.confirm("Effacer l'historique des parties ? Tes stats repartiront des parties que le client garde en mémoire.")) return;
-  await window.appli.effacerStats();
-  partiesStats = [];
-  afficherEtat("etatStats", "Historique des parties effacé ✓", "ok");
-  mettreAJour();
-}
-
 function brancherStats() {
   $("filtreMode").addEventListener("change", (e) => {
     fileStats = e.target.value;
@@ -371,7 +363,6 @@ function brancherStats() {
     });
   }
   if (window.appli) {
-    $("effacerStats").addEventListener("click", effacerStats);
     $("boutonImport").addEventListener("click", importerHistorique);
     window.appli.surProgressionImport(afficherProgressionImport);
   }

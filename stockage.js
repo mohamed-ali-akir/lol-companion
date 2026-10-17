@@ -20,8 +20,7 @@ const path = require("path");
 const { normaliserReglages } = require("./acceptation.js");
 const { normaliserReglagesSelection } = require("./selection.js");
 const { normaliserReglagesBuild } = require("./build.js");
-const { normaliserReglagesSession } = require("./src/calculs.js");
-const { normaliserReglagesArrierePlan } = require("./arriere-plan.js");
+const { imposerReglagesArrierePlan } = require("./arriere-plan.js");
 const { normaliserPositionSorts } = require("./sorts.js");
 
 // Dossier du jeu par défaut selon le système (c'est là que le client écrit son « lockfile »).
@@ -164,24 +163,13 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     return propres;
   }
 
-  /** Réglages du bilan de session et des alertes de pause, toujours valides. */
-  function reglagesSession() {
-    return normaliserReglagesSession(lire().session);
-  }
-
-  function enregistrerReglagesSession(reglages) {
-    const propres = normaliserReglagesSession(reglages);
-    modifier({ session: propres });
-    return propres;
-  }
-
   /** Réglages du fonctionnement en arrière-plan (fermer = réduire, démarrage de Windows). */
   function reglagesArrierePlan() {
-    return normaliserReglagesArrierePlan(lire().arrierePlan);
+    return imposerReglagesArrierePlan(lire().arrierePlan);
   }
 
   function enregistrerReglagesArrierePlan(reglages) {
-    const propres = normaliserReglagesArrierePlan(reglages);
+    const propres = imposerReglagesArrierePlan(reglages);
     modifier({ arrierePlan: propres });
     return propres;
   }
@@ -221,8 +209,6 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     noterPrevenuReduction,
     positionSorts,
     enregistrerPositionSorts,
-    reglagesSession,
-    enregistrerReglagesSession,
     nettoyerAnciensReglages,
     dossierJeu,
     enregistrerDossierJeu,

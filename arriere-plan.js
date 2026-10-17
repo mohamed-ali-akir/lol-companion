@@ -15,12 +15,28 @@ const ARGUMENT_REDUIT = "--reduit";
 
 const REGLAGES_ARRIERE_PLAN_PAR_DEFAUT = {
   fermerReduit: true, // la croix cache la fenêtre au lieu de quitter (activé par défaut)
-  lancerAuDemarrage: false, // lancer l'appli au démarrage de Windows (désactivé par défaut)
+  lancerAuDemarrage: false, // lancer l'appli au démarrage de Windows
   demarrerReduit: false, // au démarrage de Windows : sans ouvrir la fenêtre
   prevenirClientDetecte: true, // notification « LoL Companion est prêt » quand League est détecté (fenêtre cachée)
   ouvrirAvecLeague: false, // ouvrir la fenêtre quand League se lance (fenêtre cachée ; désactivé par défaut)
   majAuto: true, // chercher les mises à jour de l'appli sur GitHub (mise-a-jour.js ; activé par défaut, décidé le 11/10/2026)
 };
+
+// Ces réglages n'apparaissent plus dans l'appli (décidé le 17/10/2026) : l'appli se lance toujours avec Windows,
+// réduite dans la zone de notification ; la croix la cache ; « LoL Companion est prêt » quand League est détecté.
+// stockage.js les impose (même un ancien choix enregistré est ignoré). Seule la mise à jour automatique se règle.
+const REGLAGES_ARRIERE_PLAN_IMPOSES = {
+  fermerReduit: true,
+  lancerAuDemarrage: true,
+  demarrerReduit: true,
+  prevenirClientDetecte: true,
+  ouvrirAvecLeague: false,
+};
+
+/** Réglages enregistrés, avec les valeurs imposées par-dessus (seul majAuto vient de ton choix). */
+function imposerReglagesArrierePlan(r) {
+  return { ...normaliserReglagesArrierePlan(r), ...REGLAGES_ARRIERE_PLAN_IMPOSES };
+}
 
 /** Réglages toujours valides : une valeur absente ou abîmée prend la valeur par défaut. */
 function normaliserReglagesArrierePlan(r) {
@@ -175,6 +191,8 @@ module.exports = {
   ARGUMENT_REDUIT,
   REGLAGES_ARRIERE_PLAN_PAR_DEFAUT,
   normaliserReglagesArrierePlan,
+  imposerReglagesArrierePlan,
+  REGLAGES_ARRIERE_PLAN_IMPOSES,
   actionFermeture,
   parametresDemarrageWindows,
   estDemarrageReduit,
