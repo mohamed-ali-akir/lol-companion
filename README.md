@@ -21,6 +21,8 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
   est détecté. La croix cache la fenêtre ; pour quitter : clic droit sur l'icône → Quitter.
 - **Rien d'imposé** : tout ce qui agit sur le client (acceptation, pick/ban, runes, sorts) est **désactivé par
   défaut** et s'active d'une case.
+- **Prise en main en 3 questions** : à la première ouverture, un assistant demande si tu veux ton build tout prêt,
+  les chronos des sorts adverses et l'acceptation automatique, puis coche les bonnes cases pour toi.
 - **Respect de ta vie privée** : tes données restent sur ton PC ; les seuls appels à Internet envoient des noms de
   champions, de postes et de modes, jamais ton Riot ID (voir [Sécurité](#sécurité)).
 
@@ -28,13 +30,13 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 
 | Onglet | Ce qu'il montre |
 |---|---|
-| **Accueil** | Le bilan de ta session (parties, V/D, XP gagnée, temps de jeu, meilleur champion), puis une carte par sujet : niveau, objectif, rythme, acceptation auto, stats, temps passé sur LoL, maîtrise. Chaque carte ouvre l'onglet détaillé |
+| **Accueil** | Le bilan de ta session (parties, V/D, XP gagnée, temps de jeu, meilleur champion), le résumé de ta dernière partie (comparée à tes habitudes), puis une carte par sujet : niveau, objectif, rythme, acceptation auto, stats, temps passé sur LoL, maîtrise. Chaque carte ouvre l'onglet détaillé |
 | **Niveau** | Le calculateur : parties, heures et jours restants avant ton niveau visé, pour 4 modes, et ta courbe de progression |
 | **Stats** | Taux de victoire et KDA par champion et par mode, meilleurs champions, moments où tu gagnes le plus (30 jours ou tout), import de tout ton historique, temps passé sur LoL depuis la création du compte |
 | **Maîtrise** | Les champions les plus proches du niveau suivant (points et marques manquants, ≈ parties restantes), tes plus joués, la liste complète |
 | **Sélection** | Conseiller de draft (les 5 meilleurs champions pour la draft en cours, avec la raison) et pick/ban automatiques par rôle |
 | **Build** | Build de ton champion (Lolalytics + OP.GG) : page de runes, set d'objets et sorts créés pour toi, set « Champion Rank 1 », chronos des sorts adverses, consultation du build de n'importe quel champion |
-| **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu |
+| **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu, relancer l'assistant de démarrage |
 
 <details>
 <summary><strong>Voir une capture de chaque onglet</strong></summary>
@@ -71,6 +73,14 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 - **Bilan de session** (Accueil) : parties, victoires / défaites, XP gagnée (estimée, hors missions), temps de jeu et
   meilleur champion. La session commence à ta première partie du jour ; une soirée sans vraie pause (moins de
   45 min entre deux parties) continue après minuit.
+- **Résumé d'après-partie** (Accueil, carte « Ta dernière partie ») : KDA, CS, or, dégâts et vision par minute de ta
+  dernière partie, comparés à la moyenne de tes 20 parties précédentes **du même genre** (Faille, ARAM ou Arena :
+  pas de vision hors de la Faille, pas de CS en Arena). Flèche verte au-dessus de ta moyenne, rouge en dessous,
+  « comme d'habitude » à moins de 5 %. Les détails viennent de l'historique du client (aucun appel à Internet) ; les
+  parties enregistrées avant cette version sont complétées dès que le client les relit (ses 20 dernières).
+- **Assistant de première ouverture** : 3 questions (build tout prêt, chronos des sorts, acceptation automatique),
+  une par écran, réponse Oui / Non. Les réponses proposées sont tes réglages actuels ; « Passer » (ou Échap) ne change
+  rien. Il ne revient plus ensuite, sauf avec Paramètres → « Relancer l'assistant ».
 - **Niveau** : niveau visé (30 proposé pour la classée, sinon le prochain palier de 25) et temps de jeu par jour.
   Calcul pour ARAM du Chaos, ARAM, Swiftplay et Draft avec **ta** durée moyenne et **ton** taux de victoire (valeurs
   moyennes si tu n'as pas assez de parties), le mode le plus rapide mis en avant, 2 min d'attente comptées par partie,
@@ -563,8 +573,8 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | Fichier | Contenu |
 |---|---|
 | `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
-| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`) |
-| `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, sans doublons, 25 000 au maximum par compte |
+| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`), assistant de première ouverture déjà vu (`assistantVu`) |
+| `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, plus `cs`, `or`, `degats`, `vision` quand le client les donne (résumé d'après-partie), sans doublons, 25 000 au maximum par compte |
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |
 
@@ -638,9 +648,10 @@ lol-level-calculator/
 ├── src/
 │   ├── index.html     # Interface : carte "Ton compte", barre d'onglets, un panneau par onglet
 │   ├── style.css      # Design
-│   ├── calculs.js     # Calculs purs (XP, modes, stats, maîtrise, session) : page, main.js et tests
+│   ├── calculs.js     # Calculs purs (XP, modes, stats, maîtrise, session, dernière partie) : page, main.js et tests
 │   ├── commun.js      # État partagé, petits outils, mettreAJour() qui redessine tous les onglets
-│   ├── onglets/       # Un fichier par onglet (+ compte.js pour la carte du compte, session.js pour la session)
+│   ├── onglets/       # Un fichier par onglet (+ compte.js : carte du compte, session.js : session,
+│   │                  #   derniere-partie.js : résumé d'après-partie, assistant.js : assistant de première ouverture)
 │   └── app.js         # Démarrage : branche tout (explique l'ordre de chargement)
 └── test/              # Un fichier de tests par module, faux client dans chaque test réseau, certificat de test
 ```

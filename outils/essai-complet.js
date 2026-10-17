@@ -56,7 +56,10 @@ for (let i = 0; i < 50; i++) {
   parties.push({
     gameId: 7000000 + i, queueId: file, gameDuration: Math.round(minutes * 60), gameCreation: date,
     participants: [{ participantId: 1, championId: JOUES[Math.floor(hasard() * JOUES.length)],
-      stats: { win: victoire, kills: Math.floor(hasard() * 12), deaths: 1 + Math.floor(hasard() * 8), assists: Math.floor(hasard() * 18) } }],
+      stats: { win: victoire, kills: Math.floor(hasard() * 12), deaths: 1 + Math.floor(hasard() * 8), assists: Math.floor(hasard() * 18),
+        totalMinionsKilled: Math.round(minutes * (file === 400 ? 5 + hasard() * 3 : 2 + hasard() * 2)), neutralMinionsKilled: Math.floor(hasard() * 10),
+        goldEarned: Math.round(minutes * (330 + hasard() * 120)), totalDamageDealtToChampions: Math.round(minutes * (500 + hasard() * 900)),
+        visionScore: Math.round(minutes * hasard() * 1.2) } }],
     participantIdentities: [{ participantId: 1, player: { puuid: "puuid-demo" } }],
   });
 }
@@ -142,7 +145,7 @@ async function photographier(fenetre, nom) {
 
 // Ce que chaque onglet doit montrer avec le compte fictif (texte cherché dans le panneau).
 const ATTENDU = {
-  accueil: ["Niveau 27", "Ta session"],
+  accueil: ["Niveau 27", "Ta session", "Ta dernière partie", "ta moyenne"],
   niveau: ["parties"],
   stats: ["Par champion", "Ahri"],
   maitrise: ["Ahri"],
@@ -167,6 +170,37 @@ require(path.join(PROJET, "main.js"));
     if (details.level === "error" || details.level === 3) problemes.push(`page : ${details.message}`);
   });
   fenetre.setSize(900, 950);
+  // Première ouverture : l'assistant pose ses 3 questions et règle les cases ; il ne revient plus ensuite.
+  const page = (code) => fenetre.webContents.executeJavaScript(code);
+  const config = () => JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "config.json"), "utf8"));
+  const assistant = await page(`({ ouvert: $("assistant").open, titre: $("assistantTitre").textContent })`);
+  if (!assistant.ouvert || !assistant.titre.includes("Bienvenue")) problemes.push("assistant de première ouverture : pas affiché");
+  const repondre = async (bouton, etape) => {
+    await page(`$("assistantBoutons").querySelectorAll("button")[${bouton}].click(); true`);
+    await attendre(400);
+    if (SORTIE && etape) {
+      // La fenêtre de l'assistant est par-dessus la page : on photographie ce qui est à l'écran.
+      fs.mkdirSync(SORTIE, { recursive: true });
+      fs.writeFileSync(path.join(SORTIE, `assistant-${etape}.png`), (await fenetre.webContents.capturePage()).toPNG());
+    }
+  };
+  await repondre(0, "question"); // « C'est parti »
+  await repondre(1); // build : non
+  await repondre(0); // chronos : oui
+  await repondre(1, "fin"); // accepter : non
+  const reglages = config();
+  if (reglages.buildAuto.stats !== false || reglages.buildAuto.sorts !== true || reglages.acceptationAuto.actif !== false || reglages.assistantVu !== true) {
+    problemes.push(`assistant : réponses mal enregistrées (${JSON.stringify({ build: reglages.buildAuto, acceptation: reglages.acceptationAuto })})`);
+  }
+  if (!(await page(`$("buildSorts").checked && !$("buildStats").checked && !$("autoAccepter").checked`))) problemes.push("assistant : cases des onglets pas mises à jour");
+  await repondre(0); // « Terminer »
+  // Relancé depuis Paramètres, puis « Passer » : fermé sans rien changer.
+  await page(`$("assistantRelancer").click(); true`);
+  await attendre(400);
+  await page(`$("assistantPasser").click(); true`);
+  await attendre(400);
+  if (await page(`$("assistant").open`)) problemes.push("assistant : « Passer » ne le ferme pas");
+  if (JSON.stringify(config().buildAuto) !== JSON.stringify(reglages.buildAuto)) problemes.push("assistant : « Passer » a changé des réglages");
   const aller = (onglet) => fenetre.webContents.executeJavaScript(`activerOnglet(${JSON.stringify(onglet)}, { memoriser: false }); window.scrollTo(0, 0); true`);
   const texteDuPanneau = (onglet) => fenetre.webContents.executeJavaScript(`document.getElementById(${JSON.stringify(`panneau-${onglet}`)}).innerText`);
   for (const [onglet, mots] of Object.entries(ATTENDU)) {

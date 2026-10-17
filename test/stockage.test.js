@@ -131,3 +131,13 @@ test("place du panneau des sorts : gardée dans config.json, retour à la place 
   assert.strictEqual(stockage.positionSorts(), null);
   assert.ok(!("positionSorts" in JSON.parse(contenuFichier())));
 });
+
+test("assistant de première ouverture : pas vu au départ, vu pour toujours ensuite (une seule écriture)", () => {
+  const { stockage, contenuFichier } = nouveauStockage();
+  assert.strictEqual(stockage.assistantVu(), false);
+  stockage.noterAssistantVu();
+  assert.strictEqual(stockage.assistantVu(), true);
+  const avant = contenuFichier();
+  stockage.noterAssistantVu();
+  assert.strictEqual(contenuFichier(), avant);
+});

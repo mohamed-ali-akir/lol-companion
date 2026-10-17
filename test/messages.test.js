@@ -43,6 +43,8 @@ function fauxServices(changements = {}) {
     reglagesArrierePlan: () => ({}),
     enregistrerReglagesArrierePlan: (r) => ({ ...r, propre: true }),
     enregistrerPositionSorts: (p) => journal.appels.push(["position", p]),
+    assistantVu: () => reglages.assistantVu === true,
+    noterAssistantVu: () => (reglages.assistantVu = true),
   };
   const services = {
     estPage: (e) => e === PAGE,
@@ -162,7 +164,16 @@ test("config:lire : réglages du disque et de l'appli réunis", async () => {
     dossierJeu: "C:\\Riot Games\\League of Legends",
     dernierCompte: { nom: "Moi", tag: "EUW" },
     ongletActif: "stats",
+    assistantVu: false,
   });
+});
+
+test("assistant de première ouverture : noté comme vu, puis config:lire le dit", async () => {
+  const { ipc } = brancher();
+  assert.strictEqual((await ipc.demander("config:lire")).assistantVu, false);
+  await ipc.demander("config:assistantVu");
+  assert.strictEqual((await ipc.demander("config:lire")).assistantVu, true);
+  await assert.rejects(ipc.demander("config:assistantVu", ETRANGER), /refusé/);
 });
 
 test("progression et historique : demandés avec le Riot ID du compte", async () => {

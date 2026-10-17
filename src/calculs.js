@@ -819,6 +819,101 @@ function tempsDeJeu({ parties, compte, maintenant = Date.now() }) {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Résumé d'après-partie (carte de l'Accueil) : ta dernière partie comparée à tes habitudes
+// ---------------------------------------------------------------------------
+// Comparée à tes PARTIES_COMPARAISON parties précédentes du même genre (Faille, ARAM ou Arena : on ne compare pas
+// les CS d'une ARAM à ceux d'une partie sur la Faille). Les détails (cs, or, degats, vision) viennent de
+// l'historique du client ; les parties enregistrées par les anciennes versions n'en ont pas : elles ne comptent
+// que pour le KDA.
+
+const PARTIES_COMPARAISON = 20;
+const MIN_PARTIES_COMPARAISON = 3; // en dessous, pas de moyenne : « joue encore quelques parties »
+const MARGE_TENDANCE = 0.05; // à moins de 5 % de ta moyenne : « comme d'habitude »
+const FILES_ARAM = new Set([100, 450, 720, 2400]); // Abîme hurlant (ARAM, ARAM du Chaos...)
+const FILES_ARENA = new Set([1700, 1710]);
+
+/** "faille", "aram" ou "arena" (une file inconnue compte comme la Faille). */
+function genreDePartie(file) {
+  if (FILES_ARAM.has(file)) return "aram";
+  if (FILES_ARENA.has(file)) return "arena";
+  return "faille";
+}
+
+/** Valeur par minute de jeu, ou null si le détail manque (ancienne partie) ou si la durée est illisible. */
+function parMinute(valeur, partie) {
+  const minutes = Number.isFinite(partie.dureeS) && partie.dureeS > 0 ? partie.dureeS / 60 : 0;
+  return Number.isFinite(valeur) && valeur >= 0 && minutes > 0 ? valeur / minutes : null;
+}
+
+// genres : où la mesure a un sens (pas de CS en Arena, pas de vision hors de la Faille).
+const MESURES_PARTIE = [
+  { cle: "kda", nom: "KDA", decimales: 2, genres: ["faille", "aram", "arena"], valeur: (p) => kda(p.kills, p.deaths, p.assists).valeur },
+  { cle: "cs", nom: "CS / min", decimales: 1, genres: ["faille", "aram"], valeur: (p) => parMinute(p.cs, p) },
+  { cle: "or", nom: "Or / min", decimales: 0, genres: ["faille", "aram", "arena"], valeur: (p) => parMinute(p.or, p) },
+  { cle: "degats", nom: "Dégâts / min", decimales: 0, genres: ["faille", "aram", "arena"], valeur: (p) => parMinute(p.degats, p) },
+  { cle: "vision", nom: "Vision / min", decimales: 2, genres: ["faille"], valeur: (p) => parMinute(p.vision, p) },
+];
+
+const entierOuZero = (n) => Number.isInteger(n) && n >= 0;
+
+/** "mieux", "moins" ou "pareil" (à moins de MARGE_TENDANCE de la moyenne). */
+function tendance(valeur, moyenne) {
+  if (moyenne === 0) return valeur > 0 ? "mieux" : "pareil";
+  const ecart = (valeur - moyenne) / moyenne;
+  if (ecart > MARGE_TENDANCE) return "mieux";
+  if (ecart < -MARGE_TENDANCE) return "moins";
+  return "pareil";
+}
+
+/**
+ * Résumé de la dernière partie : { partie, genre, comparees, mesures: [{ cle, nom, decimales, valeur, moyenne,
+ * ecart, tendance }] }, ou null s'il n'y a aucune partie. moyenne / ecart / tendance valent null quand il y a moins
+ * de MIN_PARTIES_COMPARAISON parties à comparer pour cette mesure. Les remakes ne comptent pas.
+ */
+function resumeDernierePartie(parties, { nombre = PARTIES_COMPARAISON, min = MIN_PARTIES_COMPARAISON } = {}) {
+  const jouees = (Array.isArray(parties) ? parties : [])
+    .filter((p) => p && Number.isFinite(p.date) && !estRemake(p) && entierOuZero(p.kills) && entierOuZero(p.deaths) && entierOuZero(p.assists))
+    .sort((a, b) => b.date - a.date);
+  if (jouees.length === 0) return null;
+  const [derniere] = jouees;
+  const genre = genreDePartie(derniere.file);
+  const avant = jouees.slice(1).filter((p) => genreDePartie(p.file) === genre).slice(0, nombre);
+
+  const mesures = [];
+  for (const m of MESURES_PARTIE) {
+    if (!m.genres.includes(genre)) continue;
+    const valeur = m.valeur(derniere);
+    if (valeur === null) continue; // détail absent de cette partie
+    const valeurs = avant.map(m.valeur).filter((v) => v !== null);
+    const moyenne = valeurs.length >= min ? valeurs.reduce((s, v) => s + v, 0) / valeurs.length : null;
+    mesures.push({
+      cle: m.cle,
+      nom: m.nom,
+      decimales: m.decimales,
+      valeur,
+      moyenne,
+      ecart: moyenne === null ? null : valeur - moyenne,
+      tendance: moyenne === null ? null : tendance(valeur, moyenne),
+    });
+  }
+  return { partie: derniere, genre, comparees: avant.length, mesures };
+}
+
+/** Une phrase pour le haut de la carte : « Mieux que d'habitude sur 3 points sur 4. » (ou null sans comparaison). */
+function phraseDernierePartie(resume) {
+  const comparees = resume ? resume.mesures.filter((m) => m.tendance) : [];
+  if (comparees.length === 0) return null;
+  const mieux = comparees.filter((m) => m.tendance === "mieux").length;
+  const moins = comparees.filter((m) => m.tendance === "moins").length;
+  const sur = `sur ${comparees.length} point${comparees.length > 1 ? "s" : ""}`;
+  if (mieux === comparees.length) return `Au-dessus de tes habitudes partout. Belle partie !`;
+  if (moins === comparees.length) return `En dessous de tes habitudes partout : ça arrive, la prochaine sera meilleure.`;
+  if (mieux > moins) return `Mieux que d'habitude sur ${mieux} point${mieux > 1 ? "s" : ""} (${sur}).`;
+  if (moins > mieux) return `En dessous de tes habitudes sur ${moins} point${moins > 1 ? "s" : ""} (${sur}).`;
+  return `Dans tes habitudes (${sur}).`;
+}
+
 // Dans Node (tests, main.js), on exporte les fonctions. Dans la page, elles sont déjà globales.
 if (typeof module !== "undefined") {
   module.exports = {
@@ -827,6 +922,10 @@ if (typeof module !== "undefined") {
     xpDePartie,
     bilanSession,
     texteDuree,
+    genreDePartie,
+    resumeDernierePartie,
+    phraseDernierePartie,
+    MESURES_PARTIE,
     estimerPartiesMaitrise,
     texteNotesRequises,
     trierMaitrises,

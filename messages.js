@@ -105,7 +105,9 @@ function brancherMessages(ipcMain, services) {
     dossierJeu: s.stockage().dossierJeu(),
     dernierCompte: s.stockage().dernierCompte(), // pour l'afficher même si le client est fermé
     ongletActif: s.stockage().ongletActif(), // pour rouvrir le même onglet
+    assistantVu: s.stockage().assistantVu(), // assistant de première ouverture déjà vu ?
   }));
+  repondre("config:assistantVu", () => s.stockage().noterAssistantVu());
   repondre("config:enregistrerOnglet", (nom) => essayer(() => s.stockage().enregistrerOngletActif(nom)));
   repondre("config:enregistrerDossierJeu", (dossier) =>
     essayer(() => {

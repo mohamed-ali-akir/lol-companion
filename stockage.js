@@ -12,7 +12,8 @@
  *  - les réglages du pick et du ban automatiques et tes listes de champions (désactivés par défaut) ;
  *  - les réglages du build automatique : stats OP.GG, runes, set d'objets (désactivés par défaut) ;
  *  - les réglages de la session (début de session, alertes de pause) ;
- *  - les réglages de l'arrière-plan (fermer = réduire, démarrage avec Windows).
+ *  - les réglages de l'arrière-plan (fermer = réduire, démarrage avec Windows) ;
+ *  - si l'assistant de première ouverture a déjà été vu (assistantVu).
  * L'appli n'utilise plus de clé API Riot.
  */
 const path = require("path");
@@ -193,6 +194,15 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     modifier({ prevenuReduction: true });
   }
 
+  /** L'assistant de première ouverture a-t-il déjà été vu (fini ou passé) ? */
+  function assistantVu() {
+    return lire().assistantVu === true;
+  }
+
+  function noterAssistantVu() {
+    if (!assistantVu()) modifier({ assistantVu: true });
+  }
+
   return {
     lire,
     modifier,
@@ -206,6 +216,8 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     enregistrerReglagesArrierePlan,
     dejaPrevenuReduction,
     noterPrevenuReduction,
+    assistantVu,
+    noterAssistantVu,
     positionSorts,
     enregistrerPositionSorts,
     nettoyerAnciensReglages,

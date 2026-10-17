@@ -7,8 +7,10 @@
  *   2. commun.js            : état partagé, petits outils, mettreAJour() qui redessine tous les onglets
  *   3. onglets/onglets.js   : la barre d'onglets
  *   4. onglets/compte.js    : la carte "Ton compte" (lecture du client)
- *   5. onglets/accueil.js, niveau.js, stats.js, maitrise.js, session.js (bilan de session), parametres.js,
- *      selection.js (pick et ban automatiques), build.js (objets et runes) : un fichier par onglet
+ *   5. onglets/accueil.js, niveau.js, stats.js, maitrise.js, session.js (bilan de session),
+ *      derniere-partie.js (résumé d'après-partie), parametres.js, selection.js (pick et ban automatiques),
+ *      build.js (objets et runes) : un fichier par onglet ou par carte de l'Accueil
+ *      assistant.js : les 3 questions de la première ouverture
  *   6. app.js (ce fichier)  : branche tout et démarre
  *
  * Pourquoi des scripts classiques et pas des modules ES ? Les deux marchent dans Electron,
@@ -23,6 +25,7 @@ async function initialiser() {
   brancherStats();
   brancherMaitrise();
   brancherSession();
+  brancherDernierePartie();
 
   // Fenêtre redimensionnée : on redessine (les graphiques suivent la largeur de la fenêtre).
   let minuterieTaille = null;
@@ -46,6 +49,7 @@ async function initialiser() {
   brancherParametres();
   brancherSelection();
   brancherBuild();
+  brancherAssistant();
 
   // Surveillance en direct : main.js prévient la page après chaque partie.
   window.appli.surMiseAJour(miseAJourAutomatique);
@@ -56,6 +60,7 @@ async function initialiser() {
 
   const config = await afficherParametres();
   activerOnglet(config.ongletActif || ONGLET_PAR_DEFAUT, { memoriser: false }); // onglet du dernier lancement
+  if (!config.assistantVu) ouvrirAssistant(); // première ouverture : 3 questions pour tout régler
   mettreAJour(); // affiche « Lance League of Legends… » en attendant le client
 
   // Dernier compte enregistré : affiché tout de suite, remplacé dès que le client répond.

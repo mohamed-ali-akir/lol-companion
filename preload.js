@@ -8,6 +8,7 @@ contextBridge.exposeInMainWorld("appli", {
   lireConfig: () => ipcRenderer.invoke("config:lire"),
   enregistrerDossierJeu: (dossier) => ipcRenderer.invoke("config:enregistrerDossierJeu", dossier),
   enregistrerOnglet: (nom) => ipcRenderer.invoke("config:enregistrerOnglet", nom),
+  noterAssistantVu: () => ipcRenderer.invoke("config:assistantVu"), // assistant de première ouverture fini ou passé
   recupererDepuisClient: () => ipcRenderer.invoke("client:recuperer"),
   etatConnexion: () => ipcRenderer.invoke("client:etatConnexion"),
   lireEtatAppli: () => ipcRenderer.invoke("appli:etat"),

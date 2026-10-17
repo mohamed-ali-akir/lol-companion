@@ -1291,3 +1291,94 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
   margin: 12px 0 0;
   padding-left: 18px;
 }
+
+/* ---------------------------------------------------------------------------
+   Résumé d'après-partie (carte « Ta dernière partie » de l'Accueil)
+   --------------------------------------------------------------------------- */
+
+.carte-derniere {
+  grid-column: 1 / -1; /* toute la largeur, sous la session */
+}
+
+.carte-derniere h2 {
+  margin: 0;
+}
+
+.derniere-champion {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin: 10px 0 0;
+}
+
+.derniere-champion strong {
+  color: var(--gold-light);
+  font-size: 1.1rem;
+}
+
+.resultat-victoire { color: var(--accent); font-weight: 600; }
+.resultat-defaite { color: var(--danger); font-weight: 600; }
+.tendance-mieux { color: var(--accent); }
+.tendance-moins { color: var(--danger); }
+.tendance-pareil { color: var(--text-muted); }
+.tendance-moyenne { color: var(--text-muted); }
+
+/* ---------------------------------------------------------------------------
+   Assistant de première ouverture (fenêtre par-dessus l'appli)
+   --------------------------------------------------------------------------- */
+
+.assistant {
+  background: var(--bg-card);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  color: var(--text);
+  margin: auto; /* centrée (la remise à zéro des marges en haut du fichier l'aurait collée en haut à gauche) */
+  max-width: min(520px, calc(100vw - 32px));
+  padding: 28px;
+}
+
+.assistant::backdrop {
+  background: rgba(5, 10, 20, 0.75);
+}
+
+.assistant h2 {
+  margin: 4px 0 12px;
+}
+
+.assistant-etape {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  margin: 0;
+  min-height: 1em;
+  text-transform: uppercase;
+}
+
+.assistant-texte {
+  font-size: 1.05rem;
+  line-height: 1.5;
+  margin-bottom: 8px;
+}
+
+.assistant-boutons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.bouton-lien {
+  background: none;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  font-weight: 400;
+  margin-top: 14px;
+  padding: 4px 0;
+  text-decoration: underline;
+}
+
+.bouton-lien:hover {
+  background: none;
+  color: var(--text);
+}

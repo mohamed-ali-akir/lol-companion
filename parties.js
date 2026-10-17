@@ -4,6 +4,7 @@
  * Le client League ne garde que tes parties récentes (20 à 50). Pour que tes stats s'enrichissent
  * avec le temps, l'appli garde chaque partie lue dans <userData>/parties.json :
  *   { riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }
+ * + depuis le 17/10/2026, quand le client les donne : cs, or, degats, vision (résumé d'après-partie).
  * Une partie n'est jamais enregistrée deux fois (même compte + même identifiant de partie).
  * Au maximum MAX_PARTIES_PAR_COMPTE parties par compte : au-delà, les plus anciennes sont oubliées.
  * Les fonctions pures (sans fichier) sont exportées pour être testées.
@@ -16,20 +17,54 @@ const MAX_PARTIES_PAR_COMPTE = 25000;
 
 const entierPositif = (n) => Number.isInteger(n) && n >= 0;
 
+// Détails facultatifs (résumé d'après-partie, depuis le 17/10/2026) : absents des parties plus anciennes.
+const DETAILS = ["cs", "or", "degats", "vision"];
+const sansDetails = (p) => DETAILS.every((cle) => !(cle in p));
+
+/** Copie de la partie sans les détails abîmés (un détail illisible est oublié, la partie est gardée). */
+function nettoyerDetails(p) {
+  const propre = { ...p };
+  for (const cle of DETAILS) if (cle in propre && !(Number.isFinite(propre[cle]) && propre[cle] >= 0)) delete propre[cle];
+  return propre;
+}
+
 /** Garde uniquement les parties bien formées (le fichier a pu être abîmé ou modifié à la main). */
 function partiesValides(donnees) {
   if (!Array.isArray(donnees)) return [];
-  return donnees.filter(
-    (p) =>
-      p &&
-      typeof p.riotId === "string" &&
-      Number.isFinite(p.id) &&
-      Number.isFinite(p.date) &&
-      typeof p.victoire === "boolean" &&
-      entierPositif(p.kills) &&
-      entierPositif(p.deaths) &&
-      entierPositif(p.assists)
-  );
+  return donnees
+    .filter(
+      (p) =>
+        p &&
+        typeof p.riotId === "string" &&
+        Number.isFinite(p.id) &&
+        Number.isFinite(p.date) &&
+        typeof p.victoire === "boolean" &&
+        entierPositif(p.kills) &&
+        entierPositif(p.deaths) &&
+        entierPositif(p.assists)
+    )
+    .map(nettoyerDetails);
+}
+
+/**
+ * Parties déjà enregistrées SANS détails (versions d'avant le 17/10/2026) que le client relit AVEC :
+ * on leur ajoute les détails, pour que le résumé d'après-partie ait tout de suite une moyenne.
+ * Renvoie { parties, completees } (sans modifier la liste reçue).
+ */
+function completerDetails(existantes, riotId, nouvelles) {
+  const details = new Map();
+  for (const p of Array.isArray(nouvelles) ? nouvelles : []) {
+    if (p && Number.isFinite(p.id) && !sansDetails(p)) details.set(p.id, p);
+  }
+  let completees = 0;
+  const parties = existantes.map((p) => {
+    const lue = p.riotId === riotId && sansDetails(p) ? details.get(p.id) : null;
+    if (!lue) return p;
+    completees++;
+    const ajout = nettoyerDetails(Object.fromEntries(DETAILS.filter((cle) => cle in lue).map((cle) => [cle, lue[cle]])));
+    return { ...p, ...ajout };
+  });
+  return { parties: completees ? parties : existantes, completees };
 }
 
 /**
@@ -65,10 +100,11 @@ function creerHistoriqueParties({ dossier }) {
     }
   }
 
-  /** Ajoute les parties lues dans le client. Renvoie le nombre de parties nouvelles. */
+  /** Ajoute les parties lues dans le client (et complète les anciennes). Renvoie le nombre de parties nouvelles. */
   function ajouter(riotId, nouvelles, noms) {
-    const { parties, ajoutees } = fusionnerParties(lire(), riotId, nouvelles, { noms });
-    if (ajoutees > 0) {
+    const { parties: completes, completees } = completerDetails(lire(), riotId, nouvelles);
+    const { parties, ajoutees } = fusionnerParties(completes, riotId, nouvelles, { noms });
+    if (ajoutees > 0 || completees > 0) {
       ecrireJson(fichier, parties);
     }
     return ajoutees;
@@ -88,4 +124,4 @@ function creerHistoriqueParties({ dossier }) {
   return { lire, ajouter, partiesDu, effacer };
 }
 
-module.exports = { creerHistoriqueParties, fusionnerParties, partiesValides, MAX_PARTIES_PAR_COMPTE };
+module.exports = { creerHistoriqueParties, fusionnerParties, partiesValides, completerDetails, MAX_PARTIES_PAR_COMPTE };

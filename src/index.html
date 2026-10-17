@@ -98,6 +98,19 @@
             </div>
           </section>
 
+          <!-- Résumé d'après-partie : ta dernière partie comparée à tes habitudes (onglets/derniere-partie.js) -->
+          <section class="card carte-derniere" id="carteDernierePartie" aria-labelledby="titreDernierePartie" hidden>
+            <div class="titre-carte">
+              <div>
+                <h2 id="titreDernierePartie">Ta dernière partie</h2>
+                <p class="session-depuis" id="dernierePartieQuand"></p>
+              </div>
+            </div>
+            <p id="dernierePartieChampion" class="derniere-champion"></p>
+            <p id="dernierePartiePhrase" class="aide"></p>
+            <div id="dernierePartieMesures" class="tuiles tuiles-session"></div>
+          </section>
+
           <button type="button" class="card carte-accueil" id="carteNiveau" data-vers="niveau">
             <span class="carte-titre">Ton niveau</span>
             <span class="carte-valeur"></span>
@@ -562,6 +575,12 @@
           </form>
           <p id="etatDossier" class="etat" hidden></p>
 
+          <h3>Assistant de démarrage</h3>
+          <div class="ligne-reglage">
+            <span>Les 3 questions de la première ouverture.</span>
+            <button type="button" id="assistantRelancer" class="bouton-secondaire">Relancer l'assistant</button>
+          </div>
+
         </div>
       </section>
     </div>
@@ -571,6 +590,16 @@
       <p>Projet non officiel, non affilié à Riot Games.</p>
     </footer>
   </main>
+
+  <!-- Assistant de première ouverture (onglets/assistant.js) : 3 questions, puis les bonnes cases cochées -->
+  <dialog id="assistant" class="assistant" aria-labelledby="assistantTitre" aria-describedby="assistantTexte">
+    <p id="assistantEtape" class="assistant-etape"></p>
+    <h2 id="assistantTitre"></h2>
+    <p id="assistantTexte" class="assistant-texte"></p>
+    <p id="assistantDetail" class="aide"></p>
+    <div id="assistantBoutons" class="assistant-boutons"></div>
+    <button type="button" id="assistantPasser" class="bouton-lien">Passer, je réglerai moi-même</button>
+  </dialog>
 
   <!-- Ordre important : chaque fichier utilise les fonctions des fichiers chargés avant lui (voir app.js). -->
   <script src="calculs.js"></script>
@@ -582,9 +611,11 @@
   <script src="onglets/stats.js"></script>
   <script src="onglets/maitrise.js"></script>
   <script src="onglets/session.js"></script>
+  <script src="onglets/derniere-partie.js"></script>
   <script src="onglets/parametres.js"></script>
   <script src="onglets/selection.js"></script>
   <script src="onglets/build.js"></script>
+  <script src="onglets/assistant.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -315,9 +315,28 @@ function extraireParties(historique, joueur) {
       kills: nombre(s.kills),
       deaths: nombre(s.deaths),
       assists: nombre(s.assists),
+      ...detailsDePartie(s),
     });
   }
   return parties;
+}
+
+/**
+ * Détails pour le résumé d'après-partie (Accueil) : { cs, or, degats, vision }.
+ * Seuls les champs que le client donne vraiment sont gardés : un champ absent ou abîmé est simplement oublié
+ * (et les parties des anciennes versions de l'appli n'en ont pas).
+ * cs = sbires + monstres neutres (comme le compteur du jeu).
+ */
+function detailsDePartie(s) {
+  const valide = (n) => Number.isFinite(n) && n >= 0;
+  const details = {};
+  if (valide(s.totalMinionsKilled) || valide(s.neutralMinionsKilled)) {
+    details.cs = (valide(s.totalMinionsKilled) ? s.totalMinionsKilled : 0) + (valide(s.neutralMinionsKilled) ? s.neutralMinionsKilled : 0);
+  }
+  if (valide(s.goldEarned)) details.or = s.goldEarned;
+  if (valide(s.totalDamageDealtToChampions)) details.degats = s.totalDamageDealtToChampions;
+  if (valide(s.visionScore)) details.vision = s.visionScore;
+  return details;
 }
 
 /**
