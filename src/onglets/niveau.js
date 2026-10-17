@@ -43,7 +43,7 @@ function creerCartesModes() {
   }
 }
 
-function afficherMode(mode, calcul, sansMissions, xpMissions) {
+function afficherMode(mode, calcul) {
   const carte = $(`mode-${mode}`);
   const champ = (nom) => carte.querySelector(`[data-champ="${nom}"]`);
   const r = calcul.resultat;
@@ -58,13 +58,6 @@ function afficherMode(mode, calcul, sansMissions, xpMissions) {
     champ("heures").textContent = formatNombre(Math.round(r.heures));
     champ("jours").textContent = formatNombre(r.jours);
     champ("xp").textContent = `≈ ${r.xpParPartie} XP par partie`;
-    // XP des missions comptée : on explique d'où vient la différence.
-    const avant = sansMissions && sansMissions.resultat;
-    if (avant && xpMissions > 0) {
-      const gagnees = avant.parties - r.parties;
-      champ("xp").textContent +=
-        ` · dont ${formatNombre(xpMissions)} XP de missions` + (gagnees > 0 ? ` (−${formatNombre(gagnees)} partie${gagnees > 1 ? "s" : ""})` : "");
-    }
   }
 
   if (calcul.perso) {
@@ -98,7 +91,7 @@ function proposerNiveauVise(niveau) {
 }
 
 /** Redessine l'onglet Niveau (appelée par mettreAJour, voir commun.js). */
-function renduNiveau({ compte, params, erreur, calculs, sansMissions, xpMissions }) {
+function renduNiveau({ compte, params, erreur, calculs }) {
   const blocErreur = $("erreur");
   const blocResultats = $("resultats");
 
@@ -120,7 +113,7 @@ function renduNiveau({ compte, params, erreur, calculs, sansMissions, xpMissions
   blocErreur.hidden = true;
   blocResultats.hidden = false;
 
-  for (const mode of Object.keys(MODES)) afficherMode(mode, calculs[mode], sansMissions && sansMissions[mode], xpMissions);
+  for (const mode of Object.keys(MODES)) afficherMode(mode, calculs[mode]);
   afficherConseil(calculs, params);
   dessinerProgression(params, calculs);
 
@@ -134,10 +127,8 @@ function renduNiveau({ compte, params, erreur, calculs, sansMissions, xpMissions
   $("labelPourcentage").textContent = `${Math.round(pourcentage * 100)} % de l'XP nécessaire`;
   $("barre").style.width = `${pourcentage * 100}%`;
   $("detail").textContent =
-    `Il te reste ${formatNombre(Math.round(xpCible - xpDepart))} XP` +
-    (xpMissions > 0 ? `, dont ${formatNombre(xpMissions)} XP apportés par tes missions en cours ` : " ") +
+    `Il te reste ${formatNombre(Math.round(xpCible - xpDepart))} XP ` +
     `(à ${formatNombre(params.heuresParJour)} h de jeu par jour, ${ATTENTE_PAR_PARTIE_MIN} min d'attente comptées par partie).`;
-  renduOptionMissions();
 }
 
 // --- Courbe "Ta progression" -----------------------------------------------------------
@@ -237,16 +228,6 @@ function dessinerProgression(params, calculs) {
     return tr;
   });
   $("tableProgression").replaceChildren(...lignes);
-}
-
-/** Texte à côté de la case "Compter l'XP des missions en cours". */
-function renduOptionMissions() {
-  const texte = !resumeMissions
-    ? "(missions pas encore lues)"
-    : resumeMissions.xpDisponible > 0
-      ? `(${formatNombre(resumeMissions.xpDisponible)} XP disponibles)`
-      : "(aucune XP de mission en cours)";
-  $("infoMissions").textContent = texte;
 }
 
 function brancherNiveau() {

@@ -1,8 +1,8 @@
 # LoL Companion
 
 Appli de bureau, compagnon de **League of Legends** : elle lit ton compte directement dans le client lancé sur ton PC
-(sans clé API, sans Internet) pour suivre ton niveau et ta progression, ta session de jeu, tes stats par champion, ta
-maîtrise, tes missions, et te dire si tu es prêt pour la classée.
+(sans clé API, sans Internet) pour suivre ton niveau et ta progression, ta session de jeu, tes stats par champion et ta
+maîtrise.
 
 ![Accueil : bilan de session et résumé](docs/captures/accueil.png)
 
@@ -14,10 +14,8 @@ publiques (Lolalytics, OP.GG).*
 
 | Onglet | Ce qu'il montre |
 |---|---|
-| **Accueil** | Le bilan de ta session en grand, puis une carte par onglet (niveau, objectif, rythme, classée, stats, temps passé sur LoL, missions, maîtrise, acceptation auto). Chaque carte ouvre l'onglet détaillé |
+| **Accueil** | Le bilan de ta session en grand, puis une carte par onglet (niveau, objectif, rythme, stats, temps passé sur LoL, maîtrise, acceptation auto). Chaque carte ouvre l'onglet détaillé |
 | **Niveau** | Le calculateur : parties, heures et jours restants avant ton niveau visé pour 4 modes, et ta courbe de progression |
-| **Classée** | Checklist niveau 30 + 20 champions, ton Essence bleue et les champions que tu peux acheter tout de suite |
-| **Missions** | Tes missions en cours et l'XP de compte qu'elles rapportent |
 | **Stats** | Taux de victoire et KDA par champion et par mode, meilleurs champions, moments où tu gagnes le plus, sur 30 jours ou depuis le début ; temps passé sur LoL depuis la création du compte |
 | **Maîtrise** | Les champions les plus proches du niveau de maîtrise suivant, tes plus joués, la liste complète |
 | **Sélection** | Conseiller de draft : les 5 meilleurs champions pour la draft en cours, avec la raison (matchups, synergies). Pick et ban automatiques (désactivés par défaut) : 3 champions et 3 bans dans l'ordre, par rôle |
@@ -29,12 +27,6 @@ publiques (Lolalytics, OP.GG).*
 
 ### Niveau
 ![Onglet Niveau](docs/captures/niveau.png)
-
-### Classée
-![Onglet Classée](docs/captures/classee.png)
-
-### Missions
-![Onglet Missions](docs/captures/missions.png)
 
 ### Stats
 ![Onglet Stats](docs/captures/stats.png)
@@ -59,8 +51,6 @@ publiques (Lolalytics, OP.GG).*
 
 </details>
 
-L'onglet **Butin** (désenchanter les fragments sans risque, avec ta validation) est prévu mais pas encore fait.
-
 ## Fonctionnalités
 
 **Tout vient du client, sans bouton.** Dès que le client est détecté (au lancement de l'appli ou quand tu ouvres League),
@@ -79,12 +69,8 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 - **Niveau** : niveau visé (30 proposé pour la classée, sinon le prochain palier de 25) et temps de jeu par jour.
   Calcul pour ARAM du Chaos, ARAM, Swiftplay et Draft avec **ta** durée moyenne et **ton** taux de victoire (valeurs
   moyennes si tu n'as pas assez de parties), le mode le plus rapide mis en avant, 2 min d'attente comptées par partie,
-  boosts d'XP, XP des missions en cours (option). Courbe de ton XP dans le temps, rythme réel sur 7 jours et date
+  boosts d'XP (l'XP des missions n'est pas comptée). Courbe de ton XP dans le temps, rythme réel sur 7 jours et date
   estimée. Fonctionne au-delà du niveau 50
-- **Classée** : champions vraiment possédés (rotation gratuite, location et prêts exclus), Essence bleue, nombre de
-  champions atteignables, liste des champions achetables du moins cher au plus cher. Lecture seule : l'appli n'achète rien
-- **Missions** : missions en cours (progression, récompenses, date de fin), celles qui donnent de l'XP de compte en
-  premier. Les missions terminées ne sont ni affichées ni comptées
 - **Stats** : par champion (tableau triable) et par mode, 3 meilleurs champions, taux de victoire selon le moment de
   la journée et le jour de la semaine, série en cours. Périodes **30 derniers jours** et **Tout**. Les parties sont
   gardées sur ton PC, et **« Importer tout mon historique »** remonte l'historique du client aussi loin qu'il le permet
@@ -304,12 +290,8 @@ temporaire dans le fichier `lockfile` de son dossier d'installation. L'appli lit
 |---|---|
 | `GET /lol-summoner/v1/current-summoner` | Riot ID, niveau, progression |
 | `GET /lol-match-history/v1/products/lol/current-summoner/matches?begIndex&endIndex` | Parties : durée, victoire, mode, champion, K/D/A (pages de 50 pour l'import) |
-| `GET /lol-champions/v1/owned-champions-minimal` | Champions possédés (`ownership`) |
 | `GET /lol-game-data/assets/v1/champion-summary.json` | Noms des champions |
 | `GET /lol-game-data/assets/v1/champion-icons/<id>.png` | Icônes des champions |
-| `GET /lol-inventory/v1/wallet` (secours : butin `CURRENCY_champion`) | Essence bleue |
-| `GET /lol-catalog/v1/items/CHAMPION` (secours : `/lol-store/v1/catalog`) | Prix en Essence bleue |
-| `GET /lol-missions/v1/missions` | Missions |
 | `GET /lol-champion-mastery/v1/local-player/champion-mastery` (secours : `/lol-champion-mastery/v1/<puuid>/champion-mastery`) | Maîtrise |
 | `POST /lol-matchmaking/v1/ready-check/accept` | Accepter la partie (modifie le client, désactivé par défaut) |
 | `GET /lol-champ-select/v1/pickable-champion-ids`, `.../bannable-champion-ids` | Champions que le client te laisse choisir / bannir |
@@ -347,7 +329,7 @@ utilisées par OP.GG, Lolalytics et arammayhem.com :
   Seuls des noms de champions, de postes et le patch sont envoyés ; aucun pseudo n'est lu.
 
 En plus, l'appli s'abonne en **WebSocket** (`wss://127.0.0.1:<port>/`, protocole WAMP) aux événements du client :
-phase de jeu (`EndOfGame` = une partie vient de finir), compte, champions possédés, portefeuille, missions,
+phase de jeu (`EndOfGame` = une partie vient de finir), compte,
 « partie trouvée » (ready-check) et sélection des champions (`lol-champ-select/v1/session` : actions, rôle attribué,
 bans, temps restant du tour). Plusieurs événements rapprochés ne déclenchent qu'une relecture ; client fermé,
 l'appli réessaie toutes les 5 secondes et se reconnecte toute seule.
@@ -511,7 +493,7 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   note les connexions, l'état du client, les parties trouvées, les acceptations et les erreurs rattrapées. Rien de
   personnel (ni mot de passe du client, ni Riot ID).
 - **Cloisons de sécurité** : chaque fonctionnalité qui réagit au client (acceptation, pick/ban, build, relectures du
-  compte, classée, missions) est appelée dans sa propre bulle (`proteger` dans `surveillance.js` et `main.js`). Si
+  compte) est appelée dans sa propre bulle (`proteger` dans `surveillance.js` et `main.js`). Si
   l'une plante, l'erreur est écrite dans le terminal (« Erreur dans « pick et ban automatiques » ... ») et les autres
   continuent : une erreur ailleurs ne peut plus empêcher l'acceptation de recevoir « partie trouvée ». Un filet global
   (`uncaughtException`, `unhandledRejection`) écrit aussi dans le terminal les erreurs qui passeraient entre les mailles.
@@ -599,8 +581,7 @@ lol-level-calculator/
 ├── stockage.js        # Réglages (config.json)
 ├── progression.js     # Courbe de progression (progression.json)
 ├── parties.js         # Historique local des parties (parties.json)
-├── classee.js         # Classée : champions possédés, Essence bleue, prix, icônes (protocole lcu-image)
-├── missions.js        # Missions : lecture, XP de compte, tri
+├── champions.js       # Noms et icônes des champions (protocole lcu-image), pour plusieurs onglets et l'overlay
 ├── maitrise.js        # Maîtrise : lecture tolérante, mesure des points par partie (maitrise.json)
 ├── session.js         # Session : quelles alertes de pause notifier (une seule fois chacune)
 ├── acceptation.js     # Acceptation automatique + détection du premier plan
@@ -647,8 +628,7 @@ s'inscrit avec `surRendu()` et est redessiné par `mettreAJour()`.
 ## Limites connues
 
 - L'API du client League n'est **pas officielle** : une mise à jour du jeu peut changer une route ou un champ. Les
-  routes de maîtrise, le nom exact des récompenses « XP de compte » des missions et les devises des prix n'ont été
-  vérifiés que dans la documentation de la communauté, pas sur toutes les versions du client.
+  routes de maîtrise n'ont été vérifiées que dans la documentation de la communauté, pas sur toutes les versions du client.
 - L'import de l'historique ne remonte que ce que le client accepte de donner : pas forcément jusqu'à la création
   du compte.
 - L'XP de session et les estimations utilisent les formules du wiki : ce sont des estimations.
@@ -656,9 +636,10 @@ s'inscrit avec `surRendu()` et est redessiné par `mettreAJour()`.
 - Le code de la page (`src/onglets/`) et la partie Electron de l'arrière-plan (icône, fenêtre cachée, démarrage de
   Windows) n'ont pas de tests automatiques : ils sont vérifiés en lançant l'appli.
 
-## Prochaines étapes
+## Onglets retirés
 
-- Onglet **Butin** : désenchanter les fragments en double sans risque, avec validation
+- **Classée**, **Missions** et **Butin** (17/10/2026) : supprimés par choix du propriétaire, avec tout leur code
+  (lecture de l'Essence bleue, des prix, des champions possédés et des missions ; événements du client associés).
 
 ---
 

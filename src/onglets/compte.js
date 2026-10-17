@@ -66,8 +66,6 @@ async function recupererDepuisClient(auto = false) {
   }
 
   appliquerCompte(reponse);
-  chargerClassee(); // champions et Essence bleue (onglet Classée)
-  chargerMissions(); // missions en cours (onglet Missions)
   chargerMaitrise(); // maîtrise des champions (onglet Maîtrise), après la lecture du compte
   afficherEtat(
     "etatClient",

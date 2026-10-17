@@ -5,7 +5,7 @@
  * qui manquent, estimation "≈ N parties"), champions les plus joués, et liste complète avec
  * recherche et tri. Lecture seule. Les données viennent de main.js (maitrise.js) ;
  * les calculs sont dans calculs.js. Utilise cellule() et iconeChampion() de onglets/stats.js
- * et pluriel() de onglets/missions.js (chargés avant ce fichier).
+ * et pluriel() de commun.js (chargés avant ce fichier).
  */
 
 // Réponse du client : { compte, champions } (null tant qu'on n'a rien lu).

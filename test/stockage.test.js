@@ -82,8 +82,8 @@ test("dernier compte abîmé dans le fichier -> ignoré", () => {
 test("onglet actif : mémorisé, noms bizarres refusés", () => {
   const { stockage, dossier } = nouveauStockage();
   assert.strictEqual(stockage.ongletActif(), null);
-  stockage.enregistrerOngletActif("classee");
-  assert.strictEqual(stockage.ongletActif(), "classee");
+  stockage.enregistrerOngletActif("stats");
+  assert.strictEqual(stockage.ongletActif(), "stats");
   assert.throws(() => stockage.enregistrerOngletActif("../../etc"), ErreurStockage);
   assert.throws(() => stockage.enregistrerOngletActif(42), ErreurStockage);
   // Valeur abîmée dans le fichier : ignorée.

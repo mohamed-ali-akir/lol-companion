@@ -398,101 +398,6 @@ function resumeObjectif(calculs) {
 }
 
 // ---------------------------------------------------------------------------
-// XP des missions dans le calcul (onglet Niveau)
-// ---------------------------------------------------------------------------
-
-/**
- * Paramètres du calcul "comme si" l'XP bonus (missions) était déjà gagnée :
- * on avance le niveau et la progression de départ d'autant. calculer() reste inchangée.
- */
-function appliquerBonusXp(params, xpBonus) {
-  if (!Number.isFinite(xpBonus) || xpBonus <= 0) return params;
-  const xp = xpTotaleAuNiveau(params.niveauActuel) + xpPourNiveauSuivant(params.niveauActuel) * (params.progression / 100) + xpBonus;
-  const niveau = niveauDepuisXp(xp);
-  const progression = ((xp - xpTotaleAuNiveau(niveau)) / xpPourNiveauSuivant(niveau)) * 100;
-  return { ...params, niveauActuel: niveau, progression };
-}
-
-/**
- * Calcule tous les modes en comptant (ou non) l'XP des missions.
- * Renvoie { calculs, sansMissions, xpMissions } :
- *  - calculs : avec l'XP des missions (ou sans, si xpMissions vaut 0) ;
- *  - sansMissions : sans l'XP des missions, pour expliquer la différence ("−10 parties"), ou null.
- */
-function calculerModesAvecMissions(params, statsParMode, xpMissions) {
-  const xp = Number.isFinite(xpMissions) && xpMissions > 0 ? Math.round(xpMissions) : 0;
-  const sansMissions = calculerModes(params, statsParMode);
-  if (xp === 0) return { calculs: sansMissions, sansMissions: null, xpMissions: 0 };
-  return { calculs: calculerModes(appliquerBonusXp(params, xp), statsParMode), sansMissions, xpMissions: xp };
-}
-
-/** "se termine dans 5 h" (moins d'un jour), sinon "jusqu'au 03/10". "" si pas de date de fin. */
-function texteFin(fin, maintenant = Date.now()) {
-  if (!Number.isFinite(fin)) return "";
-  const reste = fin - maintenant;
-  if (reste <= 0) return "terminée";
-  if (reste < JOUR_MS) {
-    const heures = Math.max(1, Math.round(reste / 3600000));
-    return `se termine dans ${heures} h`;
-  }
-  return `jusqu'au ${formatJourMois(fin)}`;
-}
-
-// ---------------------------------------------------------------------------
-// Onglet "Classée" : checklist et champions achetables
-// ---------------------------------------------------------------------------
-
-const NIVEAU_CLASSEE = 30;
-const CHAMPIONS_CLASSEE = 20;
-
-/** Où en est le compte pour jouer en classée : { niveauOk, niveauxManquants, championsOk, championsManquants, pret }. */
-function checklistClassee({ niveau, possedes }) {
-  const niveauxManquants = Math.max(0, NIVEAU_CLASSEE - (Number.isFinite(niveau) ? niveau : 0));
-  const championsManquants = Math.max(0, CHAMPIONS_CLASSEE - (Number.isFinite(possedes) ? possedes : 0));
-  return {
-    niveauOk: niveauxManquants === 0,
-    niveauxManquants,
-    championsOk: championsManquants === 0,
-    championsManquants,
-    pret: niveauxManquants === 0 && championsManquants === 0,
-  };
-}
-
-/** Champions non possédés dont le prix est connu, du moins cher au plus cher (puis par nom). */
-function championsEnVente(champions) {
-  if (!Array.isArray(champions)) return [];
-  return champions
-    .filter((c) => c && !c.possede && Number.isFinite(c.prix) && c.prix > 0)
-    .sort((a, b) => a.prix - b.prix || String(a.nom).localeCompare(String(b.nom), "fr"));
-}
-
-/** Champions que l'Essence bleue permet d'acheter tout de suite (chacun séparément). */
-function championsAchetables(champions, essenceBleue) {
-  if (!Number.isFinite(essenceBleue) || essenceBleue <= 0) return [];
-  return championsEnVente(champions).filter((c) => c.prix <= essenceBleue);
-}
-
-/** Combien de champions on peut acheter EN TOUT avec cette EB, en prenant les moins chers d'abord. */
-function nombreAchetablesEnTout(champions, essenceBleue) {
-  let reste = Number.isFinite(essenceBleue) ? essenceBleue : 0;
-  let nombre = 0;
-  for (const c of championsEnVente(champions)) {
-    if (c.prix > reste) break;
-    reste -= c.prix;
-    nombre++;
-  }
-  return nombre;
-}
-
-/** Coût des "nombre" champions les moins chers, ou null s'il n'y a pas assez de prix connus. */
-function coutDesMoinsChers(champions, nombre) {
-  const enVente = championsEnVente(champions);
-  if (nombre <= 0) return 0;
-  if (enVente.length < nombre) return null;
-  return enVente.slice(0, nombre).reduce((total, c) => total + c.prix, 0);
-}
-
-// ---------------------------------------------------------------------------
 // Onglet "Stats" : agrégations sur l'historique local des parties
 // ---------------------------------------------------------------------------
 
@@ -1046,7 +951,6 @@ if (typeof module !== "undefined") {
     resumeObjectif,
     joindreListe,
     de,
-    appliquerBonusXp,
     NOMS_FILES,
     nomFile,
     kda,
@@ -1062,15 +966,6 @@ if (typeof module !== "undefined") {
     trierChampions,
     geometrieBarres,
     MIN_PARTIES_CRENEAUX,
-    texteFin,
-    calculerModesAvecMissions,
-    NIVEAU_CLASSEE,
-    CHAMPIONS_CLASSEE,
-    checklistClassee,
-    championsEnVente,
-    championsAchetables,
-    nombreAchetablesEnTout,
-    coutDesMoinsChers,
     texteDonneesDu,
     texteHistorique,
     xpDuCompte,

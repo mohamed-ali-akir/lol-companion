@@ -7,7 +7,7 @@
  *   2. commun.js            : état partagé, petits outils, mettreAJour() qui redessine tous les onglets
  *   3. onglets/onglets.js   : la barre d'onglets
  *   4. onglets/compte.js    : la carte "Ton compte" (lecture du client)
- *   5. onglets/accueil.js, niveau.js, classee.js, missions.js, stats.js, maitrise.js, session.js (bilan de session), parametres.js,
+ *   5. onglets/accueil.js, niveau.js, stats.js, maitrise.js, session.js (bilan de session), parametres.js,
  *      selection.js (pick et ban automatiques), build.js (objets et runes) : un fichier par onglet
  *   6. app.js (ce fichier)  : branche tout et démarre
  *
@@ -20,8 +20,6 @@ async function initialiser() {
   brancherOnglets();
   brancherAccueil();
   brancherNiveau();
-  brancherClassee();
-  brancherMissions();
   brancherStats();
   brancherMaitrise();
   brancherSession();

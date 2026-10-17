@@ -19,7 +19,7 @@ function nomsRegroupes(noms) {
   return [...compte].map(([nom, n]) => (n > 1 ? `${nom} ×${n}` : nom)).join(", ");
 }
 
-// element(balise, classe, texte) : petit outil défini dans onglets/missions.js (chargé avant ce fichier).
+// element(balise, classe, texte) : petit outil défini dans commun.js (chargé avant ce fichier).
 
 /** Dessine un build : { stats, etapes, runes, sorts } (voir resumeBuild dans build.js). */
 function dessinerBuild(conteneur, { titre, build }) {

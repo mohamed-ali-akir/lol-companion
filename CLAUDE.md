@@ -45,7 +45,7 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
   réponse (sur le client lancé si possible, sinon dans la documentation de la communauté).
 - Lectures **tolérantes** : un champ manquant ou inattendu ne doit jamais faire planter l'appli
   (valeur ignorée, message clair, ou valeur par défaut).
-- Toute action qui **modifie** quelque chose dans le client (accepter une partie, désenchanter du butin...) :
+- Toute action qui **modifie** quelque chose dans le client (accepter une partie, créer une page de runes...) :
   désactivée par défaut, activable dans l'onglet Paramètres, et appliquée uniquement au compte connecté.
 - **Interdit** (règles de Riot) : révéler les pseudos en sélection des champions, donner une information en jeu
   que les joueurs n'ont pas normalement.

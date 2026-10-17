@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <!-- Sécurité Electron : la page ne charge que ses propres fichiers, rien depuis Internet.
        La lecture du client League est faite par main.js, pas par la page.
-       lcu-image: = icônes des champions, servies par main.js (voir classee.js). -->
+       lcu-image: = icônes des champions, servies par main.js (voir champions.js). -->
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' lcu-image:">
   <title>LoL Companion</title>
   <link rel="stylesheet" href="style.css">
@@ -50,11 +50,8 @@
     <nav class="onglets" role="tablist" aria-label="Sections de l'appli">
       <button type="button" role="tab" id="onglet-accueil" data-onglet="accueil" aria-controls="panneau-accueil" aria-selected="false" tabindex="-1">Accueil</button>
       <button type="button" role="tab" id="onglet-niveau" data-onglet="niveau" aria-controls="panneau-niveau" aria-selected="false" tabindex="-1">Niveau</button>
-      <button type="button" role="tab" id="onglet-classee" data-onglet="classee" aria-controls="panneau-classee" aria-selected="false" tabindex="-1">Classée</button>
-      <button type="button" role="tab" id="onglet-missions" data-onglet="missions" aria-controls="panneau-missions" aria-selected="false" tabindex="-1">Missions</button>
       <button type="button" role="tab" id="onglet-stats" data-onglet="stats" aria-controls="panneau-stats" aria-selected="false" tabindex="-1">Stats</button>
       <button type="button" role="tab" id="onglet-maitrise" data-onglet="maitrise" aria-controls="panneau-maitrise" aria-selected="false" tabindex="-1">Maîtrise</button>
-      <button type="button" role="tab" id="onglet-butin" data-onglet="butin" aria-controls="panneau-butin" aria-selected="false" tabindex="-1">Butin</button>
       <button type="button" role="tab" id="onglet-selection" data-onglet="selection" aria-controls="panneau-selection" aria-selected="false" tabindex="-1">Sélection</button>
       <button type="button" role="tab" id="onglet-build" data-onglet="build" aria-controls="panneau-build" aria-selected="false" tabindex="-1">Build</button>
       <button type="button" role="tab" id="onglet-parametres" data-onglet="parametres" aria-controls="panneau-parametres" aria-selected="false" tabindex="-1">Paramètres</button>
@@ -138,17 +135,6 @@
             <span class="carte-detail"></span>
           </button>
 
-          <!-- Emplacements des prochaines fonctionnalités -->
-          <button type="button" class="card carte-accueil bientot" id="carteClassee" data-vers="classee">
-            <span class="carte-titre">Prêt pour la classée ?</span>
-            <span class="carte-valeur"></span>
-            <span class="carte-detail"></span>
-          </button>
-          <button type="button" class="card carte-accueil bientot" id="carteMissions" data-vers="missions">
-            <span class="carte-titre">Missions</span>
-            <span class="carte-valeur"></span>
-            <span class="carte-detail"></span>
-          </button>
           <button type="button" class="card carte-accueil bientot" id="carteMaitrise" data-vers="maitrise">
             <span class="carte-titre">Maîtrise</span>
             <span class="carte-valeur"></span>
@@ -180,10 +166,6 @@
           <label class="check">
             <input type="checkbox" id="boostVictoire">
             <span>Boost d'XP par victoire <small>(+216 XP par victoire)</small></span>
-          </label>
-          <label class="check">
-            <input type="checkbox" id="compterMissions" checked>
-            <span>Compter l'XP des missions en cours <small id="infoMissions"></small></span>
           </label>
         </div>
       </section>
@@ -231,65 +213,6 @@
           </table>
         </details>
       </section>
-      </section>
-
-      <!-- Onglet Classée (onglets/classee.js) -->
-      <section class="panneau" id="panneau-classee" role="tabpanel" aria-labelledby="onglet-classee" tabindex="0" hidden>
-        <p id="classeeSansDonnees" class="card sans-compte"></p>
-        <div id="classeeContenu" hidden>
-          <div class="card">
-            <h2>Prêt pour la classée ?</h2>
-            <p id="classeeVerdict" class="verdict"></p>
-            <ul class="checklist">
-              <li id="checkNiveau">
-                <span class="coche" aria-hidden="true"></span>
-                <div>
-                  <strong>Niveau 30</strong> <span class="coche-etat"></span>
-                  <p class="coche-detail"></p>
-                </div>
-              </li>
-              <li id="checkChampions">
-                <span class="coche" aria-hidden="true"></span>
-                <div>
-                  <strong>20 champions possédés</strong> <span class="coche-etat"></span>
-                  <p class="coche-detail"></p>
-                </div>
-              </li>
-            </ul>
-            <p class="aide">Les champions de la rotation gratuite, loués ou prêtés (Game Pass, PC café) ne comptent pas.</p>
-          </div>
-
-          <div class="card">
-            <h2>Ton Essence bleue</h2>
-            <p class="eb-valeur" id="ebValeur"></p>
-            <p class="eb-resume" id="ebResume"></p>
-          </div>
-
-          <div class="card">
-            <h2>Tu peux acheter tout de suite</h2>
-            <p class="aide">Du moins cher au plus cher. Lecture seule : les achats se font dans la boutique du client.</p>
-            <p id="achetablesVide" class="achetables-vide" hidden></p>
-            <ul class="grille-champions" id="achetables"></ul>
-            <button type="button" id="voirTousAchetables" class="bouton-secondaire" hidden></button>
-          </div>
-        </div>
-      </section>
-
-      <!-- Onglet Missions (onglets/missions.js) -->
-      <section class="panneau" id="panneau-missions" role="tabpanel" aria-labelledby="onglet-missions" tabindex="0" hidden>
-        <p id="missionsSansDonnees" class="card sans-compte"></p>
-        <div id="missionsContenu" hidden>
-          <div class="card">
-            <h2>Tes missions</h2>
-            <p class="missions-xp" id="missionsXp"></p>
-            <p class="missions-resume" id="missionsResume"></p>
-            <p class="aide">
-              L'XP des missions est comptée dans l'onglet Niveau (case « Compter l'XP des missions en cours »).
-              Passe d'événement : pas encore affiché, faute de moyen fiable de le lire dans le client.
-            </p>
-          </div>
-          <ul class="liste-missions" id="listeMissions"></ul>
-        </div>
       </section>
 
       <!-- Onglet Stats (onglets/stats.js) -->
@@ -471,13 +394,6 @@
               </table>
             </div>
           </div>
-        </div>
-      </section>
-
-      <section class="panneau" id="panneau-butin" role="tabpanel" aria-labelledby="onglet-butin" tabindex="0" hidden>
-        <div class="card bientot-panneau">
-          <h2>Butin Hextech</h2>
-          <p class="sans-compte">Bientôt disponible : les fragments que tu peux désenchanter sans risque, avec ta validation.</p>
         </div>
       </section>
 
@@ -793,7 +709,7 @@
     </div>
 
     <footer class="footer">
-      <p>Estimations basées sur les formules d'XP publiées par le wiki League of Legends. L'XP des missions en cours est comptée si l'option est cochée (onglet Niveau) ; les passes d'événement ne sont pas comptés.</p>
+      <p>Estimations basées sur les formules d'XP publiées par le wiki League of Legends. L'XP des missions et des passes d'événement n'est pas comptée.</p>
       <p>Projet non officiel, non affilié à Riot Games.</p>
     </footer>
   </main>
@@ -805,8 +721,6 @@
   <script src="onglets/compte.js"></script>
   <script src="onglets/accueil.js"></script>
   <script src="onglets/niveau.js"></script>
-  <script src="onglets/classee.js"></script>
-  <script src="onglets/missions.js"></script>
   <script src="onglets/stats.js"></script>
   <script src="onglets/maitrise.js"></script>
   <script src="onglets/session.js"></script>

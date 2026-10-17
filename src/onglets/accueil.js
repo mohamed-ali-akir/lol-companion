@@ -4,7 +4,7 @@
  * Un tableau de bord court : l'essentiel en un coup d'œil, et des cartes cliquables
  * (attribut data-vers) qui ouvrent l'onglet détaillé.
  * Ici : les cartes Niveau, Objectif et Rythme. Les autres cartes sont remplies par leur onglet
- * (session.js pour la carte principale "Ta session", classee.js, missions.js, stats.js, maitrise.js...).
+ * (session.js pour la carte principale "Ta session", stats.js, maitrise.js...).
  */
 
 /** Remplit une carte de l'Accueil : grande valeur + détail. */

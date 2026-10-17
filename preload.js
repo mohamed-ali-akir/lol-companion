@@ -11,8 +11,6 @@ contextBridge.exposeInMainWorld("appli", {
   recupererDepuisClient: () => ipcRenderer.invoke("client:recuperer"),
   etatConnexion: () => ipcRenderer.invoke("client:etatConnexion"),
   lireEtatAppli: () => ipcRenderer.invoke("appli:etat"),
-  lireClassee: () => ipcRenderer.invoke("classee:lire"),
-  lireMissions: () => ipcRenderer.invoke("missions:lire"),
   lireMaitrise: () => ipcRenderer.invoke("maitrise:lire"),
   lireProgression: (compte) => ipcRenderer.invoke("progression:lire", { nom: compte.nom, tag: compte.tag }),
   effacerProgression: () => ipcRenderer.invoke("progression:effacer"),
@@ -42,8 +40,6 @@ contextBridge.exposeInMainWorld("appli", {
   surConnexion: (rappel) => ipcRenderer.on("client:connexion", (_evenement, connecte) => rappel(connecte)),
   // État de l'appli (bandeau « pas encore prête ») : { pret, message }.
   surEtatAppli: (rappel) => ipcRenderer.on("appli:etat", (_evenement, etat) => rappel(etat)),
-  surClassee: (rappel) => ipcRenderer.on("classee:miseAJour", (_evenement, reponse) => rappel(reponse)),
-  surMissions: (rappel) => ipcRenderer.on("missions:miseAJour", (_evenement, reponse) => rappel(reponse)),
   surMaitrise: (rappel) => ipcRenderer.on("maitrise:miseAJour", (_evenement, reponse) => rappel(reponse)),
   surProgressionImport: (rappel) => ipcRenderer.on("stats:progression", (_evenement, info) => rappel(info)),
   surAcceptation: (rappel) => ipcRenderer.on("acceptation:evenement", (_evenement, info) => rappel(info)),

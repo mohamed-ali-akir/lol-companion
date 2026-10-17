@@ -14,13 +14,10 @@
  *   - la phase de jeu (gameflow-phase) : quand elle passe à "EndOfGame", une partie vient de finir ;
  *   - le compte (current-summoner) : il change quand l'XP ou le niveau sont mis à jour ;
  *     -> dans ces deux cas, l'appli relit le compte (niveau, progression, historique) ;
- *   - les champions possédés et le portefeuille (Essence bleue) : nouveau champion, EB gagnée
- *     -> l'appli relit l'onglet Classée (raison "classee") ;
- *   - les missions : progression ou mission terminée -> l'appli relit l'onglet Missions (raison "missions") ;
  *   - le "ready check" (partie trouvée) : transmis TOUT DE SUITE, sans anti-rebond, à aReadyCheck
  *     (acceptation automatique, notification) ;
  *   - la sélection des champions : transmise TOUT DE SUITE à aSelection (pick et ban automatiques).
- * Chaque groupe (compte / classée / missions) a son propre anti-rebond : ils ne s'annulent pas entre eux.
+ * Plusieurs événements d'affilée ne donnent qu'une seule relecture (anti-rebond).
  *
  * Si le client n'est pas lancé, ou s'il est fermé pendant que l'appli tourne, on réessaie
  * toutes les quelques secondes : l'appli se reconnecte toute seule quand il revient.
@@ -34,23 +31,15 @@ const ABONNEMENT = 5;
 const EVENEMENT = 8;
 const EVENEMENT_PHASE = "OnJsonApiEvent_lol-gameflow_v1_gameflow-phase";
 const EVENEMENT_COMPTE = "OnJsonApiEvent_lol-summoner_v1_current-summoner";
-const EVENEMENT_CHAMPIONS = "OnJsonApiEvent_lol-champions_v1_owned-champions-minimal";
-const EVENEMENT_PORTEFEUILLE = "OnJsonApiEvent_lol-inventory_v1_wallet";
-const EVENEMENT_MISSIONS = "OnJsonApiEvent_lol-missions_v1_missions";
 const EVENEMENT_READY_CHECK = "OnJsonApiEvent_lol-matchmaking_v1_ready-check";
 const EVENEMENT_SELECTION = "OnJsonApiEvent_lol-champ-select_v1_session";
 const ABONNEMENTS = [
   EVENEMENT_PHASE,
   EVENEMENT_COMPTE,
-  EVENEMENT_CHAMPIONS,
-  EVENEMENT_PORTEFEUILLE,
-  EVENEMENT_MISSIONS,
   EVENEMENT_READY_CHECK,
   EVENEMENT_SELECTION,
 ];
 
-/** Les raisons de relecture sont rangées par groupe : un groupe = un anti-rebond. */
-const groupeDe = (raison) => (raison === "classee" || raison === "missions" ? raison : "compte");
 
 const DELAIS_PAR_DEFAUT = {
   reconnexionMs: 5000, // entre deux tentatives quand le client est fermé
@@ -146,7 +135,7 @@ function surveillerClient({
 
   /** Regroupe les événements rapprochés en une seule relecture. */
   function demanderRafraichissement(raison, delai) {
-    const groupe = groupeDe(raison);
+    const groupe = "compte"; // une seule relecture : le compte (depuis le retrait des onglets Classée et Missions)
     const avant = enAttente.get(groupe);
     if (avant) clearTimeout(avant.minuterie);
     // Dans le groupe "compte", "fin-de-partie" est la raison la plus parlante : on la garde.
@@ -224,10 +213,6 @@ function surveillerClient({
         if (donnees === "EndOfGame") demanderRafraichissement("fin-de-partie", d.apresPartieMs);
       } else if (message.evenement === EVENEMENT_COMPTE) {
         demanderRafraichissement("fin-de-partie", d.antiRebondMs);
-      } else if (message.evenement === EVENEMENT_CHAMPIONS || message.evenement === EVENEMENT_PORTEFEUILLE) {
-        demanderRafraichissement("classee", d.antiRebondMs);
-      } else if (message.evenement === EVENEMENT_MISSIONS) {
-        demanderRafraichissement("missions", d.antiRebondMs);
       } else if (message.evenement === EVENEMENT_READY_CHECK) {
         proteger("acceptation automatique", aReadyCheck, donnees);
       } else if (message.evenement === EVENEMENT_SELECTION) {
@@ -277,9 +262,6 @@ module.exports = {
   lireMessage,
   EVENEMENT_PHASE,
   EVENEMENT_COMPTE,
-  EVENEMENT_CHAMPIONS,
-  EVENEMENT_PORTEFEUILLE,
-  EVENEMENT_MISSIONS,
   EVENEMENT_READY_CHECK,
   EVENEMENT_SELECTION,
 };

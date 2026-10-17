@@ -22,8 +22,6 @@ let identite = null;
 let pointsProgression = [];
 // Statistiques des dernières parties du compte, par mode.
 let statsCompte = {};
-// Missions lues dans le client (onglets/missions.js) : { missions, xpDisponible, ... } ou null.
-let resumeMissions = null;
 
 // --- Petits outils ---------------------------------------------------------------
 
@@ -68,24 +66,28 @@ function lireObjectif() {
   };
 }
 
-/** XP des missions à compter dans le calcul (0 si l'option est décochée ou s'il n'y en a pas). */
-function xpMissionsComptee() {
-  return $("compterMissions").checked && resumeMissions ? resumeMissions.xpDisponible : 0;
-}
-
 /**
- * Calcule ce dont les onglets ont besoin :
- * { compte, params, erreur, calculs, sansMissions, xpMissions }.
- * calculs compte l'XP des missions si l'option est cochée ; sansMissions = le même calcul sans elle
- * (pour afficher la différence). params/calculs sont null s'il n'y a pas de compte ou une erreur.
+ * Calcule ce dont les onglets ont besoin : { compte, params, erreur, calculs }.
+ * params/calculs sont null s'il n'y a pas de compte ou une erreur.
  */
 function calculerVue() {
-  const vide = { compte: null, params: null, erreur: null, calculs: null, sansMissions: null, xpMissions: 0 };
+  const vide = { compte: null, params: null, erreur: null, calculs: null };
   if (!compte) return vide;
   const params = parametresCalcul(compte, lireObjectif());
   const erreur = verifier(params);
   if (erreur) return { ...vide, compte, params, erreur };
-  return { compte, params, erreur: null, ...calculerModesAvecMissions(params, statsCompte, xpMissionsComptee()) };
+  return { compte, params, erreur: null, calculs: calculerModes(params, statsCompte) };
+}
+
+/** "3 parties", "1 partie". */
+const pluriel = (n, un, plusieurs) => `${formatNombre(n)} ${n > 1 ? plusieurs : un}`;
+
+/** Petit outil pour créer un élément : element("p", "classe", "texte"). */
+function element(balise, classe, texte) {
+  const e = document.createElement(balise);
+  if (classe) e.className = classe;
+  if (texte !== undefined) e.textContent = texte;
+  return e;
 }
 
 // --- Rendu de tous les onglets -------------------------------------------------------

@@ -13,9 +13,6 @@ const {
   lireMessage,
   EVENEMENT_PHASE,
   EVENEMENT_COMPTE,
-  EVENEMENT_CHAMPIONS,
-  EVENEMENT_PORTEFEUILLE,
-  EVENEMENT_MISSIONS,
   EVENEMENT_READY_CHECK,
   EVENEMENT_SELECTION,
 } = require("../surveillance.js");
@@ -123,7 +120,7 @@ test("cloisons : si la sélection plante, l'acceptation reçoit quand même « p
     delais: DELAIS,
   });
   try {
-    await attendreQue(() => client.abonnements.length === 7);
+    await attendreQue(() => client.abonnements.length === 4);
     client.envoyer(EVENEMENT_SELECTION, { localPlayerCellId: 1 });
     client.envoyer(EVENEMENT_SELECTION, { localPlayerCellId: 1 });
     client.envoyer(EVENEMENT_READY_CHECK, { state: "InProgress", playerResponse: "None" });
@@ -153,7 +150,7 @@ test("cloisons : si l'acceptation plante, les messages suivants sont toujours lu
     delais: DELAIS,
   });
   try {
-    await attendreQue(() => client.abonnements.length === 7);
+    await attendreQue(() => client.abonnements.length === 4);
     client.envoyer(EVENEMENT_READY_CHECK, { state: "InProgress", playerResponse: "None", timer: 0 });
     client.envoyer(EVENEMENT_READY_CHECK, { state: "InProgress", playerResponse: "None", timer: 1 });
     await attendreQue(() => recus.length === 2);
@@ -168,9 +165,9 @@ test("reconnecter() : la connexion en direct est refaite et les abonnements renv
   const client = await fauxClient();
   const { journal, surveillance } = surveiller(fauxDossierJeu(client.port));
   try {
-    await attendreQue(() => client.abonnements.length === 7);
+    await attendreQue(() => client.abonnements.length === 4);
     surveillance.reconnecter();
-    await attendreQue(() => client.abonnements.length === 14); // nouvelle connexion, nouveaux abonnements
+    await attendreQue(() => client.abonnements.length === 8); // nouvelle connexion, nouveaux abonnements
     assert.deepStrictEqual(journal.connexions, [true, false, true]);
   } finally {
     surveillance.arreter();
@@ -191,7 +188,7 @@ test("vérification « client prêt » qui ne répond jamais : on n'attend pas i
     delais: { ...DELAIS, delaiPretMs: 50 },
   });
   try {
-    await attendreQue(() => client.abonnements.length === 7); // la 2e tentative a abouti
+    await attendreQue(() => client.abonnements.length === 4); // la 2e tentative a abouti
     assert.ok(appels >= 2);
   } finally {
     surveillance.arreter();
@@ -207,7 +204,7 @@ test("client qui démarre encore : pas d'abonnement avant qu'il soit prêt, puis
     assert.strictEqual(client.connectes(), 0); // pas de WebSocket ouvert trop tôt
     assert.deepStrictEqual(journal.connexions, []);
     client.demarre();
-    await attendreQue(() => client.abonnements.length === 7);
+    await attendreQue(() => client.abonnements.length === 4);
     assert.deepStrictEqual(journal.connexions, [true]);
   } finally {
     surveillance.arreter();
@@ -219,13 +216,10 @@ test("connexion : mot de passe, protocole wamp et abonnements", async () => {
   const client = await fauxClient();
   const { journal, surveillance } = surveiller(fauxDossierJeu(client.port));
   try {
-    await attendreQue(() => client.abonnements.length === 7);
+    await attendreQue(() => client.abonnements.length === 4);
     assert.deepStrictEqual(client.abonnements, [
       [5, EVENEMENT_PHASE],
       [5, EVENEMENT_COMPTE],
-      [5, EVENEMENT_CHAMPIONS],
-      [5, EVENEMENT_PORTEFEUILLE],
-      [5, EVENEMENT_MISSIONS],
       [5, EVENEMENT_READY_CHECK],
       [5, EVENEMENT_SELECTION],
     ]);
@@ -327,33 +321,19 @@ test("mauvais mot de passe -> pas de connexion, pas de plantage", async () => {
   }
 });
 
-test("champion acheté ou EB gagnée -> relecture de l'onglet Classée, sans gêner celle du compte", async () => {
+test("portefeuille, champions possédés, missions : plus lus (onglets Classée et Missions supprimés le 17/10/2026)", async () => {
   const client = await fauxClient();
   const { journal, surveillance } = surveiller(fauxDossierJeu(client.port));
   try {
     await attendreQue(() => journal.raisons.length === 1); // relecture de connexion
-    client.envoyer(EVENEMENT_PHASE, "EndOfGame");
-    client.envoyer(EVENEMENT_PORTEFEUILLE, { lol_blue_essence: 5000 });
-    client.envoyer(EVENEMENT_CHAMPIONS, []);
+    client.envoyer("OnJsonApiEvent_lol-inventory_v1_wallet", { lol_blue_essence: 5000 });
+    client.envoyer("OnJsonApiEvent_lol-champions_v1_owned-champions-minimal", []);
+    client.envoyer("OnJsonApiEvent_lol-missions_v1_missions", []);
     await attendre(250);
-    // Une relecture du compte (fin de partie) ET une de la classée : l'une n'annule pas l'autre.
-    assert.deepStrictEqual(journal.raisons.slice(1).sort(), ["classee", "fin-de-partie"]);
-  } finally {
-    surveillance.arreter();
-    await client.fermer();
-  }
-});
-
-test("missions modifiées -> relecture de l'onglet Missions", async () => {
-  const client = await fauxClient();
-  const { journal, surveillance } = surveiller(fauxDossierJeu(client.port));
-  try {
-    await attendreQue(() => journal.raisons.length === 1);
-    client.envoyer(EVENEMENT_MISSIONS, []);
-    client.envoyer(EVENEMENT_MISSIONS, []);
+    assert.deepStrictEqual(journal.raisons, ["client-lance"], "aucune relecture de plus");
+    client.envoyer(EVENEMENT_PHASE, "EndOfGame");
     await attendreQue(() => journal.raisons.length === 2);
-    await attendre(100);
-    assert.deepStrictEqual(journal.raisons, ["client-lance", "missions"]); // deux événements -> une relecture
+    assert.deepStrictEqual(journal.raisons, ["client-lance", "fin-de-partie"]);
   } finally {
     surveillance.arreter();
     await client.fermer();

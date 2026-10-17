@@ -16,7 +16,6 @@ const { creerStockage, ErreurStockage, DOSSIER_JEU_PAR_DEFAUT } = require("./sto
 const { surveillerClient } = require("./surveillance.js");
 const { creerProgression, creerPoint, riotIdDe } = require("./progression.js");
 const { xpDuCompte } = require("./src/calculs.js"); // même calcul d'XP que la page
-const { recupererMissions } = require("./missions.js");
 const { creerAcceptation, accepterReadyCheck, leagueAuPremierPlan } = require("./acceptation.js");
 const { creerSelectionAuto, effectuerAction, lireChampionsAutorises } = require("./selection.js");
 const { lireRecommandations, appliquerPage, monChampion } = require("./runes.js");
@@ -37,7 +36,7 @@ const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParCham
 const { alertesDuCompte, creerSuiviAlertes } = require("./session.js");
 const { creerMiseAJour, creerVerificationMac, ADRESSE_LATEST_YML } = require("./mise-a-jour.js");
 const { telecharger } = require("./internet.js"); // règles communes des appels à Internet (User-Agent, délai)
-const { recupererClassee, lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./classee.js");
+const { lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
 const {
   actionFermeture,
   parametresDemarrageWindows,
@@ -176,12 +175,6 @@ function brancherMessages() {
   // Compte connecté (Riot ID, niveau, progression) + stats de ses dernières parties,
   // lus dans le client League lancé sur ce PC.
   ipcMain.handle("client:recuperer", () => lireCompte());
-
-  // Onglet Classée : champions possédés, Essence bleue, prix (lecture seule).
-  ipcMain.handle("classee:lire", () => lireClassee());
-
-  // Onglet Missions : missions en cours, XP disponible, récompenses à récupérer (lecture seule).
-  ipcMain.handle("missions:lire", () => lireMissions());
 
   // Onglet Maîtrise : niveau, points et marques de chaque champion (lecture seule).
   ipcMain.handle("maitrise:lire", () => lireMaitrise());
@@ -494,27 +487,11 @@ async function lireMaitrise() {
   }
 }
 
-async function lireClassee() {
-  try {
-    return { ok: true, ...(await recupererClassee(stockage.dossierJeu())) };
-  } catch (erreur) {
-    return reponseErreur(erreur);
-  }
-}
-
-async function lireMissions() {
-  try {
-    return { ok: true, ...(await recupererMissions(stockage.dossierJeu())) };
-  } catch (erreur) {
-    return reponseErreur(erreur);
-  }
-}
-
 // ---------------------------------------------------------------------------
 // Icônes des champions : protocole lcu-image://champion/<id>
 // La page affiche <img src="lcu-image://champion/266"> ; main.js va chercher l'image dans le
 // client (avec son mot de passe) et la garde en cache. Seules les icônes de champions passent
-// (voir routeIcone dans classee.js) : la page ne peut pas appeler d'autres routes du client.
+// (voir routeIcone dans champions.js) : la page ne peut pas appeler d'autres routes du client.
 // ---------------------------------------------------------------------------
 
 // À déclarer AVANT que l'appli soit prête (exigence d'Electron).
@@ -1000,27 +977,15 @@ function demarrerSurveillance() {
     },
     aSelection: surSelection,
     aRafraichir: async (raison) => {
-      const tout = raison !== "classee" && raison !== "missions"; // après une partie ou au lancement du client
-      if (tout) {
-        const reponse = await lireCompte();
-        if (reponse.ok) {
-          envoyerALaPage("client:miseAJour", { ...reponse, raison });
-          // Alertes de pause : notification seulement après une partie (pas au lancement du client).
-          notifierAlertesSession(reponse, { silencieux: raison !== "fin-de-partie" });
-        }
+      // Après une partie ou au lancement du client.
+      const reponse = await lireCompte();
+      if (reponse.ok) {
+        envoyerALaPage("client:miseAJour", { ...reponse, raison });
+        // Alertes de pause : notification seulement après une partie (pas au lancement du client).
+        notifierAlertesSession(reponse, { silencieux: raison !== "fin-de-partie" });
       }
-      if (tout || raison === "classee") {
-        const classee = await lireClassee();
-        if (classee.ok) envoyerALaPage("classee:miseAJour", classee);
-      }
-      if (tout || raison === "missions") {
-        const missions = await lireMissions();
-        if (missions.ok) envoyerALaPage("missions:miseAJour", missions);
-      }
-      if (tout) {
-        const maitrise = await lireMaitrise(); // après lireCompte : les nouvelles parties sont déjà enregistrées
-        if (maitrise.ok) envoyerALaPage("maitrise:miseAJour", maitrise);
-      }
+      const maitrise = await lireMaitrise(); // après lireCompte : les nouvelles parties sont déjà enregistrées
+      if (maitrise.ok) envoyerALaPage("maitrise:miseAJour", maitrise);
     },
   });
 
