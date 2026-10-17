@@ -26,3 +26,17 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm test
+
+  # Essai de bout en bout (outils/essai-complet.js) : la vraie appli sur un faux client League, chaque onglet ouvert,
+  # aucune erreur tolérée. Ici, Electron est téléchargé (il faut lancer l'appli).
+  essai:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run essai

@@ -190,9 +190,10 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | `npm start` | Lance l'appli |
 | `npm test` | Lance les tests (422, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
+| `npm run essai` | Essai de bout en bout : la vraie appli sur un faux client League (compte fictif), chaque onglet ouvert, aucune erreur tolérée. `CAPTURES=docs/captures npm run essai` refait aussi les captures du README |
 | `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
 
-Les tests tournent aussi sur GitHub à **chaque envoi** sur `main` (`.github/workflows/tests.yml`).
+Les tests et l'essai de bout en bout tournent aussi sur GitHub à **chaque envoi** sur `main` (`.github/workflows/tests.yml`).
 
 ### Mises à jour
 
@@ -597,6 +598,7 @@ lol-level-calculator/
 ├── arriere-plan.js    # Arrière-plan : la croix, le démarrage de Windows, le menu de l'icône (fonctions pures)
 ├── assets/            # Icône de l'appli (icon.ico, icon.png, tray.png) : fenêtre, zone de notification, installateur
 ├── reparer-electron.ps1 # Dépannage de l'installation d'Electron sous Windows (voir Installation)
+├── outils/essai-complet.js # Essai de bout en bout sur un faux client (npm run essai) ; refait aussi les captures du README
 ├── outils/sonde.js    # Sonde des sites lus par l'appli (npm run sonde, et chaque jour sur GitHub)
 ├── docs/captures/     # Captures du README
 ├── docs/prompt-selection-auto.md # Cahier des charges du pick et ban automatiques
