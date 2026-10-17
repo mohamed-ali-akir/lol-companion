@@ -204,6 +204,12 @@ Les tests et l'essai de bout en bout tournent aussi sur GitHub à **chaque envoi
 des actions GitHub, sous forme de pull requests testées comme le reste : rien ne change sans qu'on les fusionne.
 Une version majeure (ex. Electron 45) arrive seule : lire ses changements cassants avant de l'accepter.
 
+**Failles connues** (`npm audit`, 17/10/2026) : l'appli livrée n'en a aucune (`npm audit --omit=dev`). Dans les outils
+de fabrication (electron-builder), `http-cache-semantics` est forcé en 4.3.0 (`overrides` de `package.json`) ;
+restent 8 alertes « modérées » venant toutes de `sprintf-js`, sans version corrigée à ce jour, utilisé seulement pour
+télécharger Electron pendant la fabrication. Ne pas lancer `npm audit fix` : il « corrige » en faisant **redescendre**
+electron-builder (26.15 -> 26.5) et `tar` vers des versions plus anciennes.
+
 ### Mises à jour
 
 L'appli installée regarde sur GitHub (dernière Release du dépôt public) s'il existe une version plus récente :

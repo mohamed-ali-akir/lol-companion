@@ -109,5 +109,8 @@
   "dependencies": {
     "electron-updater": "6.8.9",
     "ws": "^8.22.0"
+  },
+  "overrides": {
+    "http-cache-semantics": "^4.3.0"
   }
 }
