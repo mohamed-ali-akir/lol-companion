@@ -39,6 +39,14 @@ test("famille d'un objet d'après ses catégories (bottes et objets neutres : nu
   assert.strictEqual(F.familleObjet(CATEGORIES[COUPERET]), "Combattant", "le Couperet a de la Santé : pas létalité");
   assert.strictEqual(F.familleObjet(["Health", "Armor"]), "Tank");
   assert.strictEqual(F.familleObjet(["Damage", "AttackSpeed"]), "À l'impact");
+  // Objets hybrides (catégories du vrai client, 17/10/2026) : Guinsoo et Statikk sont à l'impact, pas AP ;
+  // Terminus (pénétration + à l'impact) est à l'impact ; Dent de Nashor et Aube et crépuscule restent AP.
+  assert.strictEqual(F.familleObjet(["Damage", "AttackSpeed", "SpellDamage", "OnHit"]), "À l'impact"); // Guinsoo
+  assert.strictEqual(F.familleObjet(["Damage", "AttackSpeed", "SpellDamage", "OnHit", "NonbootsMovement"]), "À l'impact"); // Statikk
+  assert.strictEqual(F.familleObjet(["Damage", "AttackSpeed", "OnHit", "MagicPenetration", "ArmorPenetration"]), "À l'impact"); // Terminus
+  assert.strictEqual(F.familleObjet(["AttackSpeed", "SpellDamage", "OnHit", "AbilityHaste"]), "AP"); // Nashor
+  assert.strictEqual(F.familleObjet(["Health", "AttackSpeed", "SpellDamage", "OnHit", "AbilityHaste"]), "AP"); // Aube et crépuscule
+  assert.strictEqual(F.familleObjet(["Damage", "ArmorPenetration"]), "Létalité / Critique");
   assert.strictEqual(F.familleObjet(CATEGORIES[BOTTES]), null);
   assert.strictEqual(F.familleObjet(CATEGORIES[ECLIPSE]), null);
   assert.strictEqual(F.familleObjet(undefined), null);

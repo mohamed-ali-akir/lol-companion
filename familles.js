@@ -41,12 +41,15 @@ const KAYN = { rouge: "Rouge (Rhaast)", bleu: "Bleu (Assassin de l'ombre)" };
 function familleObjet(categories) {
   const c = new Set(Array.isArray(categories) ? categories : []);
   if (c.size === 0 || c.has("Boots")) return null;
-  if (c.has("SpellDamage")) return "AP";
+  // Objets hybrides AD + AP à l'impact (Guinsoo, Statikk) : ce sont des objets à l'impact, pas des objets AP
+  // (vu le 17/10/2026 : Kalista « AP » à cause du Poignard de Statikk, Kayle AP mélangé avec Guinsoo).
+  if (c.has("SpellDamage")) return c.has("Damage") && c.has("OnHit") ? "À l'impact" : "AP";
   if (c.has("CriticalStrike")) return "Létalité / Critique";
   if (c.has("Health") && !c.has("Damage")) return "Tank";
   if (c.has("Health")) return "Combattant";
+  if (c.has("OnHit")) return "À l'impact"; // avant la pénétration : Terminus est un objet à l'impact
   if (c.has("ArmorPenetration")) return "Létalité / Critique";
-  if (c.has("OnHit") || c.has("AttackSpeed")) return "À l'impact";
+  if (c.has("AttackSpeed")) return "À l'impact";
   return null;
 }
 

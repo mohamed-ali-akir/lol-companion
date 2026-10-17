@@ -142,13 +142,29 @@ test("3 choix : fiables d'abord (≥ 10 % et ≥ 200 parties), puis ≥ 2 % et �
   assert.deepStrictEqual(B.troisChoix(undefined), []);
 });
 
+test("recommandé = l'option fiable la plus achetée ; les 2 autres choix au taux de victoire prudent", () => {
+  // Kayle en ARAM (Lolalytics, 17/10/2026) : départ Dague + Jambières (33 %) et pas Bottes + Arc + Tome (19 %, 51,9 %)
+  const depart = B.troisChoix([option([1042, 3006], 20562, 10425, 0.33), option([1001, 1043, 1052], 11675, 6059, 0.19), option([1042, 3006, 2003], 4403, 2281, 0.07)]);
+  assert.deepStrictEqual(depart.map((o) => o.ids[0]), [1042, 1001, 1042]);
+  // Objet 1 : Lame du roi déchu (40 %) devant Dent de Nashor (26 %, un peu meilleur taux)
+  const objet1 = B.troisChoix([option([3153], 24599, 12668, 0.4), option([3115], 16113, 8363, 0.26), option([3124], 9133, 4576, 0.15)]);
+  assert.deepStrictEqual(objet1.map((o) => o.ids[0]), [3153, 3115, 3124]);
+  // Aucune option fiable (< 10 % des achats) : l'ancien ordre, au taux de victoire prudent
+  const variees = B.troisChoix([option([1], 900, 450, 0.08), option([2], 700, 420, 0.06)]);
+  assert.deepStrictEqual(variees.map((o) => o.ids[0]), [2, 1]);
+  // Toutes les options de l'emplacement sont gardées (candidats), pour compléter le set d'une famille
+  const etapes = B.composerParEmplacement(LOLA);
+  assert.deepStrictEqual(etapes[1].candidats.map((o) => o.ids[0]), [2503, 6655, 3003, 6653]);
+});
+
 test("build par emplacement : Départ, Objet 1, Bottes, Objets 2 à 5, 3 choix chacun, pas de doublon recommandé", () => {
   const etapes = B.composerParEmplacement(LOLA);
   assert.deepStrictEqual(etapes.map((e) => e.titre), ["Départ", "Objet 1", "Bottes", "Objet 2", "Objet 3", "Objet 4", "Objet 5"]);
   assert.ok(etapes.every((e) => e.autres.length <= 2));
   const recommandes = etapes.slice(1).map((e) => e.option.ids[0]);
-  // Objet 2 : Ceinture-roquette (55,6 % sur 6 430 parties) devant Flamme-ombre (54,2 % sur 21 936) au score prudent
-  assert.deepStrictEqual(recommandes, [2503, 3020, 3152, 4645, 3089, 3157]);
+  // Objet 2 : Flamme-ombre, la plus achetée (21 936 parties), devant la Ceinture-roquette (meilleur taux sur 6 430) :
+  // le recommandé suit le chemin de la majorité des joueurs, comme le build affiché par Lolalytics (17/10/2026)
+  assert.deepStrictEqual(recommandes, [2503, 3020, 4645, 3089, 3157, 3135]);
   assert.strictEqual(new Set(recommandes).size, recommandes.length);
   // Objet 3 : la Ceinture-roquette (recommandée en objet 2) n'est plus proposée
   assert.ok(![etapes[4].option, ...etapes[4].autres].some((o) => o.ids.includes(3152)));
@@ -515,6 +531,22 @@ test("set d'une famille : Objets 1 à 3 propres (sinon ceux du build général),
   assert.ok(!objet(ap, "objet3").option.ids.includes(4645));
   assert.deepStrictEqual(objet(ap, "depart").option, objet(etapes, "depart").option);
   assert.deepStrictEqual(objet(ap, "bottes").option, objet(etapes, "bottes").option);
+});
+
+test("set d'une famille : emplacement sans choix propre complété avec TOUTES les options, du style de la famille d'abord", () => {
+  // Kayle AP en ARAM (17/10/2026) : l'objet 3 du build général (Fin de l'esprit, Terminus...) est à l'impact, exclu du
+  // set AP ; avant, l'objet 3 disparaissait du set. Maintenant : la Coiffe de Rabadon (AP), même moins achetée.
+  const fin = { ...option([3091], 12638, 6964, 0.26), style: "À l'impact" };
+  const terminus = { ...option([3302], 8422, 4784, 0.17), style: "À l'impact" };
+  const rabadon = { ...option([3089], 2598, 1582, 0.05), style: "AP" };
+  const rare = { ...option([3100], 90, 60, 0.002), style: "AP" }; // moins de 200 parties : jamais proposé
+  const etapes = [{ cle: "objet3", titre: "Objet 3", option: fin, autres: [terminus], fiable: true, note: null, candidats: [fin, terminus, rabadon, rare] }];
+  const famille = { nom: "AP", emplacements: [[], [], []], exclus: [3091, 3302] };
+  const [objet3] = B.etapesFamille(etapes, famille);
+  assert.deepStrictEqual(objet3.option.ids, [3089]);
+  assert.deepStrictEqual(objet3.autres, []);
+  // Sans liste complète (ancien format), on garde les choix du build général
+  assert.deepStrictEqual(B.etapesFamille([{ ...etapes[0], candidats: undefined }], { ...famille, exclus: [] })[0].option.ids, [3091]);
 });
 
 test("plusieurs sets : un par famille, titres et identifiants différents ; sans famille, un seul set comme avant", () => {

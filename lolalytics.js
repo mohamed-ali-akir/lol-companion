@@ -28,7 +28,7 @@
  */
 
 const { IDENTITE, creerCache, telecharger } = require("./internet.js"); // cache 3 h, User-Agent, délai maximal
-const { detecterFamilles, ajouterExclus } = require("./familles.js"); // plusieurs sets pour les champions à plusieurs builds
+const { detecterFamilles, ajouterExclus, familleObjet } = require("./familles.js"); // plusieurs sets pour les champions à plusieurs builds
 
 const URL_LOLALYTICS = "https://lolalytics.com";
 const URL_API = "https://a1.lolalytics.com"; // synergies (conseiller de draft)
@@ -172,7 +172,9 @@ function optionsEmplacement(liste, { combinaison = false } = {}) {
  */
 function analyseDepuisDonnees(d, nomObjet = (id) => `Objet ${id}`, { categoriesObjet = () => [], alias = "" } = {}) {
   if (!d) return null;
-  const nommer = (options) => options.map((o) => ({ ...o, noms: o.ids.map(nomObjet) }));
+  // style : AP, À l'impact... (familles.js), pour garder un build cohérent d'un emplacement à l'autre (build.js)
+  const style = (ids) => (ids.length === 1 ? familleObjet(categoriesObjet(ids[0])) : null);
+  const nommer = (options) => options.map((o) => ({ ...o, noms: o.ids.map(nomObjet), style: style(o.ids) }));
   const emplacements = ["item1", "item2", "item3", "item4", "item5"].map((cle) => nommer(optionsEmplacement(d[cle])));
   if (emplacements[0].length === 0) return null;
   return {

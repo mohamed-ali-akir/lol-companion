@@ -166,18 +166,29 @@ function composerBuild(analyse) {
 const SELECTION_PROPOSABLE = 0.02; // en dessous de 2 % des achats d'un emplacement, une option passe en dernier
 
 /**
- * Les 3 meilleurs choix d'un emplacement (Lolalytics), sans les objets déjà retenus avant (exclus) :
- * d'abord les options fiables (≥ 10 % et ≥ 200 parties), puis celles jouées sur au moins 200 parties et 2 % des
- * achats, puis le reste ; chaque groupe classé par taux de victoire prudent. Le 1er est le choix recommandé.
+ * Les 3 meilleurs choix d'un emplacement (Lolalytics), sans les objets déjà retenus avant (exclus).
+ * Le 1er, le choix RECOMMANDÉ, est l'option fiable (≥ 10 % des achats et ≥ 200 parties) la PLUS ACHETÉE, comme le
+ * build affiché par Lolalytics. Avant le 17/10/2026, c'était la meilleure au taux de victoire prudent : un objet un peu moins acheté
+ * mais avec 1 point de victoire en plus passait devant, et le build changeait de style d'un emplacement à l'autre
+ * (Kayle en ARAM : Dent de Nashor, puis Terminus et Tueur de krakens, alors que les joueurs font Lame du roi déchu,
+ * Guinsoo, Fin de l'esprit). Le plus acheté suit le chemin de la majorité des joueurs, donc reste cohérent ; une
+ * préférence de « style » a été essayée puis retirée (elle écartait l'Ouragan de Runaan, 1er achat de Kalista, parce
+ * qu'il est classé « critique »). Sans option fiable, on garde l'ancien ordre.
+ * Les 2 autres, pour s'adapter : d'abord les options fiables, puis celles jouées sur au moins 200 parties et 2 % des
+ * achats, puis le reste ; chaque groupe classé par taux de victoire prudent.
  */
 function troisChoix(options, exclus = new Set()) {
   const candidates = (Array.isArray(options) ? options : []).filter((o) => o && o.ids.some((id) => !exclus.has(id)));
   const parScore = (a, b) => scorePrudent(b.victoires, b.parties) - scorePrudent(a.victoires, a.parties);
+  const parAchats = (a, b) => b.parties - a.parties;
   const proposable = (o) => o.parties >= PARTIES_MIN && o.selection >= SELECTION_PROPOSABLE;
-  const fiables = candidates.filter(estFiable).sort(parScore);
-  const proposables = candidates.filter((o) => !estFiable(o) && proposable(o)).sort(parScore);
-  const reste = candidates.filter((o) => !estFiable(o) && !proposable(o)).sort(parScore);
-  return [...fiables, ...proposables, ...reste].slice(0, NB_CHOIX);
+  const fiables = candidates.filter(estFiable);
+  const recommande = [...fiables].sort(parAchats)[0] || null;
+  const autres = (liste) => liste.filter((o) => o !== recommande).sort(parScore);
+  const proposables = candidates.filter((o) => !estFiable(o) && proposable(o));
+  const reste = candidates.filter((o) => !estFiable(o) && !proposable(o));
+  const ordre = [...autres(fiables), ...autres(proposables), ...autres(reste)];
+  return (recommande ? [recommande, ...ordre] : ordre).slice(0, NB_CHOIX);
 }
 
 /**
@@ -188,18 +199,20 @@ function composerParEmplacement(analyse) {
   if (!analyse || !Array.isArray(analyse.emplacements)) return [];
   const etapes = [];
   const pris = new Set();
-  const ajouter = (cle, titre, choix, { retenir = true } = {}) => {
+  // candidats : toutes les options de l'emplacement, du plus au moins acheté (pour compléter le set d'une famille).
+  const ajouter = (cle, titre, choix, toutes, { retenir = true } = {}) => {
     if (choix.length === 0) return;
     const [option, ...autres] = choix;
     if (retenir) option.ids.forEach((id) => pris.add(id));
     // « Fiable » = assez de parties. (Aux derniers emplacements, les achats sont si variés qu'aucun objet n'atteint
     // 10 % : ce n'est pas un manque de données, donc pas d'avertissement pour ça.)
-    etapes.push({ cle, titre, option, autres, fiable: option.parties >= PARTIES_MIN, note: null });
+    const candidats = (Array.isArray(toutes) ? toutes : []).filter(Boolean).sort((a, b) => b.parties - a.parties);
+    etapes.push({ cle, titre, option, autres, fiable: option.parties >= PARTIES_MIN, note: null, candidats });
   };
-  ajouter("depart", "Départ", troisChoix(analyse.depart), { retenir: false });
+  ajouter("depart", "Départ", troisChoix(analyse.depart), analyse.depart, { retenir: false });
   analyse.emplacements.forEach((options, i) => {
-    ajouter(`objet${i + 1}`, `Objet ${i + 1}`, troisChoix(options, pris));
-    if (i === 0) ajouter("bottes", "Bottes", troisChoix(analyse.bottes, pris)); // achetées en général après le 1er objet
+    ajouter(`objet${i + 1}`, `Objet ${i + 1}`, troisChoix(options, pris), options);
+    if (i === 0) ajouter("bottes", "Bottes", troisChoix(analyse.bottes, pris), analyse.bottes); // achetées en général après le 1er objet
   });
   return etapes;
 }
@@ -297,6 +310,9 @@ function fusionnerSets(existants, nouveaux) {
  * Étapes du set d'une famille de build (familles.js) : les Objets 1 à 3 prennent les choix propres à la famille,
  * tout le reste (départ, bottes, objets 4 et 5, et un emplacement où la famille n'a rien d'assez joué) vient du
  * build général, sans les objets d'une autre famille du champion (famille.exclus, de familles.js).
+ * Pour ce reste, on cherche dans TOUTES les options de l'emplacement (candidats), du plus au moins acheté, en
+ * préférant celles du style de la famille : avant le 17/10/2026, seuls les 3 choix du build général étaient
+ * regardés, et l'objet 3 disparaissait souvent (Lolalytics ne donne que les 3 premiers achats, bottes comprises).
  * Un objet déjà retenu plus tôt dans le set n'est jamais reproposé.
  */
 function etapesFamille(etapes, famille) {
@@ -306,7 +322,14 @@ function etapesFamille(etapes, famille) {
   for (const e of etapes) {
     const numero = /^objet([123])$/.exec(e.cle);
     const propres = numero ? famille.emplacements[Number(numero[1]) - 1] || [] : [];
-    let choix = propres.length > 0 ? propres : [e.option, ...e.autres];
+    const general = [e.option, ...e.autres];
+    let choix = propres;
+    if (propres.length === 0) {
+      const reserve = Array.isArray(e.candidats) && e.candidats.length > 0 ? e.candidats : general;
+      const assezJoues = reserve.filter((o) => o.parties >= PARTIES_MIN);
+      const triees = [...assezJoues.filter((o) => o.style === famille.nom), ...assezJoues.filter((o) => o.style !== famille.nom)];
+      choix = e.cle === "depart" || e.cle === "bottes" ? general : triees.length > 0 ? triees : general;
+    }
     if (e.cle !== "depart") choix = choix.filter((o) => o.ids.some((id) => !pris.has(id)) && !o.ids.some((id) => exclus.has(id)));
     if (choix.length === 0) continue;
     const [option, ...autres] = choix;

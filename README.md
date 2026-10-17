@@ -181,7 +181,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (409, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (411, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -383,15 +383,26 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   (`completed`) ; en ARAM, où il n'y a pas d'action « pick », le champion attribué suffit, et une relance de champion
   refait tout. Une seule fois par champion et par sélection. Sans rôle attribué, elle prend le rôle principal du
   champion d'après les runes recommandées par Riot. Lolalytics et OP.GG sont lus en parallèle (quelques secondes).
-  - **3 choix par emplacement (Lolalytics)** : pour chaque emplacement, les options **fiables** (au moins 10 % des
-    achats de cet emplacement **et** 200 parties) passent d'abord, puis celles à au moins 2 % et 200 parties, puis le
-    reste ; dans chaque groupe, classement par **borne basse de Wilson** à 95 % (voir ci-dessous). Un objet recommandé
-    à un emplacement n'est plus proposé ensuite. Lolalytics donne un % de sélection sur TOUTES les parties, qui
+  - **3 choix par emplacement (Lolalytics)** : le choix **recommandé** est l'option **fiable** (au moins 10 % des
+    achats de cet emplacement **et** 200 parties) la **plus achetée**, comme le build affiché par Lolalytics : il suit
+    le chemin de la majorité des joueurs, donc reste cohérent d'un emplacement à l'autre. Les 2 autres choix (pour
+    t'adapter) : les options fiables, puis celles à au moins 2 % et 200 parties, puis le reste ; dans chaque groupe,
+    classement par **borne basse de Wilson** à 95 % (voir ci-dessous). Jusqu'au 17/10/2026, le recommandé était lui
+    aussi classé à la borne de Wilson : un objet un peu moins acheté mais avec 1 point de victoire en plus passait
+    devant, et le build changeait de style (Kayle en ARAM : Dent de Nashor puis Terminus et Tueur de krakens, au lieu
+    de Lame du roi déchu, Guinsoo, Fin de l'esprit). Un objet recommandé à un emplacement n'est plus proposé ensuite. Lolalytics donne un % de sélection sur TOUTES les parties, qui
     baisse forcément pour les derniers objets : l'appli le ramène à la part des achats de l'emplacement. L'avertissement
     « peu de données » ne dépend que du nombre de parties (aux derniers emplacements, les achats sont trop variés
     pour qu'un objet atteigne 10 %). En ARAM/URF, tous les rangs sont pris (Hwei : 48 019 parties au lieu de 3 460
     en Émeraude+). Attention aux objets « boule de neige » comme le Voleur d'âmes de Mejai : achetés quand on gagne
     déjà, leur taux de victoire est gonflé.
+  - **Familles de builds** (`familles.js`) : la page Lolalytics donne les combinaisons des 3 premiers achats
+    (`itemBootSet3`, bottes comprises). Chaque combinaison est rangée d'après son premier objet et ses catégories dans
+    le client : AP, À l'impact, Létalité / Critique, Combattant, Tank. Les objets hybrides AD + AP à l'impact (Guinsoo,
+    Statikk) et Terminus comptent « À l'impact » (avant le 17/10/2026 : Kalista avait un faux set « AP » à cause de
+    Statikk). Une famille doit peser 10 % des builds et 300 parties (3 au plus). Bottes retirées, il reste souvent
+    2 objets : l'objet 3 (et les suivants) du set d'une famille est pris dans **toutes** les options de l'emplacement,
+    celles du style de la famille d'abord, sans les objets d'une autre famille (il manquait souvent avant).
   - **Format de Lolalytics** : la page contient ses données dans un bloc `<script type="qwik/json">` ; les valeurs
     renvoient à d'autres cases par un numéro en base 36 (`"4c6"` → case 5622). Chaque option d'objet vaut
     `[objet, % victoire, % sélection, parties, minute]`, chaque départ `["1056_2003_2003", % victoire, % sélection, parties]`.
