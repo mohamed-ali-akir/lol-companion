@@ -260,10 +260,15 @@ test("creerSuiviMaitrise : lit, enregistre par compte, fichier abîmé, effacer"
   suivi.enregistrer("A#1", { releves: { 1: { points: 5, date: 1, ids: [] } }, echantillons: [{ championId: 1, points: 900, parties: 1, date: 1 }] });
   suivi.enregistrer("B#2", { releves: {}, echantillons: [] });
   assert.strictEqual(suivi.lire("A#1").echantillons.length, 1);
+  // Fichier abîmé (PC éteint pendant l'écriture) : la copie .bak (version d'avant) est relue, rien n'est perdu
   fs.writeFileSync(path.join(dossier, "maitrise.json"), "{abîmé");
+  assert.strictEqual(suivi.lire("A#1").echantillons.length, 1);
+  // Les deux abîmés : on repart proprement
+  fs.writeFileSync(path.join(dossier, "maitrise.json.bak"), "{abîmé");
   assert.deepStrictEqual(suivi.lire("A#1"), { releves: {}, echantillons: [] });
   suivi.effacer();
   suivi.effacer(); // deux fois : pas d'erreur
+  assert.ok(!fs.existsSync(path.join(dossier, "maitrise.json.bak")), "la copie est effacée aussi");
 });
 
 // --- Lecture dans un faux client ------------------------------------------------------------------------

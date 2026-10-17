@@ -188,7 +188,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (414, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (417, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -539,6 +539,10 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |
 
+Chaque fichier est écrit de façon **sûre** (`fichiers.js`, depuis le 17/10/2026) : d'abord dans `fichier.tmp`, puis l'ancien
+devient `fichier.bak` et le nouveau prend sa place. Si le PC s'éteint pendant une écriture, l'appli relit la copie `.bak`
+au lieu de repartir de zéro (avant, tout l'historique pouvait être perdu sans un mot).
+
 Pour effacer la courbe ou les parties, supprime ce dossier (appli quittée).
 
 ## Comment fonctionne le calcul d'XP
@@ -580,6 +584,7 @@ lol-level-calculator/
 ├── ocr.js             # Lecture de texte à l'écran : OCR de Windows (PowerShell) ou de macOS (screencapture + Vision)
 ├── arammayhem.js      # Notes des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »
+├── fichiers.js        # Écriture sûre des fichiers de données (temporaire + renommage, copie .bak relue si abîmé)
 ├── journal.js         # Journal sur le disque (journal.txt), taille limitée
 ├── mise-a-jour.js     # Mise à jour automatique (electron-updater, Releases GitHub) : vérification, bandeau, installation
 ├── preload-overlay.js # Pont de la fenêtre transparente par-dessus le jeu : augments, chronos des sorts (src/overlay.html)

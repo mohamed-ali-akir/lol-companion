@@ -87,7 +87,10 @@ test("fichier : ajout, relecture triée, fichier abîmé, effacement", () => {
   assert.strictEqual(h.ajouter("A#1", [partie({ id: 2, date: 30 }), partie({ id: 3, date: 20 })]), 1);
   assert.deepStrictEqual(h.partiesDu("A#1").map((p) => p.id), [2, 3, 1]);
 
+  // Fichier abîmé : la copie .bak (avant le dernier ajout : parties 1 et 2) est relue au lieu de tout perdre
   fs.writeFileSync(path.join(dossier, "parties.json"), "{ pas du json");
+  assert.deepStrictEqual(h.lire().map((p) => p.id).sort(), [1, 2]);
+  fs.writeFileSync(path.join(dossier, "parties.json.bak"), "{ pas du json");
   assert.deepStrictEqual(h.lire(), []);
   fs.writeFileSync(path.join(dossier, "parties.json"), JSON.stringify([{ riotId: "A#1", id: 5 }, partie({ id: 6 }), null]));
   assert.deepStrictEqual(h.lire(), []); // la partie 6 n'a pas de riotId : écartée aussi

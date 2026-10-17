@@ -8,8 +8,8 @@
  * Au maximum MAX_PARTIES_PAR_COMPTE parties par compte : au-delà, les plus anciennes sont oubliées.
  * Les fonctions pures (sans fichier) sont exportées pour être testées.
  */
-const fs = require("fs");
 const path = require("path");
+const { lireJson, ecrireJson, effacerJson } = require("./fichiers.js"); // écriture sûre (copie .bak)
 
 // Assez pour un compte très joué (des années de parties), tout en gardant un fichier raisonnable (~5 Mo).
 const MAX_PARTIES_PAR_COMPTE = 25000;
@@ -59,7 +59,7 @@ function creerHistoriqueParties({ dossier }) {
 
   function lire() {
     try {
-      return partiesValides(JSON.parse(fs.readFileSync(fichier, "utf-8")));
+      return partiesValides(lireJson(fichier));
     } catch {
       return []; // pas encore de fichier, ou fichier abîmé : on repart de zéro
     }
@@ -69,8 +69,7 @@ function creerHistoriqueParties({ dossier }) {
   function ajouter(riotId, nouvelles, noms) {
     const { parties, ajoutees } = fusionnerParties(lire(), riotId, nouvelles, { noms });
     if (ajoutees > 0) {
-      fs.mkdirSync(dossier, { recursive: true });
-      fs.writeFileSync(fichier, JSON.stringify(parties));
+      ecrireJson(fichier, parties);
     }
     return ajoutees;
   }
@@ -83,11 +82,7 @@ function creerHistoriqueParties({ dossier }) {
   }
 
   function effacer() {
-    try {
-      fs.unlinkSync(fichier);
-    } catch (erreur) {
-      if (erreur.code !== "ENOENT") throw erreur;
-    }
+    effacerJson(fichier); // le fichier et sa copie .bak
   }
 
   return { lire, ajouter, partiesDu, effacer };

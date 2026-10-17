@@ -15,8 +15,8 @@
  *  - les réglages de l'arrière-plan (fermer = réduire, démarrage avec Windows).
  * L'appli n'utilise plus de clé API Riot.
  */
-const fs = require("fs");
 const path = require("path");
+const { lireJson, ecrireJson, effacerJson } = require("./fichiers.js"); // écriture sûre (copie .bak)
 const { normaliserReglages } = require("./acceptation.js");
 const { normaliserReglagesSelection } = require("./selection.js");
 const { normaliserReglagesBuild } = require("./build.js");
@@ -48,15 +48,14 @@ function creerStockage({ dossier, plateforme = process.platform }) {
 
   function lire() {
     try {
-      return JSON.parse(fs.readFileSync(fichier, "utf-8"));
+      return lireJson(fichier);
     } catch {
       return {}; // pas encore de fichier (ou fichier abîmé) : réglages vides
     }
   }
 
   function ecrire(config) {
-    fs.mkdirSync(dossier, { recursive: true });
-    fs.writeFileSync(fichier, JSON.stringify(config, null, 2));
+    ecrireJson(fichier, config, { espaces: 2 });
   }
 
   function modifier(changements) {

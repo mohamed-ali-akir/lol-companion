@@ -26,8 +26,8 @@
  * Exemple : +1 800 points et 2 nouvelles parties -> un échantillon "1 800 points en 2 parties".
  * Ces échantillons sont gardés dans <userData>/maitrise.json.
  */
-const fs = require("fs");
 const path = require("path");
+const { lireJson: lireFichierJson, ecrireJson, effacerJson } = require("./fichiers.js"); // écriture sûre (copie .bak)
 const { lireLockfile, lireJson, lireJsonOuNull, extraireInvocateur, ROUTE_COMPTE, ErreurClient } = require("./lcu.js");
 
 const ROUTE_MAITRISE = "/lol-champion-mastery/v1/local-player/champion-mastery";
@@ -179,7 +179,7 @@ function creerSuiviMaitrise({ dossier }) {
 
   function toutLire() {
     try {
-      const donnees = JSON.parse(fs.readFileSync(fichier, "utf-8"));
+      const donnees = lireFichierJson(fichier);
       return donnees && typeof donnees === "object" && !Array.isArray(donnees) ? donnees : {};
     } catch {
       return {}; // pas encore de fichier, ou fichier abîmé
@@ -191,15 +191,10 @@ function creerSuiviMaitrise({ dossier }) {
     enregistrer(riotId, etat) {
       const tout = toutLire();
       tout[riotId] = etat;
-      fs.mkdirSync(dossier, { recursive: true });
-      fs.writeFileSync(fichier, JSON.stringify(tout));
+      ecrireJson(fichier, tout);
     },
     effacer() {
-      try {
-        fs.unlinkSync(fichier);
-      } catch (erreur) {
-        if (erreur.code !== "ENOENT") throw erreur;
-      }
+      effacerJson(fichier); // le fichier et sa copie .bak
     },
   };
 }

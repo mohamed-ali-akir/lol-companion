@@ -10,8 +10,8 @@
  *
  * Les fonctions "pures" (sans fichier) sont exportées pour être testées facilement.
  */
-const fs = require("fs");
 const path = require("path");
+const { lireJson, ecrireJson, effacerJson } = require("./fichiers.js"); // écriture sûre (copie .bak)
 
 const MAX_POINTS_PAR_COMPTE = 1000;
 
@@ -74,15 +74,14 @@ function creerProgression({ dossier }) {
 
   function lire() {
     try {
-      return pointsValides(JSON.parse(fs.readFileSync(fichier, "utf-8")));
+      return pointsValides(lireJson(fichier));
     } catch {
       return []; // pas encore de fichier, ou fichier abîmé : on repart de zéro
     }
   }
 
   function ecrire(points) {
-    fs.mkdirSync(dossier, { recursive: true });
-    fs.writeFileSync(fichier, JSON.stringify(points));
+    ecrireJson(fichier, points);
   }
 
   /** Ajoute un point (si quelque chose a changé). Renvoie true s'il a été ajouté. */
@@ -100,11 +99,7 @@ function creerProgression({ dossier }) {
   }
 
   function effacer() {
-    try {
-      fs.unlinkSync(fichier);
-    } catch (erreur) {
-      if (erreur.code !== "ENOENT") throw erreur; // déjà effacé : pas grave
-    }
+    effacerJson(fichier); // le fichier et sa copie .bak
   }
 
   return { ajouter, pointsDu, effacer, lire };
