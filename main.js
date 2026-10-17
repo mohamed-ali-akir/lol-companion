@@ -326,14 +326,16 @@ async function obtenirObjets() {
 }
 
 /**
- * Ce qu'il faut pour lire les stats d'un champion : { alias, role, mode }.
- * mode : "ranked" / "aram" imposé (consultation), sinon déduit de la partie en cours.
- * Sans rôle (partie sans rôles), on prend le rôle principal du champion d'après les recommandations de Riot.
+ * Ce qu'il faut pour lire les stats d'un champion : { alias, role, mode, modeJeu }.
+ * mode : "ranked" / "aram" imposé (consultation de l'onglet Build). Sinon (build automatique), TOUJOURS les stats
+ * de la Faille, quel que soit le mode de la partie (choix du propriétaire, 17/10/2026 : en ARAM aussi, le build de
+ * la Faille). modeJeu : le vrai mode de la partie (« aram »...), pour les sorts d'invocateur (analyserOpgg).
+ * Sans rôle (partie sans rôles, ARAM), on prend le rôle principal du champion d'après les recommandations de Riot.
  */
 async function contexteBuild({ championId, role, mode }) {
   const dossier = stockage.dossierJeu();
-  const modeUtilise = mode || modeOpgg(await lirePartie(dossier).catch(() => null));
-  if (!modeUtilise) throw new ErreurOpgg("Pas de statistiques de build pour ce mode de jeu.");
+  const modeJeu = mode || modeOpgg(await lirePartie(dossier).catch(() => null)) || "ranked";
+  const modeUtilise = mode || (modeJeu === "flex" ? "flex" : "ranked");
   let roleUtilise = role;
   if (!roleUtilise && modeUtilise !== "aram") {
     const pages = await lireRecommandations(dossier, championId, null).catch(() => []);
@@ -341,13 +343,21 @@ async function contexteBuild({ championId, role, mode }) {
   }
   const alias = (await obtenirAliasChampions()).get(championId);
   if (!alias) throw new ErreurOpgg("Champion inconnu : lance le client League.");
-  return { alias, role: roleUtilise, mode: modeUtilise };
+  return { alias, role: roleUtilise, mode: modeUtilise, modeJeu };
 }
 
-/** Stats OP.GG d'un champion (runes, sorts, objets en secours). */
+/**
+ * Stats OP.GG d'un champion (runes, sorts, objets en secours) : celles de la Faille. En ARAM ou en URF, les sorts
+ * d'invocateur viennent quand même des stats de CE mode : ceux de la Faille (Téléportation, Châtiment) n'y existent pas.
+ */
 async function analyserOpgg(demande) {
-  const { alias, role, mode } = await contexteBuild(demande);
-  return lecteurOpgg.analyser({ alias, position: positionOpgg(role, mode), mode });
+  const { alias, role, mode, modeJeu } = await contexteBuild(demande);
+  const analyse = await lecteurOpgg.analyser({ alias, position: positionOpgg(role, mode), mode });
+  if (modeJeu === "aram" || modeJeu === "urf") {
+    const duMode = await lecteurOpgg.analyser({ alias, position: positionOpgg(null, modeJeu), mode: modeJeu }).catch(() => null);
+    return { ...analyse, sorts: duMode ? duMode.sorts : null };
+  }
+  return analyse;
 }
 
 /** Objets emplacement par emplacement (Lolalytics), avec les noms des objets du client. */

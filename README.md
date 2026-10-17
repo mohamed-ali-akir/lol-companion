@@ -108,14 +108,16 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 ### Build automatique (onglet Build)
 Chaque option est désactivée par défaut ; c'est autorisé par Riot, comme Blitz ou Porofessor. Quand ton champion est
 verrouillé (ou attribué en ARAM), l'appli lit les **vraies statistiques** de **Lolalytics** (objets emplacement par
-emplacement) et d'**OP.GG** (runes, sorts) pour ce champion, ton rôle et le mode, puis :
+emplacement) et d'**OP.GG** (runes, sorts) pour ce champion et ton rôle, **toujours celles de la Faille**, même en
+ARAM (choix du 17/10/2026 ; en ARAM, le rôle est le rôle principal du champion, et seuls les sorts d'invocateur
+viennent des stats ARAM, puisque Téléportation ou Châtiment n'y existent pas), puis :
 - compose le build comme Lolalytics : **Départ, Objet 1, Bottes, Objets 2 à 5**, chacun avec **3 choix** (le
   recommandé + 2 pour t'adapter), avec taux de victoire, part des achats, nombre de parties et minute d'achat
   (« ⚠ peu de données » sous 200 parties). Si Lolalytics ne répond pas, le build d'OP.GG prend le relais ;
 - crée la **page de runes** « Hwei · Mid · LoL Companion » (runes d'OP.GG, ou celles recommandées par Riot en secours) ;
 - crée le **set d'objets** « LoL Companion - Champion (Rôle) », visible et sélectionné d'office dans la boutique en
   jeu ; un champion qui se joue de plusieurs façons (Vi combattant ou létalité, Kayn rouge ou bleu...) a un set par
-  façon (`familles.js`) ;
+  façon (`familles.js`). Le meilleur set (le build général, ou la façon la plus jouée) finit par **« · Recommandé »** ;
 - choisit tes **sorts d'invocateur** (sa case) : les plus joués d'après OP.GG, chaque sort gardé sur ta touche
   habituelle (si Flash est sur F, il y reste) ;
 - ajoute le **set « Champion Rank 1 »** (sa case, `rank1.js`) : le build du meilleur joueur du champion sur ton

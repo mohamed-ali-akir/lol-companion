@@ -209,6 +209,8 @@ test("page de runes d'OP.GG : 9 runes dans l'ordre, sinon null", () => {
 test("set d'objets : format du client, potions regroupées, taux dans les titres", () => {
   const set = B.setObjets({ etapes: B.composerBuild(ANALYSE), championId: AHRI, nomChampion: "Ahri", role: "middle", carte: 11 });
   assert.strictEqual(set.title, "LoL Companion - Ahri (Milieu)");
+  // Le set principal (setsObjets) porte « · Recommandé » à la fin (17/10/2026)
+  assert.strictEqual(B.setObjets({ etapes: B.composerBuild(ANALYSE), championId: AHRI, nomChampion: "Ahri", role: "middle", recommande: true }).title, "LoL Companion - Ahri (Milieu) · Recommandé");
   assert.deepStrictEqual(set.associatedChampions, [AHRI]);
   assert.deepStrictEqual(set.associatedMaps, [11]);
   assert.strictEqual(set.type, "custom");
@@ -330,7 +332,7 @@ test("champion verrouillé : stats OP.GG, runes OP.GG et set d'objets, une seule
   await attendre(20);
   assert.deepStrictEqual(journal.analyses, [{ championId: AHRI, role: "middle" }]);
   assert.strictEqual(journal.runes[0].primaryStyleId, 8100); // runes d'OP.GG
-  assert.strictEqual(journal.sets[0].title, "LoL Companion - Ahri (Milieu)");
+  assert.strictEqual(journal.sets[0].title, "LoL Companion - Ahri (Milieu) · Recommandé");
   const [r] = journal.resultats;
   assert.strictEqual(r.runes.source, "OP.GG");
   assert.strictEqual(r.objets, true);
@@ -553,13 +555,13 @@ test("plusieurs sets : un par famille, titres et identifiants différents ; sans
   const etapes = B.composerParEmplacement(LOLA);
   const commun = { etapes, championId: AHRI, nomChampion: "Ahri", role: "middle", carte: 11, troisParBloc: true };
   const sets = B.setsObjets({ ...commun, familles: FAMILLES });
-  assert.deepStrictEqual(sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · AP", "LoL Companion - Ahri (Milieu) · Tank"]);
+  assert.deepStrictEqual(sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · AP · Recommandé", "LoL Companion - Ahri (Milieu) · Tank"]);
   assert.strictEqual(new Set(sets.map((s) => s.uid)).size, 2);
   assert.match(sets[1].uid, /^[0-9a-f-]{36}$/);
   assert.strictEqual(sets[0].uid, B.setObjets(commun).uid, "le 1er set garde l'identifiant habituel");
   // Objets propres à la famille : pas de taux de victoire (inconnu), seulement la part des achats
   assert.strictEqual(sets[1].blocks.find((b) => b.type.startsWith("Objet 1")).type, "Objet 1 · 80 % choix");
-  assert.deepStrictEqual(B.setsObjets({ ...commun, familles: [] }).map((s) => s.title), ["LoL Companion - Ahri (Milieu)"]);
+  assert.deepStrictEqual(B.setsObjets({ ...commun, familles: [] }).map((s) => s.title), ["LoL Companion - Ahri (Milieu) · Recommandé"]);
   assert.deepStrictEqual(B.setsObjets({ ...commun, familles: [FAMILLES[0]] }).length, 1, "une seule famille : rien à séparer");
   assert.strictEqual(B.setsObjets({ ...commun, troisParBloc: false, familles: FAMILLES }).length, 1, "build d'OP.GG : un seul set");
 });
@@ -593,7 +595,7 @@ test("champion à plusieurs builds verrouillé : un set par famille, et la page 
   const { journal, auto } = logique({ emplacements: { ...LOLA, familles: FAMILLES } });
   auto.surSession(session());
   await attendre(20);
-  assert.deepStrictEqual(journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · AP", "LoL Companion - Ahri (Milieu) · Tank"]);
+  assert.deepStrictEqual(journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · AP · Recommandé", "LoL Companion - Ahri (Milieu) · Tank"]);
   const [r] = journal.resultats;
   assert.strictEqual(r.objets, true);
   assert.deepStrictEqual(r.setsCrees, journal.sets.map((s) => s.title));
@@ -634,13 +636,13 @@ test("set Rank 1 : ajouté APRÈS le set principal, départ du build général, 
   auto.surSession(session());
   await attendre(20);
   assert.deepStrictEqual(journal.rank1, [{ championId: AHRI, role: "middle" }]);
-  assert.deepStrictEqual(journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu)", "Ahri Rank 1"]);
+  assert.deepStrictEqual(journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · Recommandé", "Ahri Rank 1"]);
   const [principal, rank1] = journal.sets;
   assert.deepStrictEqual(rank1.blocks[0].items, principal.blocks[0].items, "même départ que le build général");
   assert.deepStrictEqual(rank1.blocks[1].items.map((i) => i.id), ["3100", "3089"], "le cœur du build juste après le départ");
   const [r] = journal.resultats;
   assert.deepStrictEqual(r.rank1, { titre: "Ahri Rank 1", rang: "Grand Maître 2145 LP", parties: 3 });
-  assert.deepStrictEqual(r.setsCrees, ["LoL Companion - Ahri (Milieu)"], "le set Rank 1 est compté à part");
+  assert.deepStrictEqual(r.setsCrees, ["LoL Companion - Ahri (Milieu) · Recommandé"], "le set Rank 1 est compté à part");
   assert.deepStrictEqual(r.erreurs, {});
 });
 
@@ -649,12 +651,12 @@ test("set Rank 1 : case décochée -> aucune demande ; OP.GG en échec -> erreur
   sans.auto.surSession(session());
   await attendre(20);
   assert.deepStrictEqual(sans.journal.rank1, []);
-  assert.deepStrictEqual(sans.journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu)"]);
+  assert.deepStrictEqual(sans.journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · Recommandé"]);
 
   const echec = logique({ reglages: AVEC_RANK1, rank1: new O.ErreurOpgg("Pas de classement OP.GG pour ce champion sur ton serveur.") });
   echec.auto.surSession(session());
   await attendre(20);
-  assert.deepStrictEqual(echec.journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu)"]);
+  assert.deepStrictEqual(echec.journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · Recommandé"]);
   assert.match(echec.journal.resultats[0].erreurs.rank1, /Pas de classement/);
   assert.strictEqual(echec.journal.resultats[0].rank1, null);
 

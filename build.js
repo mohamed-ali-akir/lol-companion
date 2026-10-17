@@ -242,8 +242,9 @@ function uidSet(championId, role, indice = 0) {
  * troisParBloc : chaque emplacement montre ses 3 choix (le recommandé d'abord) — build de Lolalytics ;
  * sinon (build d'OP.GG), un objet par emplacement et un bloc « Pour t'adapter » avec les autres choix.
  * famille, indice : nom et numéro de la famille de build (plusieurs sets pour un champion), sinon null et 0.
+ * recommande : ajoute « · Recommandé » à la fin du titre (le set principal, sélectionné d'office dans la boutique).
  */
-function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisParBloc = false, famille = null, indice = 0 }) {
+function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisParBloc = false, famille = null, indice = 0, recommande = false }) {
   const blocs = etapes.map(({ cle, titre, option, autres }) => {
     const compte = new Map();
     for (const id of option.ids) compte.set(id, (compte.get(id) || 0) + 1); // ex. 2 potions
@@ -271,7 +272,7 @@ function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisPar
     });
   }
   return {
-    title: `${PREFIXE_SET} - ${nomChampion}${role ? ` (${LIBELLES_ROLES[role] || role})` : ""}${famille ? ` · ${famille}` : ""}`,
+    title: `${PREFIXE_SET} - ${nomChampion}${role ? ` (${LIBELLES_ROLES[role] || role})` : ""}${famille ? ` · ${famille}` : ""}${recommande ? " · Recommandé" : ""}`,
     type: "custom",
     map: "any",
     mode: "any",
@@ -344,8 +345,9 @@ function etapesFamille(etapes, famille) {
  * sinon un seul set, comme avant. Mêmes paramètres que setObjets, plus familles (de lolalytics.js).
  */
 function setsObjets({ etapes, familles = [], ...reste }) {
-  if (!reste.troisParBloc || !Array.isArray(familles) || familles.length < 2) return [setObjets({ etapes, ...reste })];
-  return familles.map((f, indice) => setObjets({ etapes: etapesFamille(etapes, f), ...reste, famille: f.nom, indice }));
+  // Le meilleur set (le build général, ou la famille la plus jouée) porte « · Recommandé » à la fin (17/10/2026).
+  if (!reste.troisParBloc || !Array.isArray(familles) || familles.length < 2) return [setObjets({ etapes, ...reste, recommande: true })];
+  return familles.map((f, indice) => setObjets({ etapes: etapesFamille(etapes, f), ...reste, famille: f.nom, indice, recommande: indice === 0 }));
 }
 
 /**
