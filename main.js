@@ -24,8 +24,9 @@ const { creerLecteurEcran } = require("./ocr.js");
 const { creerLecteurArammayhem } = require("./arammayhem.js");
 const { creerSondage, etatPreparation } = require("./sondage.js");
 const { creerJournal } = require("./journal.js");
-const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireObjets, appliquerSet, appliquerSorts } = require("./build.js");
-const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg.js");
+const { creerBuildAuto, assemblerBuild, lirePartie, appliquerSet, appliquerSorts } = require("./build.js");
+const { creerLecteurOpgg, ErreurOpgg } = require("./opgg.js");
+const { creerStatsBuild } = require("./stats-build.js");
 const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
@@ -35,7 +36,7 @@ const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { creerMiseAJour, creerVerificationMac, majAuDemarrage, ADRESSE_LATEST_YML } = require("./mise-a-jour.js");
 const { telecharger } = require("./internet.js"); // règles communes des appels à Internet (User-Agent, délai)
-const { lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
+const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
 const {
   actionFermeture,
   parametresDemarrageWindows,
@@ -52,7 +53,6 @@ let stockage; // créé quand l'appli est prête (app.getPath en a besoin)
 let progression; // historique de progression (progression.json), créé au même moment
 let historiqueParties; // parties déjà lues (parties.json), pour l'onglet Stats
 let suiviMaitrise; // points de maîtrise gagnés par partie (maitrise.json), pour l'onglet Maîtrise
-let nomsChampions = new Map(); // id -> nom, lu une fois dans le client
 let importEnCours = false; // un seul import de l'historique à la fois
 let fenetre = null;
 let surveillance = null;
@@ -67,8 +67,6 @@ let buildAuto = null; // build automatique : stats OP.GG, runes, set d'objets (b
 const lecteurOpgg = creerLecteurOpgg();
 const lecteurLolalytics = creerLecteurLolalytics();
 const lecteurArammayhem = creerLecteurArammayhem(); // taux de victoire des augments ARAM Mayhem
-let aliasChampions = new Map(); // id -> nom interne ("MonkeyKing"), pour OP.GG et Lolalytics
-let objetsClient = { noms: new Map(), categories: new Map(), details: new Map() }; // noms, catégories et prix des objets (client)
 // Augments ARAM Mayhem affichés en jeu (augments.js) : désactivé par défaut (onglet Build).
 let championPartie = null; // ton champion, retenu pendant la sélection
 let indexAugments = null; // noms de tous les augments (langue du jeu)
@@ -286,128 +284,12 @@ function brancherMessages() {
   ipcMain.handle("appli:etat", () => etatAppli);
 }
 
-/** Noms des champions, lus une seule fois dans le client (puis gardés en mémoire). */
-async function obtenirNomsChampions() {
-  if (nomsChampions.size === 0) {
-    try {
-      nomsChampions = await lireNomsChampions(stockage.dossierJeu());
-    } catch {
-      // client fermé : on réessaiera à la prochaine lecture
-    }
-  }
-  return nomsChampions;
-}
-
-/** Noms internes des champions (pour OP.GG), lus une seule fois dans le client. */
-async function obtenirAliasChampions() {
-  if (aliasChampions.size === 0) {
-    try {
-      aliasChampions = await lireAliasChampions(stockage.dossierJeu());
-    } catch {
-      // client fermé : on réessaiera
-    }
-  }
-  return aliasChampions;
-}
-
-// Positions des pages recommandées par Riot ("MIDDLE"...) -> rôles du client ("middle"...).
-const ROLE_DEPUIS_POSITION = { TOP: "top", JUNGLE: "jungle", MIDDLE: "middle", BOTTOM: "bottom", UTILITY: "utility" };
-
-/** Noms et catégories des objets (langue du client), lus une seule fois dans le client. */
-async function obtenirObjets() {
-  if (objetsClient.noms.size === 0) {
-    try {
-      objetsClient = await lireObjets(stockage.dossierJeu());
-    } catch {
-      // client fermé : on réessaiera
-    }
-  }
-  return objetsClient;
-}
-
-/**
- * Ce qu'il faut pour lire les stats d'un champion : { alias, role, mode, modeJeu }.
- * mode : "ranked" / "aram" imposé (consultation de l'onglet Build). Sinon (build automatique), TOUJOURS les stats
- * de la Faille, quel que soit le mode de la partie (choix du propriétaire, 17/10/2026 : en ARAM aussi, le build de
- * la Faille). modeJeu : le vrai mode de la partie (« aram »...), pour les sorts d'invocateur (analyserOpgg).
- * Sans rôle (partie sans rôles, ARAM), on prend le rôle principal du champion d'après les recommandations de Riot.
- */
-async function contexteBuild({ championId, role, mode }) {
-  const dossier = stockage.dossierJeu();
-  const modeJeu = mode || modeOpgg(await lirePartie(dossier).catch(() => null)) || "ranked";
-  const modeUtilise = mode || (modeJeu === "flex" ? "flex" : "ranked");
-  let roleUtilise = role;
-  if (!roleUtilise && modeUtilise !== "aram") {
-    const pages = await lireRecommandations(dossier, championId, null).catch(() => []);
-    roleUtilise = ROLE_DEPUIS_POSITION[String((pages[0] && pages[0].position) || "").toUpperCase()] || "middle";
-  }
-  const alias = (await obtenirAliasChampions()).get(championId);
-  if (!alias) throw new ErreurOpgg("Champion inconnu : lance le client League.");
-  return { alias, role: roleUtilise, mode: modeUtilise, modeJeu };
-}
-
-/**
- * Stats OP.GG d'un champion (runes, sorts, objets en secours) : celles de la Faille. En ARAM ou en URF, les sorts
- * d'invocateur viennent quand même des stats de CE mode : ceux de la Faille (Téléportation, Châtiment) n'y existent pas.
- */
-async function analyserOpgg(demande) {
-  const { alias, role, mode, modeJeu } = await contexteBuild(demande);
-  const analyse = await lecteurOpgg.analyser({ alias, position: positionOpgg(role, mode), mode });
-  if (modeJeu === "aram" || modeJeu === "urf") {
-    const duMode = await lecteurOpgg.analyser({ alias, position: positionOpgg(null, modeJeu), mode: modeJeu }).catch(() => null);
-    return { ...analyse, sorts: duMode ? duMode.sorts : null };
-  }
-  return analyse;
-}
-
-/** Objets emplacement par emplacement (Lolalytics), avec les noms des objets du client. */
-async function analyserLolalytics(demande) {
-  const { alias, role, mode } = await contexteBuild(demande);
-  const { noms, categories } = await obtenirObjets();
-  return lecteurLolalytics.analyser({
-    alias,
-    role,
-    mode: mode === "flex" ? "ranked" : mode,
-    nomObjet: (id) => noms.get(id) || `Objet n° ${id}`,
-    categoriesObjet: (id) => categories.get(id) || [], // familles de builds (plusieurs sets)
-  });
-}
-
-/**
- * Set « Rank 1 » : le build des MEILLEURS JOUEURS du champion, emplacement par emplacement comme le build classique
- * (17/10/2026). Lolalytics, filtre « 1trick » : jusqu'à 50 des meilleurs joueurs du champion par région (Diamant IV
- * et plus, 50 parties au moins sur lui), le panneau « Best on Kayle » du site ; si trop peu de parties, Maître et
- * plus. Avant, le set venait du n° 1 du classement OP.GG, mais OP.GG ne donne que l'inventaire de fin de partie
- * (pas d'ordre d'achat : impossible de faire Objet 1, 2, 3...), et il fallait envoyer le Riot ID des joueurs.
- * -> { emplacements (analyse Lolalytics), libelle, parties }.
- */
-async function analyserRank1(demande) {
-  const { alias, role } = await contexteBuild(demande);
-  const { noms, categories } = await obtenirObjets();
-  let derniere = null;
-  for (const { tier, libelle } of TIERS_RANK1) {
-    try {
-      const analyse = await lecteurLolalytics.analyser({
-        alias, role, mode: "ranked", tier,
-        nomObjet: (id) => noms.get(id) || `Objet n° ${id}`,
-        categoriesObjet: (id) => categories.get(id) || [],
-      });
-      if (analyse.stats.parties >= PARTIES_MIN_RANK1) return { emplacements: analyse, libelle, parties: analyse.stats.parties };
-      derniere = new ErreurLolalytics("Pas assez de parties des meilleurs joueurs sur ce champion.");
-    } catch (erreur) {
-      derniere = erreur;
-    }
-  }
-  throw derniere || new ErreurLolalytics("Build des meilleurs joueurs indisponible.");
-}
-
-// Filtres de Lolalytics essayés pour le set Rank 1, dans l'ordre (vérifiés le 17/10/2026 sur Kayle Haut :
-// 1trick 2 774 parties, challenger 97 seulement, master_plus 6 708).
-const TIERS_RANK1 = [
-  { tier: "1trick", libelle: "Meilleurs joueurs" },
-  { tier: "master_plus", libelle: "Maître et plus" },
-];
-const PARTIES_MIN_RANK1 = 300;
+// Stats de build (noms et alias des champions, objets du client, OP.GG, Lolalytics, set Rank 1) : stats-build.js.
+const { obtenirNomsChampions, obtenirAliasChampions, analyserOpgg, analyserLolalytics, analyserRank1 } = creerStatsBuild({
+  dossierJeu: () => stockage.dossierJeu(),
+  lecteurOpgg,
+  lecteurLolalytics,
+});
 
 /**
  * Lit le compte dans le client et, si ça marche, le garde sur le disque :

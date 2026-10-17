@@ -37,6 +37,7 @@
       "selection.js",
       "runes.js",
       "build.js",
+      "stats-build.js",
       "internet.js",
       "opgg.js",
       "lolalytics.js",

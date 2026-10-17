@@ -188,7 +188,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (417, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (422, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 | `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
 
@@ -574,6 +574,7 @@ lol-level-calculator/
 ├── selection.js       # Pick et ban automatiques (rôle, listes, champions disponibles, délais)
 ├── draft.js           # Conseiller de draft : picks verrouillés, score (matchups, synergies, confort), suivi
 ├── build.js           # Build : classement des objets, page de runes, set d'objets, logique automatique
+├── stats-build.js     # Stats de build d'un champion : mode (toujours la Faille), rôle, OP.GG, Lolalytics, set Rank 1 (testé)
 ├── internet.js        # Règles communes des appels à Internet : User-Agent honnête, cache de 3 h, délai, erreurs
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
 ├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
