@@ -61,6 +61,7 @@
       "mise-a-jour.js",
       "maj-appli.js",
       "messages.js",
+      "en-jeu.js",
       "preload-overlay.js",
       "assets/**/*",
       "src/**/*"

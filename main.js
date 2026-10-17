@@ -9,6 +9,7 @@
 // En arrière-plan (fenêtre cachée), l'appli reste dans la zone de notification de Windows
 // et continue de surveiller le client (voir la partie "Arrière-plan" en bas de ce fichier).
 const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, protocol, Notification, screen, shell, systemPreferences } = require("electron");
+const { creerEnJeu } = require("./en-jeu.js"); // fenêtre transparente par-dessus le jeu : augments, chronos des sorts
 const path = require("path");
 const os = require("os"); // os.uptime() : depuis quand le Mac est allumé (démarrage réduit)
 const { recupererCompteClient, lireToutHistorique } = require("./lcu.js");
@@ -19,8 +20,6 @@ const { xpDuCompte } = require("./src/calculs.js"); // même calcul d'XP que la 
 const { creerAcceptation, accepterReadyCheck, leagueAuPremierPlan } = require("./acceptation.js");
 const { creerSelectionAuto, effectuerAction, lireChampionsAutorises } = require("./selection.js");
 const { lireRecommandations, appliquerPage, monChampion } = require("./runes.js");
-const { estMayhem, indexNoms, indexStats, creerSuiviAugments, lireNomsAugments, lireLangueJeu } = require("./augments.js");
-const { creerLecteurEcran } = require("./ocr.js");
 const { creerLecteurArammayhem } = require("./arammayhem.js");
 const { creerSondage, etatPreparation } = require("./sondage.js");
 const { creerJournal } = require("./journal.js");
@@ -30,9 +29,6 @@ const { creerStatsBuild } = require("./stats-build.js");
 const { creerLecteurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
-const { creerLectureJeuPartagee, estFaille, lireJeu, monAlias } = require("./jeu.js");
-const { creerSuiviSorts } = require("./sorts.js");
-const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { surProbleme } = require("./fichiers.js"); // écriture sûre des fichiers de données
 const { migrerDonnees } = require("./migrations.js"); // version du format des fichiers de données
@@ -72,13 +68,6 @@ const lecteurLolalytics = creerLecteurLolalytics();
 const lecteurArammayhem = creerLecteurArammayhem(); // taux de victoire des augments ARAM Mayhem
 // Augments ARAM Mayhem affichés en jeu (augments.js) : désactivé par défaut (onglet Build).
 let championPartie = null; // ton champion, retenu pendant la sélection
-let indexAugments = null; // noms de tous les augments (langue du jeu)
-let langueJeu = null; // "en_US"...
-let lecteurEcran = null; // lecture d'écran (ocr.js), lancée seulement pendant une ARAM Mayhem
-let fenetreAugments = null; // fenêtre transparente par-dessus le jeu
-let suiviAugments = null;
-let suiviSorts = null; // chronos des sorts d'invocateur adverses, cliquables en jeu (sorts.js), désactivé par défaut
-const contenuOverlay = { augments: null, sorts: null }; // ce qu'affiche la fenêtre transparente
 const lancement = Date.now(); // ouverture de l'appli : début de session en mode "depuis l'ouverture"
 let icone = null; // icône dans la zone de notification (Tray)
 let quitteEnCours = false; // true quand on quitte vraiment (menu "Quitter") : la croix ne cache plus
@@ -125,14 +114,14 @@ process.on("unhandledRejection", (erreur) => signalerErreur("promesse en erreur"
 function brancherMessagesAppli() {
   brancherMessages(ipcMain, {
     estPage: (evenement) => Boolean(fenetre && !fenetre.isDestroyed() && evenement.sender === fenetre.webContents),
-    estOverlay: (evenement) => Boolean(fenetreAugments && !fenetreAugments.isDestroyed() && evenement.sender === fenetreAugments.webContents),
+    estOverlay: (evenement) => enJeu.estFenetre(evenement),
     stockage: () => stockage,
     progression: () => progression,
     historiqueParties: () => historiqueParties,
     config: () => ({
       dossierJeuParDefaut: DOSSIER_JEU_PAR_DEFAUT,
       plateforme: process.platform, // "win32" ou "darwin" (Mac) : la page adapte ses textes
-      autorisationEcran: autorisationEcranMac(), // Mac : « Enregistrement de l'écran » donné ? (augments) ; null ailleurs
+      autorisationEcran: enJeu.autorisationEcranMac(), // Mac : « Enregistrement de l'écran » donné ? (augments) ; null ailleurs
       lancement, // heure d'ouverture de l'appli (session "depuis l'ouverture")
     }),
     lireCompte,
@@ -144,8 +133,8 @@ function brancherMessagesAppli() {
     apresReglagesAcceptation: () => mettreAJourMenuIcone(),
     appliquerDemarrageWindows,
     // Panneau des sorts : la fenêtre ne prend la souris que quand elle est dessus (sinon tout passe au jeu).
-    souris: (dessus) => fenetreAugments.setIgnoreMouseEvents(!dessus || !contenuOverlay.sorts, { forward: true }),
-    clicSort: (id) => suiviSorts && suiviSorts.clic(id),
+    souris: (dessus) => enJeu.souris(dessus),
+    clicSort: (id) => enJeu.clicSort(id),
     dernierConseil: () => dernierConseil,
     clientConnecte: () => clientConnecte,
     etatAppli: () => etatAppli,
@@ -164,6 +153,18 @@ const { obtenirNomsChampions, obtenirAliasChampions, analyserOpgg, analyserLolal
   dossierJeu: () => stockage.dossierJeu(),
   lecteurOpgg,
   lecteurLolalytics,
+});
+
+// Ce qui s'affiche par-dessus le jeu (en-jeu.js) : stats des augments (ARAM Mayhem) et chronos des sorts (Faille).
+const enJeu = creerEnJeu({
+  electron: { BrowserWindow, screen, systemPreferences },
+  dossierAppli: __dirname,
+  stockage: () => stockage,
+  obtenirAliasChampions,
+  lecteurArammayhem,
+  championPartie: () => championPartie,
+  noter,
+  proteger,
 });
 
 /**
@@ -428,212 +429,6 @@ function demarrerSelection() {
 }
 
 // ---------------------------------------------------------------------------
-// Augments ARAM Mayhem : stats sous chaque carte, sur l'écran du jeu (augments.js, ocr.js)
-// Seulement pendant une ARAM Mayhem et si la case de l'onglet Build est cochée (désactivé par défaut).
-// ---------------------------------------------------------------------------
-
-/** Écran du jeu (l'écran principal) : taille en pixels réels et échelle de Windows (100 %, 125 %...). */
-function ecranJeu() {
-  const ecran = screen.getPrimaryDisplay();
-  return {
-    largeur: Math.round(ecran.bounds.width * ecran.scaleFactor),
-    hauteur: Math.round(ecran.bounds.height * ecran.scaleFactor),
-    echelle: ecran.scaleFactor,
-  };
-}
-
-/**
- * Mac : l'autorisation « Enregistrement de l'écran » (nécessaire pour lire les augments à l'écran) est-elle donnée ?
- * "granted", "denied", "not-determined"... ; null hors Mac ou si macOS ne répond pas.
- */
-function autorisationEcranMac() {
-  if (process.platform !== "darwin") return null;
-  try {
-    return systemPreferences.getMediaAccessStatus("screen");
-  } catch {
-    return null;
-  }
-}
-
-/** Fenêtre transparente par-dessus le jeu : elle laisse passer les clics et ne prend jamais la main (focus). */
-function creerFenetreAugments() {
-  const { bounds } = screen.getPrimaryDisplay();
-  fenetreAugments = new BrowserWindow({
-    x: bounds.x,
-    y: bounds.y,
-    width: bounds.width,
-    height: bounds.height,
-    transparent: true,
-    backgroundColor: "#00000000",
-    frame: false,
-    resizable: false,
-    movable: false,
-    minimizable: false,
-    maximizable: false,
-    skipTaskbar: true,
-    focusable: false, // ne vole jamais le clavier au jeu
-    hasShadow: false,
-    show: false,
-    webPreferences: {
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      preload: path.join(__dirname, "preload-overlay.js"),
-    },
-  });
-  // Les clics passent au jeu ; "forward" laisse quand même la page voir la souris, pour rendre cliquable
-  // le seul panneau des sorts quand la souris passe dessus (voir "overlay:souris").
-  fenetreAugments.setIgnoreMouseEvents(true, { forward: true });
-  fenetreAugments.setAlwaysOnTop(true, "screen-saver"); // au-dessus du jeu en mode « Sans bordure »
-  if (process.platform === "darwin") {
-    // Mac : un jeu en plein écran a son propre bureau (« Space ») ; sans ça, la fenêtre resterait sur le bureau
-    // normal, invisible pendant la partie. skipTransformProcessType : l'icône du Dock ne disparaît pas.
-    try {
-      fenetreAugments.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
-    } catch (erreur) {
-      noter("Overlay sur Mac :", erreur.message); // l'overlay marche quand même hors plein écran
-    }
-  }
-  fenetreAugments.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
-  fenetreAugments.loadFile(path.join(__dirname, "src", "overlay.html"));
-  fenetreAugments.on("closed", () => {
-    fenetreAugments = null;
-  });
-}
-
-const overlayVide = () => !contenuOverlay.augments && !contenuOverlay.sorts;
-
-/**
- * Met à jour la fenêtre transparente : étiquettes des augments (ARAM Mayhem) et panneau des sorts (Faille). Elle est cachée quand il n'y a rien à montrer.
- */
-function majOverlay() {
-  if (overlayVide()) {
-    if (fenetreAugments && !fenetreAugments.isDestroyed()) {
-      fenetreAugments.setIgnoreMouseEvents(true, { forward: true }); // plus de panneau : tout repasse au jeu
-      fenetreAugments.hide();
-    }
-    return;
-  }
-  if (!fenetreAugments || fenetreAugments.isDestroyed()) creerFenetreAugments();
-  const envoyer = () => {
-    if (!fenetreAugments || fenetreAugments.isDestroyed()) return;
-    // Contenu relu au moment d'envoyer : jamais un état plus ancien que le dernier demandé.
-    fenetreAugments.webContents.send("augments:etiquettes", { echelle: ecranJeu().echelle, liste: contenuOverlay.augments || [] });
-    fenetreAugments.webContents.send("sorts:position", stockage.positionSorts());
-    fenetreAugments.webContents.send("sorts:etat", contenuOverlay.sorts);
-    if (!contenuOverlay.sorts) fenetreAugments.setIgnoreMouseEvents(true, { forward: true });
-    if (overlayVide()) return fenetreAugments.hide();
-    fenetreAugments.showInactive(); // visible sans prendre la main
-    fenetreAugments.setAlwaysOnTop(true, "screen-saver");
-  };
-  if (fenetreAugments.webContents.isLoading()) fenetreAugments.webContents.once("did-finish-load", envoyer);
-  else envoyer();
-}
-
-/** Affiche les étiquettes sous les cartes (liste), ou les retire (null). */
-function afficherAugments(liste) {
-  contenuOverlay.augments = liste || null;
-  majOverlay();
-}
-
-/** Affiche le panneau des sorts adverses (avec l'icône de chaque champion), ou le retire (null). */
-async function afficherSorts(panneau) {
-  if (panneau) {
-    const ids = new Map([...(await obtenirAliasChampions())].map(([id, alias]) => [String(alias).toLowerCase(), id]));
-    panneau = panneau.map((a) => ({ ...a, championId: ids.get(String(a.alias).toLowerCase()) || null }));
-  }
-  contenuOverlay.sorts = panneau || null;
-  majOverlay();
-}
-
-async function obtenirLangueJeu() {
-  if (!langueJeu) langueJeu = await lireLangueJeu(stockage.dossierJeu()).catch(() => "en_US");
-  return langueJeu;
-}
-
-async function obtenirIndexAugments() {
-  if (!indexAugments || indexAugments.size === 0) indexAugments = indexNoms(await lireNomsAugments(stockage.dossierJeu()));
-  return indexAugments;
-}
-
-function obtenirLecteurEcran() {
-  if (!lecteurEcran) lecteurEcran = creerLecteurEcran({ langue: langueJeu || "en_US", echelle: () => ecranJeu().echelle }); // échelle : Mac (Retina)
-  return lecteurEcran;
-}
-
-function demarrerAugments() {
-  suiviAugments = creerSuiviAugments({
-    actif: () => (process.platform === "win32" || process.platform === "darwin") && stockage.reglagesBuild().augments, // OCR de Windows ou de macOS (ocr.js)
-    ecran: ecranJeu,
-    lireEcran: (zone) => obtenirLecteurEcran().lire(zone),
-    nomsAugments: obtenirIndexAugments,
-    // Taux de victoire d'arammayhem.com (arammayhem.js) : avec ton champion, sinon tous champions.
-    // Champion retenu pendant la sélection ; appli lancée en pleine partie (vu le 17/10/2026 : « Stats
-    // indisponibles ») : on le lit dans la partie en cours (jeu.js) ; sinon, stats tous champions seulement.
-    statsAugments: async () => {
-      let alias = championPartie ? (await obtenirAliasChampions()).get(championPartie) : null;
-      if (!alias) {
-        const jeu = await lireJeu();
-        alias = jeu ? monAlias(jeu.actif, jeu.joueurs) : null;
-      }
-      return indexStats(await lecteurArammayhem.augments({ alias }));
-    },
-    afficher: afficherAugments,
-    arreterLecture: () => {
-      if (lecteurEcran) lecteurEcran.arreter();
-      lecteurEcran = null;
-    },
-    journal: noter, // dans journal.txt (avant : seulement dans le terminal, invisible dans l'appli installée)
-  });
-}
-
-function demarrerChronosSorts() {
-  const lire = creerLectureJeuPartagee(); // une seule lecture du jeu par seconde
-  // Pings des sorts lus dans le chat (pings.js, exception du 16/10/2026 ; même case que les chronos, désactivée par défaut).
-  // Le lecteur d'écran est demandé à chaque lecture : c'est le même que celui des augments (un seul processus).
-  const lectureEcranPossible = process.platform === "win32" || process.platform === "darwin";
-  const lecteurChat = creerLecteurChat({
-    lecteur: {
-      capturer: (...args) => obtenirLecteurEcran().capturer(...args),
-      lireImage: (...args) => obtenirLecteurEcran().lireImage(...args),
-    },
-    ecran: () => ecranJeu(),
-  });
-  suiviSorts = creerSuiviSorts({
-    reglages: () => stockage.reglagesBuild(), // case « sorts » (chronos et pings)
-    lire,
-    afficher: (panneau) => proteger("chronos des sorts", () => afficherSorts(panneau)),
-    journal: noter,
-    lireChat: lectureEcranPossible ? () => lecteurChat.lire() : null,
-  });
-}
-
-/** Phase de jeu : panneau des sorts seulement pendant une partie sur la Faille. */
-async function surPhaseSorts(phase) {
-  if (!suiviSorts) return;
-  if (phase !== "InProgress") return suiviSorts.arreter();
-  const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
-  if (estFaille(partie)) suiviSorts.demarrer();
-  else suiviSorts.arreter();
-}
-
-/** Phase de jeu pour tout ce qui s'affiche en jeu, chacun dans sa bulle (augments, chronos des sorts). */
-function surPhaseEnJeu(phase) {
-  proteger("augments en jeu", () => surPhase(phase));
-  proteger("chronos des sorts", () => surPhaseSorts(phase));
-}
-
-/** Phase de jeu : on lit l'écran seulement pendant une partie ARAM Mayhem, et on arrête tout le reste du temps. */
-async function surPhase(phase) {
-  if (!suiviAugments) return;
-  if (phase !== "InProgress") return suiviAugments.arreter();
-  const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
-  if (!estMayhem(partie)) return suiviAugments.arreter();
-  await obtenirLangueJeu();
-  suiviAugments.demarrer();
-}
-
-// ---------------------------------------------------------------------------
 // Surveillance en direct : le client prévient quand une partie se termine.
 // ---------------------------------------------------------------------------
 
@@ -702,12 +497,12 @@ function demarrerSurveillance() {
       if (connecte) proteger("notification « LoL Companion est prêt »", notifierClientDetecte);
       else clientDejaSignale = false; // League fermé : on préviendra au prochain lancement
       // Appli lancée en pleine partie : on regarde tout de suite (ARAM Mayhem, Faille).
-      if (connecte) proteger("phase en jeu", async () => surPhaseEnJeu(((await lirePartie(stockage.dossierJeu())) || {}).phase));
+      if (connecte) proteger("phase en jeu", async () => enJeu.surPhase(((await lirePartie(stockage.dossierJeu())) || {}).phase));
     },
     aReadyCheck: (etat) => acceptation.surReadyCheck(etat), // partie trouvée : tout de suite, sans attendre
     aPhase: (phase) => {
       phaseDirecte = phase;
-      surPhaseEnJeu(phase);
+      enJeu.surPhase(phase);
     },
     aSelection: surSelection,
     aRafraichir: async (raison) => {
@@ -729,7 +524,7 @@ function demarrerSurveillance() {
       noter("Client :", etat.clientRepond ? `répond (phase ${etat.phase})` : etat.clientLance ? "lancé, ne répond pas encore" : "fermé");
       publierEtatAppli();
     },
-    aPhase: surPhaseEnJeu,
+    aPhase: (phase) => enJeu.surPhase(phase),
     aReadyCheck: (etat) => acceptation.surReadyCheck(etat),
     aSelection: surSelection,
     aErreur: signalerErreur,
@@ -782,8 +577,8 @@ function creerFenetre({ visible = true } = {}) {
   });
   fenetre.on("closed", () => {
     fenetre = null;
-    // Fenêtre principale vraiment fermée : la fenêtre des augments ne doit pas garder l'appli ouverte.
-    if (fenetreAugments && !fenetreAugments.isDestroyed()) fenetreAugments.destroy();
+    // Fenêtre principale vraiment fermée : la fenêtre du jeu ne doit pas garder l'appli ouverte.
+    enJeu.fermerFenetre();
   });
 
   fenetre.loadFile(path.join(__dirname, "src", "index.html"));
@@ -942,8 +737,7 @@ if (!instanceUnique || estDemandeQuitter(process.argv)) {
     majAppli.fermerEcran(); // petite fenêtre « Mise à jour… » (si la mise à jour du lancement a été abandonnée)
     demarrerAcceptation();
     demarrerSelection();
-    demarrerAugments();
-    demarrerChronosSorts();
+    enJeu.demarrer(); // stats des augments et chronos des sorts (ne lisent rien avant une partie)
     demarrerSurveillance();
     majAppli.demarrer();
 
@@ -963,9 +757,8 @@ app.on("before-quit", () => {
   clearInterval(chienDeGarde);
   if (acceptation) acceptation.arreter();
   if (selectionAuto) selectionAuto.arreter();
-  if (suiviAugments) suiviAugments.arreter(); // arrête aussi la lecture d'écran
+  enJeu.arreter(); // augments (et lecture d'écran), chronos des sorts, fenêtre du jeu
   if (majAppli.suivi()) majAppli.suivi().arreter();
-  if (fenetreAugments && !fenetreAugments.isDestroyed()) fenetreAugments.destroy();
   if (icone && !icone.isDestroyed()) icone.destroy();
   icone = null;
 });
