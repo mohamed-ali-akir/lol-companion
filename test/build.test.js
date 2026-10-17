@@ -611,19 +611,9 @@ test("set d'une famille : les objets exclus (autre famille) ne sont pas proposé
   assert.ok(!apres || ![apres.option, ...apres.autres].some((o) => o.ids.includes(exclu)));
 });
 
-// --- Set « Champion Rank 1 » (rank1.js, 17/10/2026) -----------------------------------------------
+// --- Set « Champion Rank 1 » : build des meilleurs joueurs (Lolalytics « 1trick »), 17/10/2026 ---------------
 
-const OBJETS_RANK1 = new Map([
-  [3020, { categories: ["Boots"], prix: 1100, vers: [] }],
-  [3100, { categories: ["SpellDamage"], prix: 2900, vers: [] }],
-  [3089, { categories: ["SpellDamage"], prix: 3500, vers: [] }],
-]);
-const RANK1 = {
-  joueur: { tier: "GRANDMASTER", lp: 2145, parties: 958, victoires: 548 },
-  region: "EUW",
-  objets: OBJETS_RANK1,
-  parties: [3, 4, 5].map((i) => ({ ids: i > 3 ? [3020, 3100, 3089] : [3020, 3100], role: "middle", victoire: i !== 4 })),
-};
+const RANK1 = { emplacements: LOLA, libelle: "Meilleurs joueurs", parties: 2774 };
 const AVEC_RANK1 = { stats: true, runes: false, objets: true, rank1: true };
 
 test("réglage rank1 : sa propre case, désactivée par défaut", () => {
@@ -631,36 +621,40 @@ test("réglage rank1 : sa propre case, désactivée par défaut", () => {
   assert.strictEqual(B.normaliserReglagesBuild({ rank1: true }).rank1, true);
 });
 
-test("set Rank 1 : ajouté APRÈS le set principal, départ du build général, la page le sait", async () => {
+test("set Rank 1 : comme le build classique (Départ, Objet 1, Bottes, Objets 2 à 5), APRÈS le set principal", async () => {
   const { journal, auto } = logique({ reglages: AVEC_RANK1, rank1: RANK1 });
   auto.surSession(session());
   await attendre(20);
   assert.deepStrictEqual(journal.rank1, [{ championId: AHRI, role: "middle" }]);
   assert.deepStrictEqual(journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · Recommandé", "Ahri Rank 1"]);
   const [principal, rank1] = journal.sets;
-  assert.deepStrictEqual(rank1.blocks[0].items, principal.blocks[0].items, "même départ que le build général");
-  assert.deepStrictEqual(rank1.blocks[1].items.map((i) => i.id), ["3100", "3089"], "le cœur du build juste après le départ");
+  assert.deepStrictEqual(rank1.blocks.map((b) => b.type.split(" ·")[0]), ["Départ", "Objet 1", "Bottes", "Objet 2", "Objet 3", "Objet 4", "Objet 5"]);
+  assert.deepStrictEqual(rank1.blocks[1].items.map((i) => i.id), ["2503", "6655", "6653"], "3 choix, le plus acheté d'abord");
+  assert.match(rank1.blocks[1].type, /% V · \d+ % choix/, "taux de victoire et part des achats, comme le build classique");
+  assert.ok(rank1.uid.startsWith("1c0a9a10-0000-4000-9000-"), "identifiant du set Rank 1 (remplacé à chaque fois)");
+  assert.notStrictEqual(rank1.uid, principal.uid);
   const [r] = journal.resultats;
-  assert.deepStrictEqual(r.rank1, { titre: "Ahri Rank 1", rang: "Grand Maître 2145 LP", parties: 3 });
+  assert.deepStrictEqual(r.rank1, { titre: "Ahri Rank 1", rang: "Meilleurs joueurs", parties: 2774 });
   assert.deepStrictEqual(r.setsCrees, ["LoL Companion - Ahri (Milieu) · Recommandé"], "le set Rank 1 est compté à part");
   assert.deepStrictEqual(r.erreurs, {});
 });
 
-test("set Rank 1 : case décochée -> aucune demande ; OP.GG en échec -> erreur signalée, set principal créé quand même", async () => {
+test("set Rank 1 : case décochée -> aucune demande ; Lolalytics en échec -> erreur signalée, set principal créé quand même", async () => {
   const sans = logique({ reglages: { stats: true, runes: false, objets: true }, rank1: RANK1 });
   sans.auto.surSession(session());
   await attendre(20);
   assert.deepStrictEqual(sans.journal.rank1, []);
   assert.deepStrictEqual(sans.journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · Recommandé"]);
 
-  const echec = logique({ reglages: AVEC_RANK1, rank1: new O.ErreurOpgg("Pas de classement OP.GG pour ce champion sur ton serveur.") });
+  const echec = logique({ reglages: AVEC_RANK1, rank1: new Error("Pas de classement des meilleurs joueurs pour ce champion.") });
   echec.auto.surSession(session());
   await attendre(20);
   assert.deepStrictEqual(echec.journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · Recommandé"]);
   assert.match(echec.journal.resultats[0].erreurs.rank1, /Pas de classement/);
   assert.strictEqual(echec.journal.resultats[0].rank1, null);
 
-  const peu = logique({ reglages: AVEC_RANK1, rank1: { ...RANK1, parties: RANK1.parties.slice(0, 2) } });
+  const vide = { ...LOLA, depart: [], bottes: [], emplacements: [[], [], [], [], []] };
+  const peu = logique({ reglages: AVEC_RANK1, rank1: { ...RANK1, emplacements: vide } });
   peu.auto.surSession(session());
   await attendre(20);
   assert.match(peu.journal.resultats[0].erreurs.rank1, /Pas assez de parties/);

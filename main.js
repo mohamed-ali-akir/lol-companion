@@ -24,7 +24,7 @@ const { creerLecteurEcran } = require("./ocr.js");
 const { creerLecteurArammayhem } = require("./arammayhem.js");
 const { creerSondage, etatPreparation } = require("./sondage.js");
 const { creerJournal } = require("./journal.js");
-const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireObjets, lireRegion, appliquerSet, appliquerSorts } = require("./build.js");
+const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireObjets, appliquerSet, appliquerSorts } = require("./build.js");
 const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg.js");
 const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
@@ -374,16 +374,40 @@ async function analyserLolalytics(demande) {
 }
 
 /**
- * Set « Rank 1 » (rank1.js, exception du 17/10/2026) : le meilleur joueur du champion sur ton serveur (OP.GG) et ses
- * parties récentes, avec les objets du client pour les trier. Seulement sur la Faille (classement de la file classée).
+ * Set « Rank 1 » : le build des MEILLEURS JOUEURS du champion, emplacement par emplacement comme le build classique
+ * (17/10/2026). Lolalytics, filtre « 1trick » : jusqu'à 50 des meilleurs joueurs du champion par région (Diamant IV
+ * et plus, 50 parties au moins sur lui), le panneau « Best on Kayle » du site ; si trop peu de parties, Maître et
+ * plus. Avant, le set venait du n° 1 du classement OP.GG, mais OP.GG ne donne que l'inventaire de fin de partie
+ * (pas d'ordre d'achat : impossible de faire Objet 1, 2, 3...), et il fallait envoyer le Riot ID des joueurs.
+ * -> { emplacements (analyse Lolalytics), libelle, parties }.
  */
 async function analyserRank1(demande) {
-  const { alias, mode } = await contexteBuild(demande);
-  if (mode !== "ranked" && mode !== "flex") throw new ErreurOpgg("Set Rank 1 : seulement sur la Faille de l'invocateur.");
-  const region = await lireRegion(stockage.dossierJeu());
-  const meilleur = await lecteurOpgg.rank1({ alias, championId: demande.championId, region });
-  return { ...meilleur, region, objets: (await obtenirObjets()).details };
+  const { alias, role } = await contexteBuild(demande);
+  const { noms, categories } = await obtenirObjets();
+  let derniere = null;
+  for (const { tier, libelle } of TIERS_RANK1) {
+    try {
+      const analyse = await lecteurLolalytics.analyser({
+        alias, role, mode: "ranked", tier,
+        nomObjet: (id) => noms.get(id) || `Objet n° ${id}`,
+        categoriesObjet: (id) => categories.get(id) || [],
+      });
+      if (analyse.stats.parties >= PARTIES_MIN_RANK1) return { emplacements: analyse, libelle, parties: analyse.stats.parties };
+      derniere = new ErreurLolalytics("Pas assez de parties des meilleurs joueurs sur ce champion.");
+    } catch (erreur) {
+      derniere = erreur;
+    }
+  }
+  throw derniere || new ErreurLolalytics("Build des meilleurs joueurs indisponible.");
 }
+
+// Filtres de Lolalytics essayés pour le set Rank 1, dans l'ordre (vérifiés le 17/10/2026 sur Kayle Haut :
+// 1trick 2 774 parties, challenger 97 seulement, master_plus 6 708).
+const TIERS_RANK1 = [
+  { tier: "1trick", libelle: "Meilleurs joueurs" },
+  { tier: "master_plus", libelle: "Maître et plus" },
+];
+const PARTIES_MIN_RANK1 = 300;
 
 /**
  * Lit le compte dans le client et, si ça marche, le garde sur le disque :

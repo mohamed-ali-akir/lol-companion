@@ -52,12 +52,15 @@ function nomLolalytics(alias) {
  * Faille : rangs Émeraude et plus (réglage par défaut de Lolalytics), voie du joueur.
  * ARAM / URF : tous les rangs (le rang compte peu, et Émeraude+ donnait 14 fois moins de parties : 3 460 contre 48 019 pour Hwei).
  */
-function adresseBuild({ alias, role, mode }) {
+function adresseBuild({ alias, role, mode, tier = null }) {
   const nom = nomLolalytics(alias);
   if (!nom) return null;
   const sousMode = mode === "aram" ? "aram/" : mode === "urf" ? "urf/" : "";
   const voie = VOIES[role];
-  const parametres = sousMode ? "?tier=all" : voie ? `?lane=${voie}` : "";
+  // tier : filtre de rang de Lolalytics (« 1trick » : les meilleurs joueurs du champion, voir TIERS_RANK1), Faille seulement.
+  const filtre = !sousMode && /^[a-z0-9_]+$/.test(String(tier || "")) ? tier : null;
+  const morceaux = sousMode ? ["tier=all"] : [voie ? `lane=${voie}` : null, filtre ? `tier=${filtre}` : null].filter(Boolean);
+  const parametres = morceaux.length > 0 ? `?${morceaux.join("&")}` : "";
   return `${URL_LOLALYTICS}/lol/${nom}/${sousMode}build/${parametres}`;
 }
 
@@ -213,8 +216,8 @@ function creerLecteurLolalytics({ appeler = (...a) => fetch(...a), maintenant = 
   }
 
   /** Données brutes de la page d'un champion (objets + matchups). */
-  function donneesChampion({ alias, role, mode }) {
-    const adresse = adresseBuild({ alias, role, mode });
+  function donneesChampion({ alias, role, mode, tier }) {
+    const adresse = adresseBuild({ alias, role, mode, tier });
     if (!adresse) return Promise.reject(new ErreurLolalytics("Champion inconnu."));
     return avecCache(adresse, "text/html", (html) => {
       const donnees = extraireDonnees(html);
@@ -223,10 +226,10 @@ function creerLecteurLolalytics({ appeler = (...a) => fetch(...a), maintenant = 
     });
   }
 
-  async function analyser({ alias, role, mode, nomObjet, categoriesObjet }) {
+  async function analyser({ alias, role, mode, tier = null, nomObjet, categoriesObjet }) {
     let donnees;
     try {
-      donnees = await donneesChampion({ alias, role, mode });
+      donnees = await donneesChampion({ alias, role, mode, tier });
     } catch (erreur) {
       if (/format/.test(erreur.message)) throw new ErreurLolalytics("La page de Lolalytics a changé de format : build d'OP.GG utilisé à la place.");
       throw erreur;

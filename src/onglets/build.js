@@ -110,7 +110,7 @@ function surEvenementBuild(info) {
     const plusieurs = Array.isArray(info.setsCrees) && info.setsCrees.length > 1;
     bilan.push(plusieurs ? `${info.setsCrees.length} sets d'objets créés (un par façon de jouer) ✓` : "set d'objets créé ✓");
   }
-  if (info.rank1) bilan.push(`set « ${info.rank1.titre} » créé (${info.rank1.rang}, ${info.rank1.parties} parties récentes) ✓`);
+  if (info.rank1) bilan.push(`set « ${info.rank1.titre} » créé (${info.rank1.rang}, ${formatNombre(info.rank1.parties)} parties) ✓`);
   for (const [quoi, message] of Object.entries(info.erreurs || {})) {
     bilan.push(`${{ stats: "OP.GG", emplacements: "Lolalytics", runes: "runes", objets: "set d'objets", rank1: "set Rank 1", sortsAuto: "sorts" }[quoi]} : ${message}`);
   }

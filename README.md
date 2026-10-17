@@ -120,8 +120,12 @@ viennent des stats ARAM, puisque Téléportation ou Châtiment n'y existent pas)
   façon (`familles.js`). Le meilleur set (le build général, ou la façon la plus jouée) finit par **« · Recommandé »** ;
 - choisit tes **sorts d'invocateur** (sa case) : les plus joués d'après OP.GG, chaque sort gardé sur ta touche
   habituelle (si Flash est sur F, il y reste) ;
-- ajoute le **set « Champion Rank 1 »** (sa case, `rank1.js`) : le build du meilleur joueur du champion sur ton
-  serveur, d'après le classement d'OP.GG retrié par vrai rang (jamais son Riot ID dans le set).
+- ajoute le **set « Champion Rank 1 »** (sa case) : le build des **meilleurs joueurs** du champion, rangé comme le
+  build classique (Départ, Objet 1, Bottes, Objets 2 à 5, 3 choix chacun avec taux de victoire et part des achats).
+  Il vient de Lolalytics, filtre « 1trick » (jusqu'à 50 des meilleurs joueurs du champion par région, Diamant IV et
+  plus, 50 parties au moins dessus), ou Maître et plus s'il y a moins de 300 parties. Avant le 17/10/2026, il venait
+  du n° 1 du classement d'OP.GG, qui ne donne que l'inventaire de fin de partie : pas d'ordre d'achat, donc pas
+  d'Objet 1, 2, 3.
 
 Tes autres pages de runes et sets (Porofessor...) ne sont jamais modifiés. Tu peux aussi **consulter le build** de
 n'importe quel champion, rôle et mode, sans rien appliquer.
@@ -271,7 +275,6 @@ temporaire dans le fichier `lockfile` de son dossier d'installation. L'appli lit
 | `GET /lol-perks/v1/pages`, `GET /lol-perks/v1/inventory` | Tes pages de runes, place disponible |
 | `POST /lol-perks/v1/pages`, `DELETE /lol-perks/v1/pages/<id>` | Créer / remplacer la page « LoL Companion » (modifie le client, désactivé par défaut ; jamais tes autres pages) |
 | `GET` / `PUT /lol-item-sets/v1/item-sets/<summonerId>/sets` | Sets d'objets : on garde seulement les sets « LoL Companion - Champion » du champion actuel (un par façon de le jouer) et son set « Champion Rank 1 » (reconnu par son identifiant), tes autres sets sont renvoyés tels quels (modifie le client, désactivé par défaut) |
-| `GET /riotclient/region-locale` | Serveur du compte (« EUW »), pour le classement du set Rank 1 |
 
 **Seules connexions à Internet : les statistiques de builds (OP.GG et Lolalytics).** Le client ne fournit aucune
 statistique d'objets (`recommendedItemDefaults` est vide). Si tu coches « Récupérer le build de mon champion »
@@ -282,9 +285,8 @@ utilisées par OP.GG, Lolalytics et arammayhem.com :
 - `opgg.js` interroge le serveur public qu'OP.GG met à disposition des applis
   ([OP.GG MCP Server](https://github.com/opgginc/opgg-mcp)) : `POST https://mcp-api.op.gg/mcp`, outil
   `lol_get_champion_analysis` (runes, sorts, et objets si Lolalytics ne répond pas). Il ne donne qu'une combinaison
-  pour les objets 1 à 3 et une paire de bottes. Pour le **set Rank 1** (case séparée, exception du 17/10/2026),
-  `opgg.js` envoie en plus **ton serveur** (EUW...) et le **Riot ID public** des meilleurs joueurs du classement du
-  champion (outils `lol_list_champions`, `lol_list_champion_leaderboard`, `lol_list_summoner_matches`) : jamais le tien ;
+  pour les objets 1 à 3 et une paire de bottes. (Le set Rank 1 ne passe plus par OP.GG depuis le 17/10/2026 : il
+  lit la page Lolalytics du champion avec le filtre `tier=1trick`, même format que le build classique.) ;
 - `lolalytics.js` lit la page publique du build : `GET https://lolalytics.com/lol/<champion>/build/?lane=<voie>`
   (ARAM / URF : `/aram/build/?tier=all`). C'est la seule source trouvée avec les objets **emplacement par emplacement**
   (recherche du 02/10/2026 : u.gg et dpm.lol n'ont pas d'accès prévu pour les applis non plus). Lolalytics n'a pas
@@ -500,8 +502,8 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   Lolalytics et celles du conseiller de draft (Lolalytics), seulement si tu les actives (désactivé par défaut), et
   celles des augments (arammayhem.com), actives d'office pendant une ARAM Mayhem (décision du 17/10/2026). Lecture seule, depuis le processus principal, certificats vérifiés
   normalement, et seuls le champion, le rôle, le mode et la langue sont envoyés : jamais ton Riot ID ni rien de
-  personnel. Seule exception : le set « Champion Rank 1 » envoie aussi ton serveur et le Riot ID public des
-  meilleurs joueurs du champion (décision du propriétaire, 17/10/2026). La page web de l'appli, elle, ne se connecte
+  personnel (le set « Champion Rank 1 » n'envoie plus ni ton serveur ni le Riot ID des meilleurs joueurs depuis le
+  17/10/2026 : il lit Lolalytics comme le reste du build). La page web de l'appli, elle, ne se connecte
   à rien (Content-Security-Policy inchangée).
 - **Mise à jour automatique** (décision du propriétaire, 11/10/2026) : l'appli installée lit la dernière Release de
   github.com/mohamed-ali-akir/lol-companion (activé par défaut, désactivable). Elle ne fait que télécharger des fichiers
@@ -563,7 +565,7 @@ lol-level-calculator/
 ├── internet.js        # Règles communes des appels à Internet : User-Agent honnête, cache de 3 h, délai, erreurs
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
 ├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
-├── rank1.js           # Set « Champion Rank 1 » : meilleur joueur du champion (classement OP.GG retrié par rang), ses objets
+├── rank1.js           # Set « Champion Rank 1 » : identifiant du set (le build vient de Lolalytics, meilleurs joueurs) ; ancien calcul OP.GG
 ├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies ; cache
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
 ├── pings.js           # Pings des sorts lus dans le chat : capture, OCR, reconnaissance « ChampionEnnemi Sort »

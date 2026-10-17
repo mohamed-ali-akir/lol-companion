@@ -32,7 +32,7 @@
  */
 const { lireLockfile, lireJson, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
 const { monChampion, pageDepuisRecommandation, nomsPage } = require("./runes.js");
-const { composerRank1, setRank1, libelleRang } = require("./rank1.js"); // set « Champion Rank 1 »
+const { PREFIXE_UID: PREFIXE_UID_RANK1 } = require("./rank1.js"); // identifiant du set « Champion Rank 1 »
 
 const PREFIXE_SET = "LoL Companion";
 const PREFIXE_UID_APPLI = "1c0a9a10-0000-4000-"; // identifiants des sets de l'appli (uidSet : ...-8000-, rank1.js : ...-9000-)
@@ -341,6 +341,16 @@ function etapesFamille(etapes, famille) {
 }
 
 /**
+ * Set « Champion Rank 1 » au format du build classique : mêmes blocs (3 choix par emplacement, taux de victoire et
+ * part des achats), avec son propre titre et son propre identifiant (PREFIXE_UID de rank1.js : reconnu et remplacé
+ * à chaque fois, jamais en double).
+ */
+function setRank1Classique({ etapes, championId, nomChampion, role, carte = 11 }) {
+  const set = setObjets({ etapes, championId, nomChampion, role, carte, troisParBloc: true });
+  return { ...set, title: `${nomChampion} Rank 1`, uid: `${PREFIXE_UID_RANK1}${String(championId).padStart(12, "0")}` };
+}
+
+/**
  * Les sets à créer pour ce champion : un par famille de build s'il y en a au moins 2 (build de Lolalytics),
  * sinon un seul set, comme avant. Mêmes paramètres que setObjets, plus familles (de lolalytics.js).
  */
@@ -401,8 +411,8 @@ function assemblerBuild({ opgg = null, emplacements = null }) {
  *  - runesRiot({ championId, role })        : pages recommandées par Riot (promesse, secours) ;
  *  - appliquerRunes(page, noms), appliquerObjets(set) : écrivent dans le client (promesses) ;
  *  - appliquerSorts([id, id])               : (facultatif) choisit tes sorts d'invocateur (promesse) ;
- *  - analyserRank1({ championId, role })    : (facultatif) set « Rank 1 » : { joueur, parties, objets, region }
- *                                             (opgg.js rank1 + objets du client) ; seulement si la case est cochée ;
+ *  - analyserRank1({ championId, role })    : (facultatif) set « Rank 1 » : { emplacements, libelle, parties }
+ *                                             (Lolalytics, meilleurs joueurs du champion) ; seulement si la case est cochée ;
  *  - nomChampion(championId)                : nom affiché (promesse) ;
  *  - carte()                                : carte de la partie (promesse, 11 ou 12) ;
  *  - resultat(info)                         : { championId, role, build, runes, objets, erreurs } ;
@@ -453,7 +463,7 @@ function creerBuildAuto({
     const erreurs = {};
     let analyse = null; // OP.GG : runes, sorts, et objets en secours
     let emplacements = null; // Lolalytics : objets emplacement par emplacement
-    let rank1 = null; // set « Rank 1 » : meilleur joueur du champion et ses parties (OP.GG)
+    let rank1 = null; // set « Rank 1 » : build des meilleurs joueurs du champion (Lolalytics)
     if (r.stats) {
       const [opgg, lolalytics, meilleur] = await Promise.allSettled([
         analyser({ championId, role }),
@@ -500,14 +510,14 @@ function creerBuildAuto({
         const nom = await nomChampion(championId);
         const carteJeu = await carte();
         const sets = etapes.length > 0 ? setsObjets({ etapes, familles: emplacements ? emplacements.familles : [], championId, nomChampion: nom, role, carte: carteJeu, troisParBloc }) : [];
-        // Set « Rank 1 », après les autres (le set principal reste sélectionné d'office) ; départ du build général.
-        const composition = rank1 ? composerRank1({ parties: rank1.parties, objets: rank1.objets, role }) : null;
-        if (rank1 && !composition) erreurs.rank1 = "Pas assez de parties récentes du meilleur joueur sur ce champion.";
-        if (composition) {
-          const depart = (etapes.find((e) => e.cle === "depart") || { option: { ids: [] } }).option.ids;
-          const set = setRank1({ composition, joueur: rank1.joueur, depart, championId, nomChampion: nom, carte: carteJeu, region: rank1.region });
+        // Set « Rank 1 », après les autres (le set principal reste sélectionné d'office) : le build des meilleurs
+        // joueurs, emplacement par emplacement comme le build classique (Départ, Objet 1, Bottes, Objets 2 à 5).
+        const etapesRank1 = rank1 ? composerParEmplacement(rank1.emplacements) : [];
+        if (rank1 && etapesRank1.length === 0) erreurs.rank1 = "Pas assez de parties des meilleurs joueurs sur ce champion.";
+        if (etapesRank1.length > 0) {
+          const set = setRank1Classique({ etapes: etapesRank1, championId, nomChampion: nom, role, carte: carteJeu });
           sets.push(set);
-          infoRank1 = { titre: set.title, rang: libelleRang(rank1.joueur), parties: composition.n };
+          infoRank1 = { titre: set.title, rang: rank1.libelle, parties: rank1.parties };
         }
         await appliquerObjets(sets);
         objets = true;
@@ -616,6 +626,7 @@ module.exports = {
   classerOptions,
   composerBuild,
   troisChoix,
+  setRank1Classique,
   composerParEmplacement,
   assemblerBuild,
   pageDepuisOpgg,
