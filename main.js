@@ -33,7 +33,7 @@ const { creerLectureJeuPartagee, estFaille, lireJeu, monAlias } = require("./jeu
 const { creerSuiviSorts } = require("./sorts.js");
 const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
-const { creerMiseAJour, creerVerificationMac, ADRESSE_LATEST_YML } = require("./mise-a-jour.js");
+const { creerMiseAJour, creerVerificationMac, majAuDemarrage, ADRESSE_LATEST_YML } = require("./mise-a-jour.js");
 const { telecharger } = require("./internet.js"); // règles communes des appels à Internet (User-Agent, délai)
 const { lireNomsChampions, routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
 const {
@@ -1116,6 +1116,55 @@ function lanceeReduite() {
  * Mise à jour automatique (mise-a-jour.js) : seulement pour l'appli installée. Lancée depuis le projet (npm start),
  * il n'y a rien à mettre à jour (et pas de fichier app-update.yml).
  */
+/**
+ * Au lancement (Windows, appli installée, case des mises à jour cochée) : s'il existe une nouvelle version, elle est
+ * installée AVANT d'ouvrir l'appli (choix du propriétaire, 17/10/2026 ; mise-a-jour.js, majAuDemarrage). Une petite
+ * fenêtre « Mise à jour… » s'affiche alors (pas au démarrage de Windows en réduit : tout se fait sans rien montrer).
+ * Renvoie true si l'appli va se fermer pour s'installer (il ne faut alors rien démarrer d'autre).
+ */
+let ecranMaj = null; // fenêtre « Mise à jour… » du lancement, fermée APRÈS l'ouverture de la fenêtre principale
+
+async function installerMajAuDemarrage() {
+  if (!app.isPackaged || process.platform !== "win32" || !stockage.reglagesArrierePlan().majAuto) return false;
+  try {
+    const { autoUpdater } = require("electron-updater");
+    const resultat = await majAuDemarrage({
+      updater: autoUpdater,
+      journal: noter,
+      trouvee: () => {
+        if (!lanceeReduite()) ecranMaj = ecranMajDemarrage();
+      },
+    });
+    if (resultat === "installation") {
+      quitteEnCours = true; // rien ne doit retenir la fermeture : l'installateur attend que l'appli soit fermée
+      return true;
+    }
+  } catch (erreur) {
+    console.error("Mise à jour au lancement impossible :", erreur); // pas grave : l'appli démarre normalement
+  }
+  // (La petite fenêtre est fermée par whenReady, une fois la fenêtre principale créée : la fermer avant, alors
+  // qu'aucune autre fenêtre n'existe, déclencherait « window-all-closed » et l'appli quitterait.)
+  return false;
+}
+
+/** Petite fenêtre « Mise à jour de LoL Companion… » (src/maj-demarrage.html : texte seul, aucun script). */
+function ecranMajDemarrage() {
+  const ecran = new BrowserWindow({
+    width: 420,
+    height: 120,
+    frame: false,
+    resizable: false,
+    alwaysOnTop: true,
+    show: false,
+    backgroundColor: "#0a1428",
+    icon: cheminIcone("icon"),
+    webPreferences: { contextIsolation: true, nodeIntegration: false, sandbox: true },
+  });
+  ecran.loadFile(path.join(__dirname, "src", "maj-demarrage.html"));
+  ecran.once("ready-to-show", () => ecran.show());
+  return ecran;
+}
+
 function demarrerMiseAJour() {
   if (!app.isPackaged) return;
   // Mac : installer exige une appli signée par Apple (99 $/an) ; on vérifie seulement, et le bandeau ouvre la page
@@ -1174,10 +1223,12 @@ if (!instanceUnique) {
     if (!estDemarrageReduit(argv)) afficherFenetre();
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
     stockage = creerStockage({ dossier: app.getPath("userData") });
     journal = creerJournal({ fichier: path.join(app.getPath("userData"), "journal.txt") });
     noter(`--- LoL Companion démarre (${app.isPackaged ? "appli installée" : "projet, npm start"}, version ${app.getVersion()})`);
+    // Une nouvelle version ? Elle s'installe d'abord, puis l'appli se relance dedans (rien d'autre ne démarre).
+    if (await installerMajAuDemarrage()) return;
     progression = creerProgression({ dossier: app.getPath("userData") });
     historiqueParties = creerHistoriqueParties({ dossier: app.getPath("userData") });
     suiviMaitrise = creerSuiviMaitrise({ dossier: app.getPath("userData") });
@@ -1191,6 +1242,8 @@ if (!instanceUnique) {
     // Lancée par le démarrage de Windows (ou du Mac) avec "démarrer réduit" : la fenêtre reste cachée
     // (seulement si l'icône existe, sinon on ne pourrait plus l'ouvrir).
     creerFenetre({ visible: !(lanceeReduite() && icone) });
+    if (ecranMaj && !ecranMaj.isDestroyed()) ecranMaj.destroy(); // mise à jour du lancement abandonnée (trop longue...)
+    ecranMaj = null;
     demarrerAcceptation();
     demarrerSelection();
     demarrerAugments();

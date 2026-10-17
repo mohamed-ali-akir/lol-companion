@@ -188,7 +188,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (411, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (414, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 
 ### Mises à jour
@@ -198,6 +198,11 @@ L'appli installée regarde sur GitHub (dernière Release du dépôt public) s'il
 arrière-plan, vérifie son empreinte (sha512 du fichier `latest.yml`), puis affiche le bandeau **« Redémarrer et mettre
 à jour »**. Si tu l'ignores, elle s'installe quand tu quittes l'appli : jamais de redémarrage forcé. Désactivable dans
 **Paramètres → Mises à jour** (bouton « Vérifier maintenant » à côté de la version ; il devient « Redémarrer l'appli » quand une version est prête).
+
+**Au lancement** (Windows, depuis la 1.3.2) : l'appli regarde d'abord s'il existe une nouvelle version ; si oui, elle
+l'installe **avant de s'ouvrir** (petite fenêtre « Mise à jour de LoL Companion… », rien au démarrage de Windows en
+réduit), puis se relance dedans (`majAuDemarrage` de `mise-a-jour.js`). Jamais bloquant : sans réponse de GitHub en
+10 s, sans Internet, ou si le téléchargement dépasse 3 min, l'appli s'ouvre normalement et finit en arrière-plan.
 
 **Publier une nouvelle version** :
 1. changer `"version"` dans `package.json` (ex. `1.1.0` → `1.2.0`), puis `npm install --package-lock-only` ;

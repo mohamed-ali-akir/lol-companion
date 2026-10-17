@@ -182,3 +182,50 @@ test("Mac : case décochée -> pas de vérification automatique, mais « Vérifi
     verif.arreter();
   }
 });
+
+// --- Au lancement : installer avant d'ouvrir l'appli (17/10/2026) ---------------------------------------
+
+const { majAuDemarrage } = require("../mise-a-jour.js");
+const attendreMs = (ms) => new Promise((ok) => setTimeout(ok, ms));
+
+test("lancement : nouvelle version -> téléchargée puis installée avant d'ouvrir l'appli (silencieux, relance)", async () => {
+  const updater = fauxUpdater();
+  const trouvees = [];
+  const promesse = majAuDemarrage({ updater, trouvee: (v) => trouvees.push(v), delaiRechercheMs: 1000, delaiTelechargementMs: 1000 });
+  await attendreMs(5);
+  updater.emit("update-available", { version: "1.3.2" });
+  updater.emit("download-progress", { percent: 50 });
+  updater.emit("update-downloaded", { version: "1.3.2" });
+  assert.strictEqual(await promesse, "installation");
+  assert.deepStrictEqual(trouvees, ["1.3.2"]);
+  assert.deepStrictEqual(updater.installations, [[true, true]]);
+  assert.strictEqual(updater.autoDownload, true);
+  assert.strictEqual(updater.listenerCount("update-downloaded"), 0, "plus aucun écouteur : la mise à jour en arrière-plan prend le relais");
+});
+
+test("lancement : déjà à jour, erreur ou pas d'Internet -> l'appli démarre normalement, sans rien installer", async () => {
+  const aJour = fauxUpdater();
+  const p1 = majAuDemarrage({ updater: aJour, delaiRechercheMs: 1000 });
+  await attendreMs(5);
+  aJour.emit("update-not-available", { version: "1.3.1" });
+  assert.strictEqual(await p1, "a-jour");
+  assert.strictEqual(aJour.installations.length, 0);
+
+  const enPanne = fauxUpdater({ echec: new Error("net::ERR_INTERNET_DISCONNECTED") });
+  const notes = [];
+  assert.strictEqual(await majAuDemarrage({ updater: enPanne, journal: (...m) => notes.push(m.join(" ")) }), "erreur");
+  assert.ok(notes.some((n) => n.includes("ERR_INTERNET_DISCONNECTED")));
+});
+
+test("lancement : GitHub muet ou téléchargement trop long -> l'appli démarre quand même (jamais bloquée)", async () => {
+  const muet = fauxUpdater();
+  assert.strictEqual(await majAuDemarrage({ updater: muet, delaiRechercheMs: 20 }), "trop-long");
+
+  const lent = fauxUpdater();
+  const p = majAuDemarrage({ updater: lent, delaiRechercheMs: 1000, delaiTelechargementMs: 30 });
+  await attendreMs(5);
+  lent.emit("update-available", { version: "1.3.2" });
+  assert.strictEqual(await p, "trop-long");
+  lent.emit("update-downloaded", { version: "1.3.2" }); // fini plus tard : plus rien à faire ici
+  assert.strictEqual(lent.installations.length, 0);
+});

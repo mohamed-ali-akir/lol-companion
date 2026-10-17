@@ -107,6 +107,80 @@ function creerMiseAJour({
   };
 }
 
+// --- Au lancement : installer la mise à jour AVANT d'ouvrir l'appli (Windows, 17/10/2026) ----------------------
+
+const DELAI_RECHERCHE_DEMARRAGE_MS = 10 * 1000; // GitHub lent ou pas d'Internet : on n'attend pas plus
+const DELAI_TELECHARGEMENT_DEMARRAGE_MS = 3 * 60 * 1000; // environ 95 Mo ; au-delà, l'appli s'ouvre et finit en arrière-plan
+
+/**
+ * Au lancement de l'appli (choix du propriétaire, 17/10/2026) : s'il existe une version plus récente, on la télécharge
+ * et on l'installe tout de suite (installation silencieuse, puis l'appli se relance dans la nouvelle version), AVANT
+ * d'ouvrir quoi que ce soit. Jamais bloquant : sans réponse de GitHub en 10 s, ou téléchargement trop long, ou erreur,
+ * l'appli démarre normalement (le téléchargement en cours se finit en arrière-plan : bandeau habituel ensuite).
+ *  - updater    : autoUpdater d'electron-updater (un faux dans les tests) ;
+ *  - trouvee(v) : prévenu quand une version plus récente est trouvée (main.js affiche « Mise à jour… ») ;
+ *  - progression(pourcentage) : avancement du téléchargement.
+ * Résultat (promesse) : "installation" (l'appli va se fermer pour s'installer), "a-jour", "erreur" ou "trop-long".
+ */
+function majAuDemarrage({
+  updater,
+  journal = () => {},
+  trouvee = () => {},
+  progression = () => {},
+  delaiRechercheMs = DELAI_RECHERCHE_DEMARRAGE_MS,
+  delaiTelechargementMs = DELAI_TELECHARGEMENT_DEMARRAGE_MS,
+}) {
+  updater.autoDownload = true;
+  updater.autoInstallOnAppQuit = true;
+  updater.logger = null;
+  return new Promise((resoudre) => {
+    let fini = false;
+    let minuterie = null;
+    const ecouteurs = {};
+    const terminer = (resultat) => {
+      if (fini) return;
+      fini = true;
+      clearTimeout(minuterie);
+      for (const [evenement, f] of Object.entries(ecouteurs)) updater.removeListener(evenement, f);
+      resoudre(resultat);
+    };
+    const ecouter = (evenement, f) => {
+      ecouteurs[evenement] = f;
+      updater.on(evenement, f);
+    };
+    const attendre = (ms, raison) => {
+      clearTimeout(minuterie);
+      minuterie = setTimeout(() => {
+        journal(`Mise à jour au lancement : ${raison}, l'appli démarre (elle finira en arrière-plan)`);
+        terminer("trop-long");
+      }, ms);
+    };
+    ecouter("update-not-available", () => terminer("a-jour"));
+    ecouter("error", (erreur) => {
+      journal("Mise à jour au lancement : impossible", erreur && erreur.message);
+      terminer("erreur");
+    });
+    ecouter("update-available", (info) => {
+      journal("Mise à jour au lancement : version", info && info.version, "trouvée, installation avant d'ouvrir l'appli");
+      trouvee(info && info.version);
+      attendre(delaiTelechargementMs, "téléchargement trop long");
+    });
+    ecouter("download-progress", (p) => progression(p && Number.isFinite(p.percent) ? Math.round(p.percent) : null));
+    ecouter("update-downloaded", (info) => {
+      journal("Mise à jour au lancement : installation de la version", info && info.version);
+      terminer("installation");
+      updater.quitAndInstall(true, true); // installation silencieuse, puis l'appli se relance
+    });
+    attendre(delaiRechercheMs, "GitHub ne répond pas");
+    Promise.resolve()
+      .then(() => updater.checkForUpdates())
+      .catch((erreur) => {
+        journal("Mise à jour au lancement : impossible", erreur && erreur.message);
+        terminer("erreur");
+      });
+  });
+}
+
 // --- Mac : vérification seulement (16/10/2026) ---------------------------------------------------
 // Sur Mac, electron-updater ne peut installer qu'une appli signée par Apple (compte payant) : l'appli ne fait donc
 // que VÉRIFIER. Elle lit latest.yml de la dernière Release (le même fichier que la mise à jour de Windows, publié
@@ -208,6 +282,8 @@ function creerVerificationMac({
 
 module.exports = {
   creerMiseAJour,
+  majAuDemarrage,
+  DELAI_RECHERCHE_DEMARRAGE_MS,
   creerVerificationMac,
   versionDepuisLatestYml,
   comparerVersions,
