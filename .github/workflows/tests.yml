@@ -16,8 +16,8 @@ permissions:
 jobs:
   tests:
     runs-on: windows-latest
-    env:
-      ELECTRON_SKIP_BINARY_DOWNLOAD: "1" # les tests n'ouvrent pas l'appli : inutile de télécharger Electron (~100 Mo)
+    # (Depuis Electron 42, Electron n'est plus téléchargé à l'installation mais au premier lancement :
+    #  les tests, qui n'ouvrent pas l'appli, ne le téléchargent donc plus du tout.)
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

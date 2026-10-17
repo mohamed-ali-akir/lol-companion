@@ -17,7 +17,7 @@
   ],
   "license": "MIT",
   "devDependencies": {
-    "electron": "44.5.1",
+    "electron": "44.9.0",
     "electron-builder": "^26.0.0"
   },
   "build": {
@@ -97,7 +97,7 @@
     ]
   },
   "allowScripts": {
-    "electron@44.5.1": true,
+    "electron@44.9.0": true,
     "electron-winstaller@5.4.0": true
   },
   "dependencies": {

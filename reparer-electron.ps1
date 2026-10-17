@@ -7,7 +7,7 @@
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 
-Write-Host "1/6 Verification de ELECTRON_SKIP_BINARY_DOWNLOAD" -ForegroundColor Cyan
+Write-Host "1/6 Verification de ELECTRON_SKIP_BINARY_DOWNLOAD (ignoree depuis Electron 42)" -ForegroundColor Cyan
 Write-Host "    variable d'environnement : '$env:ELECTRON_SKIP_BINARY_DOWNLOAD'"
 Write-Host "    config npm               : $(npm config get electron_skip_binary_download)"
 

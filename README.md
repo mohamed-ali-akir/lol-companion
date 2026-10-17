@@ -183,7 +183,10 @@ aussitôt pour laisser la place à l'appli installée. Pour tester une
 modification avec `npm start`, quitte d'abord l'appli installée (clic droit sur l'icône → Quitter) : une seule copie
 tourne à la fois. Les deux partagent les mêmes réglages (`%APPDATA%\lol-level-calculator`).
 
-**Dépannage (Windows)** : si `npm start` dit qu'Electron n'est pas installé correctement après `npm install`, lance
+Depuis Electron 42, `npm install` ne télécharge plus Electron : il se télécharge tout seul au premier `npm start`
+(environ 100 Mo, une seule fois).
+
+**Dépannage (Windows)** : si `npm start` dit qu'Electron n'est pas installé correctement, lance
 `.\reparer-electron.ps1` dans PowerShell. Il décompresse Electron avec l'outil `tar` de Windows (contourne un bug de
 décompression rencontré avec certaines versions récentes de Node.js), puis relance les tests.
 
@@ -233,7 +236,11 @@ Une version Mac existe, mais elle n'a pas encore été essayée sur un vrai Mac.
   ```bash
   xattr -cr "/Applications/LoL Companion.app"
   ```
+- **macOS 13 (Ventura) ou plus récent** : Electron 44 ne fonctionne plus sur macOS 12.
 - **Différences avec Windows** :
+  - **notifications** (« Partie trouvée ! »...) : depuis Electron 42, macOS refuse les notifications d'une appli qui
+    n'est pas signée par un développeur Apple. La nôtre ne l'est pas : la notification n'apparaît pas, et l'échec est
+    noté dans le journal (`montrerNotification` dans `main.js`). Le reste de l'appli fonctionne ;
   - dossier du jeu par défaut : `/Applications/League of Legends.app/Contents/LoL` (là où le client écrit son lockfile) ;
   - menu de l'appli en haut de l'écran (LoL Companion, Édition, Fenêtre) : c'est lui qui fait marcher Cmd+C, Cmd+V,
     Cmd+A, Cmd+Z dans les champs de texte, et Cmd+Q / Cmd+H (`modeleMenuMac` dans `arriere-plan.js`) ;
@@ -258,7 +265,8 @@ Une version Mac existe, mais elle n'a pas encore été essayée sur un vrai Mac.
 
 ## Technologies
 
-- **Electron** : l'interface web devient une appli de bureau
+- **Electron 44** : l'interface web devient une appli de bureau (passé de la 38, plus maintenue, à la 44.9 le
+  17/10/2026 ; aucune fonction supprimée entre-temps n'était utilisée par l'appli)
 - **HTML / CSS / JavaScript** sans framework ; graphiques en **SVG dessinés à la main**
 - **ws** : connexion WebSocket au client League
 - **electron-updater** : mise à jour automatique depuis les Releases GitHub (ajoutée le 11/10/2026 avec l'accord du propriétaire)

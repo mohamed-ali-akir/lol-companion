@@ -421,20 +421,31 @@ function envoyerALaPage(canal, donnees) {
 // Partie trouvée : notification Windows et acceptation automatique (acceptation.js)
 // ---------------------------------------------------------------------------
 
+/**
+ * Affiche une notification du système ; un clic ouvre la fenêtre de l'appli.
+ * Depuis Electron 42, une notification Mac exige une appli signée par un développeur Apple : la nôtre ne l'est pas
+ * (signature « ad hoc »), le système la refuse et Electron envoie « failed ». On le note dans le journal au lieu de
+ * rester silencieux (Windows n'est pas concerné).
+ */
+function montrerNotification(options) {
+  const notification = new Notification(options);
+  notification.on("click", afficherFenetre);
+  notification.on("failed", (_evenement, erreur) => noter("Notification refusée par le système :", options.title, "-", erreur));
+  notification.show();
+}
+
 /** Notification "Partie trouvée !", seulement si l'option est cochée et que League n'est pas au premier plan. */
 async function notifierPartieTrouvee({ autoActif, delaiSecondes }) {
   envoyerALaPage("acceptation:evenement", { type: "trouvee", autoActif, delaiSecondes });
   if (!stockage.reglagesAcceptation().notifier || !Notification.isSupported()) return;
   if (await leagueAuPremierPlan()) return; // tu regardes déjà League : pas besoin de te déranger
-  const notification = new Notification({
+  montrerNotification({
     title: "Partie trouvée !",
     body: autoActif
       ? `LoL Companion l'accepte dans ${delaiSecondes} s. Retourne dans League si tu veux la refuser.`
       : "Retourne dans League pour l'accepter.",
     silent: false, // avec le son de notification de Windows
   });
-  notification.on("click", afficherFenetre);
-  notification.show();
 }
 
 /**
@@ -456,7 +467,7 @@ function notifierClientDetecte() {
   if (!Notification.isSupported()) return;
   const selection = stockage.reglagesSelection();
   const build = stockage.reglagesBuild();
-  const notification = new Notification({
+  montrerNotification({
     title: "LoL Companion est prêt",
     body: texteClientDetecte({
       acceptation: stockage.reglagesAcceptation().actif,
@@ -467,8 +478,6 @@ function notifierClientDetecte() {
     icon: cheminIcone("icon"),
     silent: true, // une info, pas une urgence
   });
-  notification.on("click", afficherFenetre);
-  notification.show();
 }
 
 function demarrerAcceptation() {
@@ -926,15 +935,13 @@ function afficherFenetre() {
 /** La première fois que la croix cache la fenêtre, on explique que l'appli tourne toujours. */
 function prevenirReduction() {
   if (!Notification.isSupported()) return; // pas de notification possible : on réessaiera la prochaine fois
-  const notification = new Notification({
+  montrerNotification({
     title: "LoL Companion tourne toujours",
     body: "L'appli reste dans la zone de notification (à côté de l'horloge) et continue de surveiller le client. " +
       "Clic droit sur son icône pour la quitter. Tu peux changer ça dans les Paramètres.",
     icon: cheminIcone("icon"),
     silent: true,
   });
-  notification.on("click", afficherFenetre);
-  notification.show();
   stockage.noterPrevenuReduction();
 }
 
