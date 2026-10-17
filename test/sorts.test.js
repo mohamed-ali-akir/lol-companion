@@ -212,3 +212,12 @@ test("erreur de lecture du chat : notée une fois par minute, le panneau continu
   assert.strictEqual(etat.journal.filter((l) => /pas d'autorisation/.test(l)).length, 2);
   assert.ok(etat.vus.at(-1), "le panneau est toujours là");
 });
+
+test("place du panneau (glissé à la souris) : part de l'écran, ramenée dans l'écran ; abîmée -> place par défaut", () => {
+  assert.deepStrictEqual(S.normaliserPositionSorts({ x: 0.42, y: 0.1 }), { x: 0.42, y: 0.1 });
+  assert.deepStrictEqual(S.normaliserPositionSorts({ x: 0.123456, y: "0.5" }), { x: 0.1235, y: 0.5 });
+  assert.deepStrictEqual(S.normaliserPositionSorts({ x: -0.2, y: 3 }), { x: 0, y: 0.97 }, "toujours visible et attrapable");
+  for (const abime of [null, undefined, "0.5", { x: "a", y: 0.1 }, { x: 0.1 }, { x: Infinity, y: 0 }]) {
+    assert.strictEqual(S.normaliserPositionSorts(abime), null);
+  }
+});

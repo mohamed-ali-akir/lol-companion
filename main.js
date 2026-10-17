@@ -239,6 +239,10 @@ function brancherMessages() {
   ipcMain.on("overlay:souris", (evenement, dessus) => {
     if (depuisOverlay(evenement)) fenetreAugments.setIgnoreMouseEvents(dessus !== true || !contenuOverlay.sorts, { forward: true });
   });
+  // Panneau des sorts déplacé (glissé à la souris) : sa nouvelle place, gardée pour les prochaines parties.
+  ipcMain.on("sorts:position", (evenement, position) => {
+    if (depuisOverlay(evenement)) proteger("place du panneau des sorts", () => stockage.enregistrerPositionSorts(position));
+  });
   ipcMain.on("sorts:clic", (evenement, id) => {
     if (depuisOverlay(evenement) && typeof id === "string" && suiviSorts) proteger("chronos des sorts", () => suiviSorts.clic(id));
   });
@@ -761,6 +765,7 @@ function majOverlay() {
     // Contenu relu au moment d'envoyer : jamais un état plus ancien que le dernier demandé.
     fenetreAugments.webContents.send("augments:etiquettes", { echelle: ecranJeu().echelle, liste: contenuOverlay.augments || [] });
     fenetreAugments.webContents.send("objectifs:alerte", contenuOverlay.objectif);
+    fenetreAugments.webContents.send("sorts:position", stockage.positionSorts());
     fenetreAugments.webContents.send("sorts:etat", contenuOverlay.sorts);
     if (!contenuOverlay.sorts) fenetreAugments.setIgnoreMouseEvents(true, { forward: true });
     if (overlayVide()) return fenetreAugments.hide();

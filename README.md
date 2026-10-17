@@ -177,7 +177,10 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
 - **Chronos des sorts d'invocateur adverses** (onglet Build, désactivé par défaut, ⚠ voir Sécurité) : un petit panneau
   en haut à gauche du jeu avec les 5 adversaires (icône du champion) et leurs 2 sorts. Quand tu vois un adversaire
   utiliser un sort, **tu cliques dessus** : le compte à rebours démarre (bottes de lucidité visibles comptées, TP
-  déchaînée après 10:00) ; un 2e clic l'annule. Le reste de l'écran laisse passer les clics au jeu. Mode « Sans bordure » requis
+  déchaînée après 10:00) ; un 2e clic l'annule. Le panneau se **déplace** où tu veux en le glissant par sa poignée
+  (« ⠿ ⠿ ⠿ », en haut du panneau) ; sa place est gardée dans `config.json` en part de l'écran (même endroit à une
+  autre résolution) et ramenée dans l'écran si besoin ; un double-clic sur la poignée le remet en haut à gauche.
+  Le reste de l'écran laisse passer les clics au jeu. Mode « Sans bordure » requis
   (l'onglet Build l'affiche en rappel dès que les augments, les objectifs ou les chronos des sorts sont cochés).
 - **Arrière-plan** : une icône dans la zone de notification de Windows (Ouvrir, Acceptation auto à cocher, Quitter).
   La croix **cache** la fenêtre au lieu de quitter (réglable) : la surveillance continue (acceptation auto,
@@ -569,7 +572,7 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | Fichier | Contenu |
 |---|---|
 | `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
-| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set d'objets, set Rank 1, sorts d'invocateur, augments, alerte des objectifs et réapparitions, chronos des sorts), de la session et de l'arrière-plan |
+| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set d'objets, set Rank 1, sorts d'invocateur, augments, alerte des objectifs et réapparitions, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), de la session et de l'arrière-plan |
 | `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, sans doublons, 25 000 au maximum par compte |
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |

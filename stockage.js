@@ -22,6 +22,7 @@ const { normaliserReglagesSelection } = require("./selection.js");
 const { normaliserReglagesBuild } = require("./build.js");
 const { normaliserReglagesSession } = require("./src/calculs.js");
 const { normaliserReglagesArrierePlan } = require("./arriere-plan.js");
+const { normaliserPositionSorts } = require("./sorts.js");
 
 // Dossier du jeu par défaut selon le système (c'est là que le client écrit son « lockfile »).
 // Mac (16/10/2026) : le lockfile est dans l'application, sous Contents/LoL.
@@ -185,6 +186,17 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     return propres;
   }
 
+  /** Place du panneau des sorts en jeu ({ x, y } en part de l'écran), ou null pour sa place par défaut. */
+  function positionSorts() {
+    return normaliserPositionSorts(lire().positionSorts);
+  }
+
+  function enregistrerPositionSorts(position) {
+    const propre = normaliserPositionSorts(position);
+    modifier({ positionSorts: propre || undefined });
+    return propre;
+  }
+
   /** A-t-on déjà expliqué que l'appli tourne toujours quand la fenêtre est cachée ? (une seule fois) */
   function dejaPrevenuReduction() {
     return lire().prevenuReduction === true;
@@ -207,6 +219,8 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     enregistrerReglagesArrierePlan,
     dejaPrevenuReduction,
     noterPrevenuReduction,
+    positionSorts,
+    enregistrerPositionSorts,
     reglagesSession,
     enregistrerReglagesSession,
     nettoyerAnciensReglages,

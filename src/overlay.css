@@ -63,7 +63,7 @@ body {
 }
 
 #alerteObjectif[hidden],
-#sorts[hidden] {
+#panneauSorts[hidden] {
   display: none;
 }
 
@@ -86,18 +86,40 @@ body {
   color: #f0c75e;
 }
 
-/* Sorts adverses (Faille) : petit panneau cliquable en haut à gauche */
-#sorts {
+/* Sorts adverses (Faille) : petit panneau cliquable, en haut à gauche par défaut, déplaçable par sa poignée */
+#panneauSorts {
   background: rgba(10, 20, 40, 0.45);
   border: 1px solid rgba(91, 90, 86, 0.5);
   border-radius: 6px;
+  left: 0.6vw;
+  padding: 2px 4px 4px;
+  position: absolute;
+  top: 2vh;
+}
+
+#poigneeSorts {
+  color: rgba(200, 170, 110, 0.9);
+  cursor: grab;
+  font-size: 12px;
+  letter-spacing: 2px;
+  line-height: 14px;
+  text-align: center;
+  user-select: none;
+}
+
+#poigneeSorts:hover {
+  color: #f0c75e;
+}
+
+#panneauSorts.glisse,
+#panneauSorts.glisse #poigneeSorts {
+  cursor: grabbing;
+}
+
+#sorts {
   display: flex;
   flex-direction: column;
   gap: 3px;
-  left: 0.6vw;
-  padding: 4px;
-  position: absolute;
-  top: 2vh;
 }
 
 .ligne-sorts {

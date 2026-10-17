@@ -270,4 +270,20 @@ function creerSuiviSorts({ reglages, lire = lireJeu, afficher, intervalleMs = 10
   return { demarrer, arreter, clic, lireChatMaintenant: tourChat, estDemarre: () => minuterie !== null };
 }
 
-module.exports = { SORTS, cleSort, hateSorts, rechargeS, adversaires, ciblesPings, creerSuiviSorts };
+/**
+ * Position du panneau, choisie en le faisant glisser (17/10/2026) : { x, y } = coin haut gauche, en PART de l'écran
+ * (0 à 1), pour rester au même endroit quelle que soit la résolution. Lecture tolérante : valeur abîmée ou absente ->
+ * null (place par défaut, en haut à gauche) ; une position hors de l'écran est ramenée dedans (le panneau reste
+ * toujours visible et attrapable).
+ */
+const POSITION_MAX = 0.97;
+function normaliserPositionSorts(brut) {
+  if (!brut || typeof brut !== "object") return null;
+  const x = Number(brut.x);
+  const y = Number(brut.y);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const borne = (v) => Math.round(Math.min(POSITION_MAX, Math.max(0, v)) * 10000) / 10000;
+  return { x: borne(x), y: borne(y) };
+}
+
+module.exports = { SORTS, cleSort, hateSorts, rechargeS, adversaires, ciblesPings, creerSuiviSorts, normaliserPositionSorts };

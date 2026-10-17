@@ -120,3 +120,14 @@ test("dossier du jeu mal écrit : l'exemple du message correspond au système (W
     fsTest.rmSync(dossier, { recursive: true, force: true });
   }
 });
+
+test("place du panneau des sorts : gardée dans config.json, retour à la place par défaut avec null", () => {
+  const { stockage, contenuFichier } = nouveauStockage();
+  assert.strictEqual(stockage.positionSorts(), null, "place par défaut");
+  assert.deepStrictEqual(stockage.enregistrerPositionSorts({ x: 0.8, y: 1.5 }), { x: 0.8, y: 0.97 });
+  assert.deepStrictEqual(stockage.positionSorts(), { x: 0.8, y: 0.97 });
+  assert.deepStrictEqual(JSON.parse(contenuFichier()).positionSorts, { x: 0.8, y: 0.97 });
+  stockage.enregistrerPositionSorts(null); // double-clic sur la poignée
+  assert.strictEqual(stockage.positionSorts(), null);
+  assert.ok(!("positionSorts" in JSON.parse(contenuFichier())));
+});

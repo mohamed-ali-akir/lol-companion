@@ -58,7 +58,7 @@ const minutesSecondes = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(
 function afficherSorts(panneau) {
   const bloc = document.getElementById("sorts");
   const liste = Array.isArray(panneau) ? panneau : [];
-  bloc.hidden = liste.length === 0;
+  document.getElementById("panneauSorts").hidden = liste.length === 0;
   bloc.replaceChildren(
     ...liste.map((a) => {
       const ligne = document.createElement("div");
@@ -85,12 +85,68 @@ function afficherSorts(panneau) {
   );
 }
 
+/**
+ * Place du panneau des sorts : { x, y } en part de l'écran (choisie en le glissant, gardée par main.js), ou null pour
+ * sa place par défaut (en haut à gauche, voir overlay.css).
+ */
+function placerSorts(position) {
+  const panneau = document.getElementById("panneauSorts");
+  panneau.style.left = position ? `${position.x * 100}%` : "";
+  panneau.style.top = position ? `${position.y * 100}%` : "";
+}
+
+/**
+ * Glisser le panneau par sa poignée (17/10/2026) : il suit la souris, reste dans l'écran, et sa nouvelle place est
+ * envoyée à main.js au lâcher (en part de l'écran : même endroit à une autre résolution). Double-clic : place par défaut.
+ */
+function rendreDeplacable() {
+  const panneau = document.getElementById("panneauSorts");
+  const poignee = document.getElementById("poigneeSorts");
+  let depart = null; // { souris: {x, y}, panneau: {x, y} } pendant un glissement
+  const dansEcran = (x, y) => ({
+    x: Math.min(Math.max(0, x), window.innerWidth - panneau.offsetWidth),
+    y: Math.min(Math.max(0, y), window.innerHeight - panneau.offsetHeight),
+  });
+  poignee.addEventListener("pointerdown", (e) => {
+    if (e.button !== 0) return;
+    depart = { souris: { x: e.clientX, y: e.clientY }, panneau: { x: panneau.offsetLeft, y: panneau.offsetTop } };
+    poignee.setPointerCapture(e.pointerId); // la souris peut aller plus vite que le panneau
+    panneau.classList.add("glisse");
+  });
+  poignee.addEventListener("pointermove", (e) => {
+    if (!depart) return;
+    const p = dansEcran(depart.panneau.x + e.clientX - depart.souris.x, depart.panneau.y + e.clientY - depart.souris.y);
+    panneau.style.left = `${p.x}px`;
+    panneau.style.top = `${p.y}px`;
+  });
+  const lacher = () => {
+    if (!depart) return;
+    const bouge = panneau.offsetLeft !== depart.panneau.x || panneau.offsetTop !== depart.panneau.y;
+    depart = null;
+    panneau.classList.remove("glisse");
+    if (!bouge) return; // simple clic (ou double-clic) sur la poignée : rien à enregistrer
+    const position = { x: panneau.offsetLeft / window.innerWidth, y: panneau.offsetTop / window.innerHeight };
+    placerSorts(position);
+    window.overlay.deplacerSorts(position);
+  };
+  poignee.addEventListener("pointerup", lacher);
+  poignee.addEventListener("pointercancel", lacher);
+  poignee.addEventListener("dblclick", () => {
+    placerSorts(null);
+    window.overlay.deplacerSorts(null);
+  });
+}
+
 if (window.overlay) {
   window.overlay.surEtiquettes(afficherEtiquettes);
   if (window.overlay.surObjectif) window.overlay.surObjectif(afficherObjectif);
   if (window.overlay.surSorts) window.overlay.surSorts(afficherSorts);
-  // La fenêtre laisse passer les clics au jeu, sauf quand la souris est sur le panneau des sorts.
-  const panneau = document.getElementById("sorts");
+  if (window.overlay.surPositionSorts) window.overlay.surPositionSorts(placerSorts);
+  // La fenêtre laisse passer les clics au jeu, sauf quand la souris est sur le panneau des sorts (poignée comprise).
+  const panneau = document.getElementById("panneauSorts");
   panneau.addEventListener("mouseenter", () => window.overlay.souris(true));
-  panneau.addEventListener("mouseleave", () => window.overlay.souris(false));
+  panneau.addEventListener("mouseleave", () => {
+    if (!panneau.classList.contains("glisse")) window.overlay.souris(false); // pendant un glissement, on garde la souris
+  });
+  if (window.overlay.deplacerSorts) rendreDeplacable();
 }
