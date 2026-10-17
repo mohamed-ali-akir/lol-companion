@@ -161,7 +161,8 @@ peut rien afficher par-dessus. L'onglet Build le rappelle.
 protégé votre ordinateur » (l'appli n'est pas signée) : « Informations complémentaires » puis « Exécuter quand même ».
 Ensuite, les nouvelles versions arrivent toutes seules (voir « Mises à jour » plus bas).
 
-**Pour travailler sur le code**, il faut [Node.js](https://nodejs.org) (version 22 ou plus) et League of Legends installé sur le même PC.
+**Pour travailler sur le code**, il faut [Node.js](https://nodejs.org) (version 24 ou plus : c'est celle de `.nvmrc`, utilisée aussi
+par GitHub et annoncée dans `engines` de `package.json`) et League of Legends installé sur le même PC.
 
 ```bash
 git clone https://github.com/mohamed-ali-akir/lol-companion.git
@@ -199,6 +200,9 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
 
 Les tests et l'essai de bout en bout tournent aussi sur GitHub à **chaque envoi** sur `main` (`.github/workflows/tests.yml`).
+**Dependabot** (`.github/dependabot.yml`) propose chaque lundi les mises à jour des paquets npm (Electron compris) et
+des actions GitHub, sous forme de pull requests testées comme le reste : rien ne change sans qu'on les fusionne.
+Une version majeure (ex. Electron 45) arrive seule : lire ses changements cassants avant de l'accepter.
 
 ### Mises à jour
 
@@ -270,7 +274,9 @@ Une version Mac existe, mais elle n'a pas encore été essayée sur un vrai Mac.
 - **HTML / CSS / JavaScript** sans framework ; graphiques en **SVG dessinés à la main**
 - **ws** : connexion WebSocket au client League
 - **electron-updater** : mise à jour automatique depuis les Releases GitHub (ajoutée le 11/10/2026 avec l'accord du propriétaire)
-- **node:test** : tests intégrés à Node.js, avec un faux client League (HTTPS + WebSocket) sur `127.0.0.1`
+- **node:test** : tests intégrés à Node.js, avec un faux client League (HTTPS + WebSocket) sur `127.0.0.1` ; la page
+  (scripts classiques qui partagent leurs noms) est vérifiée par `test/page.test.js` : fichiers chargés, identifiants,
+  fonctions appelées, ponts `preload.js` et canaux vers `main.js`, sans lancer Electron
 - **electron-builder** : installateur ; **GitHub Actions** : publication des versions
 
 ## Comment l'appli parle au client League

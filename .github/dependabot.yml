@@ -1,0 +1,34 @@
+# Dependabot : mises à jour proposées automatiquement (17/10/2026)
+# -----------------------------------------------------------------
+# Pourquoi : Electron sort une version majeure toutes les 8 semaines et ne corrige que les 3 dernières ; l'appli était
+# restée sur la 38, plus maintenue et avec des failles graves connues, sans que personne ne le voie.
+# Dependabot ne change RIEN tout seul : il ouvre une pull request par mise à jour, testée par tests.yml (tests + essai
+# complet de l'appli). On la lit, puis on la fusionne si tout est vert. Une version majeure (ex. Electron 45) arrive
+# seule dans sa pull request : elle demande de lire ses changements cassants avant de l'accepter.
+version: 2
+updates:
+  # Paquets npm (package.json) : Electron, electron-updater, ws, electron-builder.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "Dépendances"
+    groups:
+      # Correctifs et petites versions de tous les paquets : une seule pull request par semaine.
+      correctifs:
+        update-types: [minor, patch]
+
+  # Actions GitHub utilisées par les workflows (actions/checkout, actions/setup-node...).
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: "Workflows"
+    groups:
+      actions:
+        patterns: ["*"]

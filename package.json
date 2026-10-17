@@ -16,6 +16,9 @@
     "calculator"
   ],
   "license": "MIT",
+  "engines": {
+    "node": ">=24"
+  },
   "devDependencies": {
     "electron": "44.9.0",
     "electron-builder": "^26.0.0"
