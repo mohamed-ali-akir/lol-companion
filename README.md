@@ -132,9 +132,10 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   - crée le set d'objets « LoL Companion - Champion (Rôle) », visible dans la boutique en jeu : un bloc par
     emplacement avec ses 3 choix, le recommandé en premier. Un seul set « LoL Companion » est gardé (celui du champion
     actuel) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413).
-    Il est **sélectionné d'office** dans la boutique : la boutique range les sets par `sortrank` (du plus grand au plus
-    petit) et prend le premier ; le nôtre reçoit un `sortrank` plus grand que tous les autres (Porofessor met 10 000
-    et plus), et la famille la plus jouée passe devant.
+    Il est **sélectionné d'office** dans la boutique. Vu en jeu le 17/10/2026 : avec trois sets aux `sortrank` 10188,
+    10187 et 10186, dans cet ordre, la boutique a pris le **dernier**, qui avait aussi le **plus petit** `sortrank`.
+    Nos sets vont donc en **fin de liste**, dans l'ordre inverse, et le set principal (la famille la plus jouée) est
+    tout à la fin avec le `sortrank` 0.
   - **set « Champion Rank 1 »** (`rank1.js`, case séparée sous celle du set d'objets, désactivée par défaut) : le
     build du **meilleur joueur du champion sur ton serveur**, comme les « builds des meilleurs joueurs » de Blitz,
     Mobalytics ou U.GG, mais sans clé d'API de Riot. L'appli lit le classement du champion sur OP.GG
@@ -143,10 +144,12 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
     du meilleur (`lol_list_summoner_matches`) et garde celles sur ce champion (à ton poste s'il y en a au moins 3).
     S'il en a moins de 3, elle passe au suivant (3 joueurs au plus). OP.GG ne donne que l'inventaire de **fin** de
     partie, pas l'ordre d'achat : les objets finis sont rangés du **plus pris au moins pris** (cœur : la moitié des
-    parties ou plus ; souvent : 20 à 50 % ; parfois), avec ses bottes les plus prises ; le **départ** (qui n'est plus
-    dans l'inventaire en fin de partie) est repris du build général. Le set s'appelle « Ahri Rank 1 », est placé après
-    le set principal (qui reste sélectionné d'office) et indique le rang du joueur (« Grand Maître 2145 LP EUW »), jamais
-    son Riot ID. Le classement veut le nom **anglais** du champion (« WUKONG », « DR_MUNDO » ; le nom interne
+    parties ou plus ; souvent : 20 à 50 % ; parfois), avec ses 2 paires de bottes les plus prises ; le **départ** (qui
+    n'est plus dans l'inventaire en fin de partie) est repris du build général. Le set s'appelle « Ahri Rank 1 » ; le
+    set principal reste sélectionné d'office. Blocs aux titres **courts** (la boutique coupe un titre trop long) :
+    « Départ », « Rank 1 · Grand Maître 2145 LP EUW » (le cœur, avec le rang du joueur, jamais son Riot ID),
+    « Bottes · 67 % des parties », « Souvent », « Parfois ». Pas de taux de victoire : sur une douzaine de parties, il
+    ne veut rien dire. Le classement veut le nom **anglais** du champion (« WUKONG », « DR_MUNDO » ; le nom interne
     « MONKEYKING » y est refusé, vérifié sur les 250 champions) : il vient de la liste d'OP.GG (`lol_list_champions`).
     Faille seulement ; environ 6 à 8 s, gardé 3 h en mémoire.
   - **plusieurs sets pour un champion qui se joue de plusieurs façons** (`familles.js`) : Vi combattant ou
@@ -461,7 +464,7 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   - **Runes** : la page « LoL Companion » est supprimée puis recréée (plus simple et plus fiable qu'une
     modification) ; les pages qui ont un autre nom ne sont jamais touchées.
   - **Set d'objets** : le `PUT` du client remplace TOUTE la liste des sets ; l'appli renvoie donc tes sets exactement
-    comme elle les a lus (seul leur ordre change : les nôtres sont placés devant) et ne remplace que le set
+    comme elle les a lus (les nôtres sont placés après) et ne remplace que le set
     « LoL Companion » du même champion.
 - **Augments ARAM Mayhem** (`augments.js`, `ocr.js`, fenêtre `src/overlay.html`) : Riot ne dit pas quels augments te
   sont proposés (ni le client, ni l'API du jeu ; seul Overwolf le fournit). Comme ezlol ou aram-mayhem-tracker, l'appli

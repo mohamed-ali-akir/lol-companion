@@ -25,7 +25,8 @@ const JOUEURS_ESSAYES = 3; // au plus 3 historiques demandés (si le meilleur ne
 const MIN_PARTIES = 3; // parties récentes sur le champion pour qu'un joueur soit retenu
 const PART_COEUR = 0.5; // objet pris dans au moins la moitié des parties : « cœur » du build
 const PART_MIN = 0.2; // en dessous : « parfois »
-const PARFOIS_MAX = 6;
+const PARFOIS_MAX = 4;
+const BOTTES_MAX = 2; // paires de bottes montrées (4 encombraient le bloc)
 const PREFIXE_UID = "1c0a9a10-0000-4000-9000-"; // identifiant du set Rank 1 (les autres sets de l'appli : ...-8000-)
 
 // Postes d'OP.GG dans l'historique -> rôles du client.
@@ -143,25 +144,24 @@ const bloc = (type, ids) => ({ type, items: ids.map(([id, count]) => ({ id: Stri
  * Set d'objets « Ahri Rank 1 » (format du client).
  *  composition : de composerRank1 ; joueur : { tier, lp } (son Riot ID n'est jamais affiché) ;
  *  depart : ids du départ du build général (2 potions = 2 fois l'id), ou [] ; region : « EUW »...
- * Blocs : départ (build général), bottes, puis les objets du joueur, du plus pris au moins pris.
+ * Blocs aux titres COURTS (la boutique coupe un titre trop long, vu en jeu le 17/10/2026) : départ, les objets du
+ * cœur (avec le rang du joueur), ses bottes (2 au plus), puis « Souvent » et « Parfois ». Pas de taux de victoire :
+ * sur une douzaine de parties, il ne veut rien dire.
  */
 function setRank1({ composition, joueur, depart = [], championId, nomChampion, carte = 11, region = "" }) {
   const c = composition;
   const blocs = [];
   const compteDepart = new Map();
   for (const id of liste(depart)) compteDepart.set(id, (compteDepart.get(id) || 0) + 1);
-  if (compteDepart.size > 0) blocs.push(bloc("Départ (build général)", [...compteDepart]));
-  const qui = `${libelleRang(joueur)}${region ? ` ${region}` : ""}, ${c.n} parties récentes, ${pourcent(c.victoires / c.n)} V`;
-  if (c.bottes.length > 0) blocs.push(bloc(`Bottes du Rank 1 · ${pourcent(c.bottes[0].part)} des parties`, c.bottes.map((o) => [o.id, 1])));
-  const groupes = [
-    [c.coeur, "Rank 1 · cœur du build (la moitié des parties ou plus)"],
-    [c.souvent, "Rank 1 · souvent (20 à 50 % des parties)"],
-    [c.parfois, "Rank 1 · parfois (selon la partie)"],
-  ];
-  for (const [objets, titre] of groupes) if (objets.length > 0) blocs.push(bloc(titre, objets.map((o) => [o.id, 1])));
-  // Le rang du joueur, en tête du premier bloc d'objets : on sait d'où vient le build.
-  const premier = blocs.find((b) => b.type.startsWith("Rank 1 ·"));
-  if (premier) premier.type = `${premier.type} · ${qui}`;
+  if (compteDepart.size > 0) blocs.push(bloc("Départ", [...compteDepart]));
+  // Cœur du build ; s'il est vide (build très varié), les objets « souvent » prennent sa place.
+  const coeur = c.coeur.length > 0 ? c.coeur : c.souvent;
+  const souvent = c.coeur.length > 0 ? c.souvent : [];
+  if (coeur.length > 0) blocs.push(bloc(`Rank 1 · ${libelleRang(joueur)}${region ? ` ${region}` : ""}`, coeur.map((o) => [o.id, 1])));
+  const bottes = c.bottes.filter((o, i) => i === 0 || o.part >= PART_MIN).slice(0, BOTTES_MAX);
+  if (bottes.length > 0) blocs.push(bloc(`Bottes · ${pourcent(bottes[0].part)} des parties`, bottes.map((o) => [o.id, 1])));
+  if (souvent.length > 0) blocs.push(bloc("Souvent", souvent.map((o) => [o.id, 1])));
+  if (c.parfois.length > 0) blocs.push(bloc("Parfois", c.parfois.map((o) => [o.id, 1])));
   return {
     title: `${nomChampion} Rank 1`,
     type: "custom",

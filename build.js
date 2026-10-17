@@ -275,9 +275,11 @@ function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisPar
  * on ne garde que ceux du champion actuel (1 à 3, recréés à chaque champion verrouillé).
  * Pourquoi (14/10/2026) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413) ;
  * avec un set par champion joué, 40 sets "LoL Companion" s'étaient accumulés et bloquaient tout nouveau set.
- * Nos sets passent EN PREMIER (17/10/2026) : la boutique du jeu range les sets par « sortrank », du plus grand au plus
- * petit, et sélectionne le premier (Porofessor met 10 000 et plus ; nos sets à 0 arrivaient derniers). On leur donne
- * donc un sortrank plus grand que tous les autres, le plus grand pour le premier (la famille la plus jouée).
+ * Le PREMIER des nouveaux sets (la famille la plus jouée) doit être sélectionné d'office dans la boutique.
+ * Vu en jeu le 17/10/2026 (capture) : avec Tank 10188 / AP 10187 / Rank 1 10186, dans cet ordre, la boutique a pris
+ * « Rank 1 », c'est-à-dire le plus PETIT sortrank, qui était aussi le DERNIER de la liste (l'idée inverse, « le plus
+ * grand d'abord », était fausse). On satisfait donc les deux : nos sets vont en fin de liste, dans l'ordre inverse
+ * (le premier tout à la fin), avec les sortrank les plus petits (0 pour le premier, 1, 2... pour les suivants).
  */
 function fusionnerSets(existants, nouveaux) {
   // Les nôtres : titre « LoL Companion - ... », ou identifiant de l'appli (le set « Ahri Rank 1 » n'a pas le préfixe).
@@ -285,10 +287,8 @@ function fusionnerSets(existants, nouveaux) {
     Boolean(s) && ((typeof s.title === "string" && s.title.startsWith(`${PREFIXE_SET} - `)) || (typeof s.uid === "string" && s.uid.startsWith(PREFIXE_UID_APPLI)));
   const autres = Array.isArray(existants) ? existants.filter((s) => !estLeNotre(s)) : [];
   const ajouts = Array.isArray(nouveaux) ? nouveaux : [nouveaux]; // un set, ou un par famille de build
-  const rang = (s) => Number(s && s.sortrank); // tolérant : set abîmé ou sortrank absent -> 0
-  const plusGrand = Math.max(0, ...autres.map((s) => (Number.isFinite(rang(s)) ? rang(s) : 0)));
-  const devant = ajouts.map((s, i) => ({ ...s, sortrank: plusGrand + 100 + (ajouts.length - i) }));
-  return [...devant, ...autres];
+  const derriere = ajouts.map((s, i) => ({ ...s, sortrank: i })).reverse(); // le premier : sortrank 0, tout à la fin
+  return [...autres, ...derriere];
 }
 
 /**

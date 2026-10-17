@@ -124,7 +124,7 @@ test("composition : parties à TON poste s'il y en a au moins 3, sinon toutes ; 
   assert.deepStrictEqual(R.composerRank1({ parties, objets: undefined }).coeur, []);
 });
 
-test("set « Ahri Rank 1 » : départ du build général, bottes, objets, rang du joueur (jamais son Riot ID)", () => {
+test("set « Ahri Rank 1 » : départ, cœur avec le rang du joueur, bottes, souvent ; titres courts, jamais son Riot ID", () => {
   const composition = R.composerRank1({ parties: [partie([3020, 3100, 2503]), partie([3020, 3100]), partie([3158, 3100, 3089])], objets: OBJETS });
   const set = R.setRank1({
     composition, joueur: { tier: "GRANDMASTER", lp: 2145, nom: "Joueur Trois" }, depart: [1056, 2003, 2003], championId: AHRI, nomChampion: "Ahri", carte: 11, region: "EUW",
@@ -132,16 +132,18 @@ test("set « Ahri Rank 1 » : départ du build général, bottes, objets, rang d
   assert.strictEqual(set.title, "Ahri Rank 1");
   assert.deepStrictEqual(set.associatedChampions, [AHRI]);
   assert.ok(set.uid.startsWith(R.PREFIXE_UID));
-  assert.deepStrictEqual(set.blocks.map((b) => b.type.split(" ·")[0]), ["Départ (build général)", "Bottes du Rank 1", "Rank 1", "Rank 1"]);
+  assert.deepStrictEqual(set.blocks.map((b) => b.type), ["Départ", "Rank 1 · Grand Maître 2145 LP EUW", "Bottes · 67 % des parties", "Souvent"]);
   assert.deepStrictEqual(set.blocks[0].items, [{ id: "1056", count: 1 }, { id: "2003", count: 2 }]);
-  assert.deepStrictEqual(set.blocks[1].items.map((i) => i.id), ["3020", "3158"]);
-  assert.match(set.blocks[1].type, /67 % des parties/);
-  assert.deepStrictEqual(set.blocks[2].items.map((i) => i.id), ["3100"]);
-  assert.match(set.blocks[2].type, /cœur.*Grand Maître 2145 LP EUW, 3 parties récentes, 100 % V/);
+  assert.deepStrictEqual(set.blocks[1].items.map((i) => i.id), ["3100"]);
+  assert.deepStrictEqual(set.blocks[2].items.map((i) => i.id), ["3020", "3158"]);
+  assert.deepStrictEqual(set.blocks[3].items.map((i) => i.id), ["2503", "3089"]);
+  // Vu en jeu le 17/10/2026 : un titre trop long est coupé par la boutique ; et pas de taux de victoire
+  assert.ok(set.blocks.every((b) => b.type.length <= 40), "titres courts");
+  assert.ok(!/ V\b|victoire/.test(JSON.stringify(set.blocks.map((b) => b.type))), "pas de taux de victoire");
   assert.ok(!JSON.stringify(set).includes("Joueur Trois"), "aucun Riot ID dans le set");
   // Sans départ connu : pas de bloc vide
   const sansDepart = R.setRank1({ composition, joueur: { tier: "MASTER", lp: 5 }, championId: AHRI, nomChampion: "Ahri" });
-  assert.strictEqual(sansDepart.blocks[0].type.split(" ·")[0], "Bottes du Rank 1");
+  assert.strictEqual(sansDepart.blocks[0].type, "Rank 1 · Maître 5 LP");
   assert.strictEqual(R.libelleRang({ tier: "?", lp: 3 }), "Rang inconnu");
 });
 
@@ -201,4 +203,19 @@ test("OP.GG rank1 : Wukong demandé « WUKONG » (son nom anglais), pas « MONKE
   const serveur = fauxServeur([CHAMPIONS, CLASSEMENT, historique([[62, "TOP", [3071], "WIN"], [62, "TOP", [3071], "WIN"], [62, "TOP", [3071], "LOSE"]])]);
   await O.creerLecteurOpgg({ appeler: serveur.appeler }).rank1({ alias: "MonkeyKing", championId: 62, region: "EUW" });
   assert.strictEqual(serveur.appels[1].corps.params.arguments.champion, "WUKONG");
+});
+
+test("set Rank 1 : 2 paires de bottes au plus (4 encombraient le bloc) ; sans cœur, les objets « souvent » le remplacent", () => {
+  const OBJETS_BOTTES = new Map([...OBJETS, [3047, { categories: ["Boots"], prix: 1200, vers: [] }], [3111, { categories: ["Boots"], prix: 1250, vers: [] }]]);
+  const parties = [
+    partie([3020, 3100]), partie([3020, 3089]), partie([3158, 2503]), partie([3047, 3157]), partie([3111, 3100]),
+  ];
+  const c = R.composerRank1({ parties, objets: OBJETS_BOTTES });
+  assert.strictEqual(c.bottes.length, 4);
+  assert.deepStrictEqual(c.coeur, [], "aucun objet dans la moitié des parties");
+  const set = R.setRank1({ composition: c, joueur: { tier: "MASTER", lp: 1005 }, championId: AHRI, nomChampion: "Cho'Gath" });
+  const bottes = set.blocks.find((b) => b.type.startsWith("Bottes"));
+  assert.deepStrictEqual(bottes.items.map((i) => i.id), ["3020", "3047"], "la plus prise, puis une autre à 20 % ou plus");
+  assert.deepStrictEqual(set.blocks.map((b) => b.type.split(" ·")[0]), ["Rank 1", "Bottes"]);
+  assert.deepStrictEqual(set.blocks[0].items.map((i) => i.id), ["3100", "2503", "3089", "3157"]);
 });

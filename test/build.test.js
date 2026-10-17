@@ -207,7 +207,7 @@ test("set d'objets : format du client, potions regroupées, taux dans les titres
   assert.strictEqual(B.setObjets({ etapes: [], championId: 1, nomChampion: "X", role: null }).title, "LoL Companion - X");
 });
 
-test("fusion des sets : tes sets intacts, un seul set LoL Companion (celui du champion actuel), placé en premier", () => {
+test("fusion des sets : tes sets intacts, un seul set LoL Companion (celui du champion actuel), placé à la fin", () => {
   const porofessor = { title: "Porofessor - LeBlanc (Mid)", associatedChampions: [7], uid: "a" };
   const notreAhri = { title: "LoL Companion - Ahri (Haut)", associatedChampions: [AHRI], uid: "b" };
   const notreLux = { title: "LoL Companion - Lux (Support)", associatedChampions: [99], uid: "c" };
@@ -216,10 +216,10 @@ test("fusion des sets : tes sets intacts, un seul set LoL Companion (celui du ch
   const nouveau = { title: "LoL Companion - Ahri (Milieu)", associatedChampions: [AHRI], uid: "e" };
   assert.deepStrictEqual(
     B.fusionnerSets([porofessor, notreAhri, notreLux, monSetAhri, monSetLoL], nouveau),
-    [{ ...nouveau, sortrank: 101 }, porofessor, monSetAhri, monSetLoL],
+    [porofessor, monSetAhri, monSetLoL, { ...nouveau, sortrank: 0 }],
   );
-  assert.deepStrictEqual(B.fusionnerSets(undefined, nouveau), [{ ...nouveau, sortrank: 101 }]);
-  assert.deepStrictEqual(B.fusionnerSets([null, { uid: "sans titre" }], nouveau), [{ ...nouveau, sortrank: 101 }, null, { uid: "sans titre" }]);
+  assert.deepStrictEqual(B.fusionnerSets(undefined, nouveau), [{ ...nouveau, sortrank: 0 }]);
+  assert.deepStrictEqual(B.fusionnerSets([null, { uid: "sans titre" }], nouveau), [null, { uid: "sans titre" }, { ...nouveau, sortrank: 0 }]);
 });
 
 test("fusion des sets : 40 anciens sets LoL Companion -> il n'en reste qu'un (évite le refus 413 du client)", () => {
@@ -426,7 +426,7 @@ test("faux client : PUT de TOUS les sets, les tiens renvoyés exactement comme l
     const put = client.requetes.find((r) => r.methode === "PUT");
     assert.strictEqual(put.url, "/lol-item-sets/v1/item-sets/42/sets");
     assert.strictEqual(put.corps.accountId, 42);
-    assert.deepStrictEqual(put.corps.itemSets, [{ ...set, sortrank: 101 }, porofessor]); // le nôtre en premier
+    assert.deepStrictEqual(put.corps.itemSets, [porofessor, { ...set, sortrank: 0 }]); // le nôtre à la fin, sortrank 0
   } finally {
     await client.fermer();
   }
@@ -533,23 +533,23 @@ test("fusion : tous les sets du champion sont ajoutés, les anciens sets LoL Com
   const ancien = { title: "LoL Companion - Lux (Support)", associatedChampions: [99], uid: "c" };
   const nouveaux = [{ title: "LoL Companion - Kayn (Jungle) · Bleu", uid: "x" }, { title: "LoL Companion - Kayn (Jungle) · Rouge", uid: "y" }];
   assert.deepStrictEqual(B.fusionnerSets([porofessor, ancien], nouveaux), [
-    { ...nouveaux[0], sortrank: 102 },
-    { ...nouveaux[1], sortrank: 101 },
     porofessor,
+    { ...nouveaux[1], sortrank: 1 },
+    { ...nouveaux[0], sortrank: 0 },
   ]);
 });
 
-test("fusion : nos sets sélectionnés d'office (sortrank plus grand que tous les autres, la 1re famille devant)", () => {
-  // Valeurs vues dans le client le 17/10/2026 : Porofessor met 10 000 à 10 085 ; nos sets à 0 arrivaient derniers.
+test("fusion : le 1er set (famille la plus jouée) sélectionné d'office : DERNIER de la liste ET plus petit sortrank", () => {
+  // Vu en jeu le 17/10/2026 : Tank 10188 / AP 10187 / Rank 1 10186 -> la boutique a pris « Rank 1 » (le dernier, le plus petit).
   const porofessor = [10085, 10012, 10000].map((sortrank, i) => ({ title: `Porofessor - LeBlanc ${i}`, sortrank, uid: `p${i}` }));
-  const ancien = { title: "LoL Companion - Ambessa · Combattant", sortrank: 999999, uid: "vieux" }; // retiré : ne compte pas
+  const ancien = { title: "LoL Companion - Cho'Gath · Tank", sortrank: 10188, uid: "vieux" }; // retiré
   const abime = { title: "Mon set", sortrank: "pas un nombre", uid: "m" };
-  const nouveaux = [{ title: "LoL Companion - Ambessa · Combattant", uid: "a" }, { title: "LoL Companion - Ambessa · Létalité", uid: "b" }];
+  const nouveaux = [{ title: "LoL Companion - Cho'Gath · Tank", uid: "a" }, { title: "LoL Companion - Cho'Gath · AP", uid: "b" }, { title: "Cho'Gath Rank 1", uid: "r" }];
   const fusion = B.fusionnerSets([...porofessor, ancien, abime], nouveaux);
-  assert.deepStrictEqual(fusion.map((s) => s.uid), ["a", "b", "p0", "p1", "p2", "m"]);
-  assert.deepStrictEqual(fusion.slice(0, 2).map((s) => s.sortrank), [10187, 10186]);
-  const rangs = fusion.map((s) => Number(s.sortrank) || 0);
-  assert.ok(rangs[0] > rangs[1] && rangs[1] > Math.max(...rangs.slice(2)), "le 1er set a le plus grand sortrank");
+  assert.deepStrictEqual(fusion.map((s) => s.uid), ["p0", "p1", "p2", "m", "r", "b", "a"]);
+  assert.deepStrictEqual(fusion.slice(-3).map((s) => s.sortrank), [2, 1, 0]);
+  assert.strictEqual(fusion.at(-1).uid, "a", "le set principal tout à la fin");
+  assert.strictEqual(Math.min(...fusion.map((s) => (Number.isFinite(Number(s.sortrank)) ? Number(s.sortrank) : Infinity))), 0);
   assert.strictEqual(nouveaux[0].sortrank, undefined, "les sets reçus ne sont pas modifiés");
 });
 
@@ -602,7 +602,7 @@ test("set Rank 1 : ajouté APRÈS le set principal, départ du build général, 
   assert.deepStrictEqual(journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu)", "Ahri Rank 1"]);
   const [principal, rank1] = journal.sets;
   assert.deepStrictEqual(rank1.blocks[0].items, principal.blocks[0].items, "même départ que le build général");
-  assert.deepStrictEqual(rank1.blocks.at(-1).items.map((i) => i.id), ["3100", "3089"]);
+  assert.deepStrictEqual(rank1.blocks[1].items.map((i) => i.id), ["3100", "3089"], "le cœur du build juste après le départ");
   const [r] = journal.resultats;
   assert.deepStrictEqual(r.rank1, { titre: "Ahri Rank 1", rang: "Grand Maître 2145 LP", parties: 3 });
   assert.deepStrictEqual(r.setsCrees, ["LoL Companion - Ahri (Milieu)"], "le set Rank 1 est compté à part");
@@ -633,5 +633,5 @@ test("fusion : l'ancien set Rank 1 (sans le préfixe « LoL Companion ») est re
   const ancienRank1 = { title: "Lux Rank 1", uid: "1c0a9a10-0000-4000-9000-000000000099" };
   const monSet = { title: "Ahri Rank 1 (le mien)", uid: "a1b2c3" };
   const nouveaux = [{ title: "LoL Companion - Ahri (Milieu)", uid: "1c0a9a10-0000-4000-8000-000000001033" }, { title: "Ahri Rank 1", uid: "1c0a9a10-0000-4000-9000-000000000103" }];
-  assert.deepStrictEqual(B.fusionnerSets([ancienRank1, monSet], nouveaux).map((s) => s.title), ["LoL Companion - Ahri (Milieu)", "Ahri Rank 1", "Ahri Rank 1 (le mien)"]);
+  assert.deepStrictEqual(B.fusionnerSets([ancienRank1, monSet], nouveaux).map((s) => s.title), ["Ahri Rank 1 (le mien)", "Ahri Rank 1", "LoL Companion - Ahri (Milieu)"]);
 });
