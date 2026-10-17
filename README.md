@@ -135,6 +135,20 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
     Il est **sélectionné d'office** dans la boutique : la boutique range les sets par `sortrank` (du plus grand au plus
     petit) et prend le premier ; le nôtre reçoit un `sortrank` plus grand que tous les autres (Porofessor met 10 000
     et plus), et la famille la plus jouée passe devant.
+  - **set « Champion Rank 1 »** (`rank1.js`, case séparée sous celle du set d'objets, désactivée par défaut) : le
+    build du **meilleur joueur du champion sur ton serveur**, comme les « builds des meilleurs joueurs » de Blitz,
+    Mobalytics ou U.GG, mais sans clé d'API de Riot. L'appli lit le classement du champion sur OP.GG
+    (`lol_list_champion_leaderboard`), qui est trié par **nombre de parties** (le n° 1 d'Ahri était Maître, le n° 5
+    Grand Maître) : elle retrie donc les 10 premiers par **vrai rang** (tier puis LP), puis lit les 20 dernières parties
+    du meilleur (`lol_list_summoner_matches`) et garde celles sur ce champion (à ton poste s'il y en a au moins 3).
+    S'il en a moins de 3, elle passe au suivant (3 joueurs au plus). OP.GG ne donne que l'inventaire de **fin** de
+    partie, pas l'ordre d'achat : les objets finis sont rangés du **plus pris au moins pris** (cœur : la moitié des
+    parties ou plus ; souvent : 20 à 50 % ; parfois), avec ses bottes les plus prises ; le **départ** (qui n'est plus
+    dans l'inventaire en fin de partie) est repris du build général. Le set s'appelle « Ahri Rank 1 », est placé après
+    le set principal (qui reste sélectionné d'office) et indique le rang du joueur (« Grand Maître 2145 LP EUW »), jamais
+    son Riot ID. Le classement veut le nom **anglais** du champion (« WUKONG », « DR_MUNDO » ; le nom interne
+    « MONKEYKING » y est refusé, vérifié sur les 250 champions) : il vient de la liste d'OP.GG (`lol_list_champions`).
+    Faille seulement ; environ 6 à 8 s, gardé 3 h en mémoire.
   - **plusieurs sets pour un champion qui se joue de plusieurs façons** (`familles.js`) : Vi combattant ou
     létalité / critique, Kai'Sa à l'impact ou AP, Kayn rouge (Rhaast) ou bleu (Assassin de l'ombre)... La page
     Lolalytics donne les combinaisons des 3 premiers objets réellement construites (`itemSets`). Chaque combinaison est
@@ -298,7 +312,8 @@ temporaire dans le fichier `lockfile` de son dossier d'installation. L'appli lit
 | `GET /lol-gameflow/v1/session` | Carte et mode de la partie (Faille / Abîme hurlant, classée / ARAM / URF) pour le build |
 | `GET /lol-perks/v1/pages`, `GET /lol-perks/v1/inventory` | Tes pages de runes, place disponible |
 | `POST /lol-perks/v1/pages`, `DELETE /lol-perks/v1/pages/<id>` | Créer / remplacer la page « LoL Companion » (modifie le client, désactivé par défaut ; jamais tes autres pages) |
-| `GET` / `PUT /lol-item-sets/v1/item-sets/<summonerId>/sets` | Sets d'objets : on garde seulement les sets « LoL Companion - Champion » du champion actuel (un par façon de le jouer), tes autres sets sont renvoyés tels quels (modifie le client, désactivé par défaut) |
+| `GET` / `PUT /lol-item-sets/v1/item-sets/<summonerId>/sets` | Sets d'objets : on garde seulement les sets « LoL Companion - Champion » du champion actuel (un par façon de le jouer) et son set « Champion Rank 1 » (reconnu par son identifiant), tes autres sets sont renvoyés tels quels (modifie le client, désactivé par défaut) |
+| `GET /riotclient/region-locale` | Serveur du compte (« EUW »), pour le classement du set Rank 1 |
 
 **Seules connexions à Internet : les statistiques de builds (OP.GG et Lolalytics).** Le client ne fournit aucune
 statistique d'objets (`recommendedItemDefaults` est vide). Si tu coches « Récupérer le build de mon champion »
@@ -309,7 +324,9 @@ utilisées par OP.GG, Lolalytics et arammayhem.com :
 - `opgg.js` interroge le serveur public qu'OP.GG met à disposition des applis
   ([OP.GG MCP Server](https://github.com/opgginc/opgg-mcp)) : `POST https://mcp-api.op.gg/mcp`, outil
   `lol_get_champion_analysis` (runes, sorts, et objets si Lolalytics ne répond pas). Il ne donne qu'une combinaison
-  pour les objets 1 à 3 et une paire de bottes ;
+  pour les objets 1 à 3 et une paire de bottes. Pour le **set Rank 1** (case séparée, exception du 17/10/2026),
+  `opgg.js` envoie en plus **ton serveur** (EUW...) et le **Riot ID public** des meilleurs joueurs du classement du
+  champion (outils `lol_list_champions`, `lol_list_champion_leaderboard`, `lol_list_summoner_matches`) : jamais le tien ;
 - `lolalytics.js` lit la page publique du build : `GET https://lolalytics.com/lol/<champion>/build/?lane=<voie>`
   (ARAM / URF : `/aram/build/?tier=all`). C'est la seule source trouvée avec les objets **emplacement par emplacement**
   (recherche du 02/10/2026 : u.gg et dpm.lol n'ont pas d'accès prévu pour les applis non plus). Lolalytics n'a pas
@@ -517,7 +534,9 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   Lolalytics, celles du conseiller de draft (Lolalytics) et des augments (arammayhem.com), chacune seulement si tu
   l'actives (désactivé par défaut). Lecture seule, depuis le processus principal, certificats vérifiés
   normalement, et seuls le champion, le rôle, le mode et la langue sont envoyés : jamais ton Riot ID ni rien de
-  personnel. La page web de l'appli, elle, ne se connecte à rien (Content-Security-Policy inchangée).
+  personnel. Seule exception : le set « Champion Rank 1 » envoie aussi ton serveur et le Riot ID public des
+  meilleurs joueurs du champion (décision du propriétaire, 17/10/2026). La page web de l'appli, elle, ne se connecte
+  à rien (Content-Security-Policy inchangée).
 - **Mise à jour automatique** (décision du propriétaire, 11/10/2026) : l'appli installée lit la dernière Release de
   github.com/mohamed-ali-akir/lol-companion (activé par défaut, désactivable). Elle ne fait que télécharger des fichiers
   publics, et refuse un fichier dont l'empreinte sha512 ne correspond pas à `latest.yml`. La sécurité repose sur le
@@ -547,7 +566,7 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | Fichier | Contenu |
 |---|---|
 | `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
-| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set d'objets, sorts d'invocateur, augments, alerte des objectifs et réapparitions, chronos des sorts), de la session et de l'arrière-plan |
+| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set d'objets, set Rank 1, sorts d'invocateur, augments, alerte des objectifs et réapparitions, chronos des sorts), de la session et de l'arrière-plan |
 | `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, sans doublons, 25 000 au maximum par compte |
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |
@@ -585,6 +604,7 @@ lol-level-calculator/
 ├── internet.js        # Règles communes des appels à Internet : User-Agent honnête, cache de 3 h, délai, erreurs
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
 ├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
+├── rank1.js           # Set « Champion Rank 1 » : meilleur joueur du champion (classement OP.GG retrié par rang), ses objets
 ├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies ; cache
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
 ├── pings.js           # Pings des sorts lus dans le chat : capture, OCR, reconnaissance « ChampionEnnemi Sort »

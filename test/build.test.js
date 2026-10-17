@@ -33,12 +33,12 @@ const ANALYSE = {
 };
 
 test("réglages : tout désactivé par défaut ; reprise de l'ancien réglage des runes", () => {
-  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false, rank1: false });
   assert.deepStrictEqual(B.normaliserReglagesBuild({ stats: "oui", runes: 1, objets: true, augments: "oui" }), {
-    stats: false, runes: false, objets: true, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false,
+    stats: false, runes: false, objets: true, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false, rank1: false,
   });
-  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined, { actif: true }), { stats: false, runes: true, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false });
-  assert.deepStrictEqual(B.normaliserReglagesBuild({ runes: false }, { actif: true }), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined, { actif: true }), { stats: false, runes: true, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false, rank1: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild({ runes: false }, { actif: true }), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false, rank1: false });
   assert.strictEqual(B.normaliserReglagesBuild({ augments: true }).augments, true);
 });
 
@@ -256,8 +256,8 @@ const RECO_RIOT = {
   perks: [8992, 8226, 8210, 8237, 8139, 8106, 5005, 5008, 5001].map((id) => ({ id, name: `Riot ${id}` })),
 };
 
-function logique({ reglages = { stats: true, runes: true, objets: true }, analyse = ANALYSE, emplacements, echecs = {} } = {}) {
-  const journal = { analyses: [], runes: [], nomsPages: [], sets: [], sorts: [], resultats: [] };
+function logique({ reglages = { stats: true, runes: true, objets: true }, analyse = ANALYSE, emplacements, echecs = {}, rank1 } = {}) {
+  const journal = { analyses: [], runes: [], nomsPages: [], sets: [], sorts: [], resultats: [], rank1: [] };
   const auto = B.creerBuildAuto({
     reglages: () => reglages,
     analyser: async (demande) => {
@@ -271,6 +271,14 @@ function logique({ reglages = { stats: true, runes: true, objets: true }, analys
         : async () => {
           if (echecs.emplacements) throw new Error(echecs.emplacements);
           return emplacements;
+        },
+    analyserRank1:
+      rank1 === undefined
+        ? null
+        : async (demande) => {
+          journal.rank1.push(demande);
+          if (rank1 instanceof Error) throw rank1;
+          return rank1;
         },
     runesRiot: async () => [RECO_RIOT],
     appliquerRunes: async (page, noms) => {
@@ -358,7 +366,7 @@ test("tout désactivé (par défaut) : rien du tout, aucune connexion", async ()
   const { journal, auto } = logique({ reglages: B.normaliserReglagesBuild(undefined) });
   auto.surSession(session());
   await attendre(20);
-  assert.deepStrictEqual(journal, { analyses: [], runes: [], nomsPages: [], sets: [], sorts: [], resultats: [] });
+  assert.deepStrictEqual(journal, { analyses: [], runes: [], nomsPages: [], sets: [], sorts: [], resultats: [], rank1: [] });
 });
 
 test("erreurs du client (runes, set) : signalées, le reste continue", async () => {
@@ -563,4 +571,67 @@ test("set d'une famille : les objets exclus (autre famille) ne sont pas proposé
   const exclu = avant.option.ids[0];
   const apres = B.etapesFamille(etapes, { ...FAMILLES[0], exclus: [exclu] }).find((e) => e.cle === "objet4");
   assert.ok(!apres || ![apres.option, ...apres.autres].some((o) => o.ids.includes(exclu)));
+});
+
+// --- Set « Champion Rank 1 » (rank1.js, 17/10/2026) -----------------------------------------------
+
+const OBJETS_RANK1 = new Map([
+  [3020, { categories: ["Boots"], prix: 1100, vers: [] }],
+  [3100, { categories: ["SpellDamage"], prix: 2900, vers: [] }],
+  [3089, { categories: ["SpellDamage"], prix: 3500, vers: [] }],
+]);
+const RANK1 = {
+  joueur: { tier: "GRANDMASTER", lp: 2145, parties: 958, victoires: 548 },
+  region: "EUW",
+  objets: OBJETS_RANK1,
+  parties: [3, 4, 5].map((i) => ({ ids: i > 3 ? [3020, 3100, 3089] : [3020, 3100], role: "middle", victoire: i !== 4 })),
+};
+const AVEC_RANK1 = { stats: true, runes: false, objets: true, rank1: true };
+
+test("réglage rank1 : seulement avec le set d'objets ; désactivé par défaut", () => {
+  assert.strictEqual(B.normaliserReglagesBuild({}).rank1, false);
+  assert.strictEqual(B.normaliserReglagesBuild({ rank1: true }).rank1, false, "sans le set d'objets");
+  assert.strictEqual(B.normaliserReglagesBuild({ objets: true, rank1: true }).rank1, true);
+});
+
+test("set Rank 1 : ajouté APRÈS le set principal, départ du build général, la page le sait", async () => {
+  const { journal, auto } = logique({ reglages: AVEC_RANK1, rank1: RANK1 });
+  auto.surSession(session());
+  await attendre(20);
+  assert.deepStrictEqual(journal.rank1, [{ championId: AHRI, role: "middle" }]);
+  assert.deepStrictEqual(journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu)", "Ahri Rank 1"]);
+  const [principal, rank1] = journal.sets;
+  assert.deepStrictEqual(rank1.blocks[0].items, principal.blocks[0].items, "même départ que le build général");
+  assert.deepStrictEqual(rank1.blocks.at(-1).items.map((i) => i.id), ["3100", "3089"]);
+  const [r] = journal.resultats;
+  assert.deepStrictEqual(r.rank1, { titre: "Ahri Rank 1", rang: "Grand Maître 2145 LP", parties: 3 });
+  assert.deepStrictEqual(r.setsCrees, ["LoL Companion - Ahri (Milieu)"], "le set Rank 1 est compté à part");
+  assert.deepStrictEqual(r.erreurs, {});
+});
+
+test("set Rank 1 : case décochée -> aucune demande ; OP.GG en échec -> erreur signalée, set principal créé quand même", async () => {
+  const sans = logique({ reglages: { stats: true, runes: false, objets: true }, rank1: RANK1 });
+  sans.auto.surSession(session());
+  await attendre(20);
+  assert.deepStrictEqual(sans.journal.rank1, []);
+  assert.deepStrictEqual(sans.journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu)"]);
+
+  const echec = logique({ reglages: AVEC_RANK1, rank1: new O.ErreurOpgg("Pas de classement OP.GG pour ce champion sur ton serveur.") });
+  echec.auto.surSession(session());
+  await attendre(20);
+  assert.deepStrictEqual(echec.journal.sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu)"]);
+  assert.match(echec.journal.resultats[0].erreurs.rank1, /Pas de classement/);
+  assert.strictEqual(echec.journal.resultats[0].rank1, null);
+
+  const peu = logique({ reglages: AVEC_RANK1, rank1: { ...RANK1, parties: RANK1.parties.slice(0, 2) } });
+  peu.auto.surSession(session());
+  await attendre(20);
+  assert.match(peu.journal.resultats[0].erreurs.rank1, /Pas assez de parties/);
+});
+
+test("fusion : l'ancien set Rank 1 (sans le préfixe « LoL Companion ») est remplacé, tes sets gardés", () => {
+  const ancienRank1 = { title: "Lux Rank 1", uid: "1c0a9a10-0000-4000-9000-000000000099" };
+  const monSet = { title: "Ahri Rank 1 (le mien)", uid: "a1b2c3" };
+  const nouveaux = [{ title: "LoL Companion - Ahri (Milieu)", uid: "1c0a9a10-0000-4000-8000-000000001033" }, { title: "Ahri Rank 1", uid: "1c0a9a10-0000-4000-9000-000000000103" }];
+  assert.deepStrictEqual(B.fusionnerSets([ancienRank1, monSet], nouveaux).map((s) => s.title), ["LoL Companion - Ahri (Milieu)", "Ahri Rank 1", "Ahri Rank 1 (le mien)"]);
 });

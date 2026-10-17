@@ -30,6 +30,10 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
     jamais de redémarrage forcé (bandeau, ou installation en quittant). Publication : étiquette `vX.Y.Z` →
     `.github/workflows/publier.yml`. Sur Mac (16/10/2026, appli non signée) : vérification seulement, même adresse
     (latest.yml de la dernière Release, via `internet.js`), et le bandeau ouvre la page des Releases (adresse fixe).
+  - Set « Champion Rank 1 » (`rank1.js`, décidé le 17/10/2026) : OP.GG encore (outils lol_list_champions,
+    lol_list_champion_leaderboard, lol_list_summoner_matches). En plus du champion, on envoie le SERVEUR du compte
+    (EUW...) et le Riot ID PUBLIC des meilleurs joueurs du classement (jamais celui du joueur) ; leur Riot ID n'est ni
+    affiché, ni gardé (seul leur rang l'est). Case séparée sous celle du set d'objets, désactivée par défaut.
   Règles communes (User-Agent honnête, cache 3 h, délai maximal, erreurs claires) : écrites une seule fois dans
   `internet.js` (14/10/2026). Tout nouvel appel à Internet doit passer par ce module.
   Conditions à garder : désactivé par défaut (case de l'onglet Build, ou Sélection pour le conseiller), lecture seule, appels uniquement depuis le

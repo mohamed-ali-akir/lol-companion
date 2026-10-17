@@ -74,6 +74,8 @@ function afficherReglagesBuild(r) {
   $("buildRunes").checked = r.runes;
   $("buildObjets").checked = r.objets;
   $("buildObjets").disabled = !r.stats; // le set d'objets vient des stats OP.GG
+  $("buildRank1").checked = r.rank1;
+  $("buildRank1").disabled = !r.objets; // set en plus du set d'objets
   $("buildSortsAuto").checked = r.sortsAuto;
   $("buildSortsAuto").disabled = !r.stats; // les sorts aussi
   $("buildAugments").checked = r.augments;
@@ -92,6 +94,7 @@ async function enregistrerBuild() {
     stats: $("buildStats").checked,
     runes: $("buildRunes").checked,
     objets: $("buildStats").checked && $("buildObjets").checked,
+    rank1: $("buildStats").checked && $("buildObjets").checked && $("buildRank1").checked,
     sortsAuto: $("buildStats").checked && $("buildSortsAuto").checked,
     augments: $("buildAugments").checked,
     objectifs: $("buildObjectifs").checked,
@@ -116,12 +119,13 @@ function surEvenementBuild(info) {
   const bilan = [];
   if (info.runes) bilan.push(`page de runes « ${info.runes.nomPage || "LoL Companion"} » créée (${info.runes.source}) ✓`);
   if (info.sortsChoisis) bilan.push(`sorts : ${info.sortsChoisis.join(" + ")} ✓`);
-  if (info.objets) {
+  if (info.objets && !(Array.isArray(info.setsCrees) && info.setsCrees.length === 0)) {
     const plusieurs = Array.isArray(info.setsCrees) && info.setsCrees.length > 1;
     bilan.push(plusieurs ? `${info.setsCrees.length} sets d'objets créés (un par façon de jouer) ✓` : "set d'objets créé ✓");
   }
+  if (info.rank1) bilan.push(`set « ${info.rank1.titre} » créé (${info.rank1.rang}, ${info.rank1.parties} parties récentes) ✓`);
   for (const [quoi, message] of Object.entries(info.erreurs || {})) {
-    bilan.push(`${{ stats: "OP.GG", emplacements: "Lolalytics", runes: "runes", objets: "set d'objets", sortsAuto: "sorts" }[quoi]} : ${message}`);
+    bilan.push(`${{ stats: "OP.GG", emplacements: "Lolalytics", runes: "runes", objets: "set d'objets", rank1: "set Rank 1", sortsAuto: "sorts" }[quoi]} : ${message}`);
   }
   const erreur = Object.keys(info.erreurs || {}).length > 0;
   afficherEtat("etatBuild", `${champion}${role} (${heure()}) : ${bilan.join(" · ") || "rien à faire"}`, erreur ? "erreur" : "ok");
@@ -173,7 +177,7 @@ async function consulterBuild(evenement) {
 function brancherBuild() {
   window.appli.lireBuild().then(afficherReglagesBuild);
   window.appli.surBuild(surEvenementBuild);
-  for (const id of ["buildStats", "buildRunes", "buildObjets", "buildSortsAuto", "buildAugments", "buildObjectifs", "buildReapparitions", "buildSorts", "buildSortsPings"]) $(id).addEventListener("change", enregistrerBuild);
+  for (const id of ["buildStats", "buildRunes", "buildObjets", "buildRank1", "buildSortsAuto", "buildAugments", "buildObjectifs", "buildReapparitions", "buildSorts", "buildSortsPings"]) $(id).addEventListener("change", enregistrerBuild);
   $("formConsulterBuild").addEventListener("submit", consulterBuild);
   $("buildMode").addEventListener("change", () => ($("buildRole").disabled = $("buildMode").value === "aram"));
   remplirChampionsBuild().then((ok) => {

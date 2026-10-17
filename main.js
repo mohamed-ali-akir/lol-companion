@@ -25,7 +25,7 @@ const { creerLecteurEcran } = require("./ocr.js");
 const { creerLecteurArammayhem } = require("./arammayhem.js");
 const { creerSondage, etatPreparation } = require("./sondage.js");
 const { creerJournal } = require("./journal.js");
-const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireObjets, appliquerSet, appliquerSorts } = require("./build.js");
+const { creerBuildAuto, assemblerBuild, lirePartie, lireAliasChampions, lireObjets, lireRegion, appliquerSet, appliquerSorts } = require("./build.js");
 const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg.js");
 const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
@@ -70,7 +70,7 @@ const lecteurOpgg = creerLecteurOpgg();
 const lecteurLolalytics = creerLecteurLolalytics();
 const lecteurArammayhem = creerLecteurArammayhem(); // taux de victoire des augments ARAM Mayhem
 let aliasChampions = new Map(); // id -> nom interne ("MonkeyKing"), pour OP.GG et Lolalytics
-let objetsClient = { noms: new Map(), categories: new Map() }; // noms (langue du client) et catégories des objets, pour Lolalytics
+let objetsClient = { noms: new Map(), categories: new Map(), details: new Map() }; // noms, catégories et prix des objets (client)
 // Augments ARAM Mayhem affichés en jeu (augments.js) : désactivé par défaut (onglet Build).
 let championPartie = null; // ton champion, retenu pendant la sélection
 let indexAugments = null; // noms de tous les augments (langue du jeu)
@@ -388,6 +388,18 @@ async function analyserLolalytics(demande) {
 }
 
 /**
+ * Set « Rank 1 » (rank1.js, exception du 17/10/2026) : le meilleur joueur du champion sur ton serveur (OP.GG) et ses
+ * parties récentes, avec les objets du client pour les trier. Seulement sur la Faille (classement de la file classée).
+ */
+async function analyserRank1(demande) {
+  const { alias, mode } = await contexteBuild(demande);
+  if (mode !== "ranked" && mode !== "flex") throw new ErreurOpgg("Set Rank 1 : seulement sur la Faille de l'invocateur.");
+  const region = await lireRegion(stockage.dossierJeu());
+  const meilleur = await lecteurOpgg.rank1({ alias, championId: demande.championId, region });
+  return { ...meilleur, region, objets: (await obtenirObjets()).details };
+}
+
+/**
  * Lit le compte dans le client et, si ça marche, le garde sur le disque :
  * dernier compte, point de progression, et nouvelles parties (onglet Stats).
  */
@@ -638,6 +650,7 @@ function demarrerSelection() {
     reglages: () => stockage.reglagesBuild(),
     analyser: ({ championId, role }) => analyserOpgg({ championId, role }),
     analyserEmplacements: ({ championId, role }) => analyserLolalytics({ championId, role }),
+    analyserRank1: ({ championId, role }) => analyserRank1({ championId, role }), // case « rank1 » (désactivée par défaut)
     runesRiot: ({ championId, role }) => lireRecommandations(stockage.dossierJeu(), championId, role),
     appliquerRunes: (page, noms) => appliquerPage(stockage.dossierJeu(), page, { noms }),
     appliquerSorts: (ids) => appliquerSorts(stockage.dossierJeu(), ids),
