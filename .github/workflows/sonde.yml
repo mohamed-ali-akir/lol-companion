@@ -1,0 +1,50 @@
+# Sonde quotidienne des sites lus par l'appli (outils/sonde.js)
+# --------------------------------------------------------------
+# Chaque jour, lit les VRAIS Lolalytics, OP.GG et arammayhem.com avec le code de l'appli. Si un site a changé
+# (format, données retirées), ouvre une issue « Sonde des sources » (ou la complète si elle est déjà ouverte) :
+# on le sait avant de le découvrir en jeu. Bouton « Run workflow » pour la lancer à la main.
+name: Sonde des sources
+
+on:
+  schedule:
+    - cron: "17 6 * * *" # chaque jour vers 8 h (heure de Paris)
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write # ouvrir ou compléter l'issue d'alerte
+
+jobs:
+  sonde:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+      # Aucune dépendance à installer : la sonde n'utilise que Node et les modules de l'appli.
+      - name: Interroger les sites
+        id: sonde
+        run: |
+          set -o pipefail
+          node outils/sonde.js | tee sonde.txt
+      - name: Signaler le problème dans une issue
+        if: failure() && steps.sonde.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          {
+            echo "La sonde du $(date -u +%d/%m/%Y) a trouvé une source qui ne répond plus comme prévu :"
+            echo
+            echo '```'
+            cat sonde.txt
+            echo '```'
+            echo
+            echo "Exécution : ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          } > corps.md
+          numero=$(gh issue list --state open --search "Sonde des sources in:title" --json number --jq '.[0].number')
+          if [ -n "$numero" ]; then
+            gh issue comment "$numero" --body-file corps.md
+          else
+            gh issue create --title "Sonde des sources : un site a changé" --body-file corps.md
+          fi

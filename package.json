@@ -6,7 +6,8 @@
   "scripts": {
     "start": "electron .",
     "test": "node --test \"test/*.test.js\"",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "sonde": "node outils/sonde.js"
   },
   "keywords": [
     "league-of-legends",

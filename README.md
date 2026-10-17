@@ -190,6 +190,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | `npm start` | Lance l'appli |
 | `npm test` | Lance les tests (417, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
+| `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
 
 ### Mises à jour
 
@@ -592,6 +593,7 @@ lol-level-calculator/
 ├── arriere-plan.js    # Arrière-plan : la croix, le démarrage de Windows, le menu de l'icône (fonctions pures)
 ├── assets/            # Icône de l'appli (icon.ico, icon.png, tray.png) : fenêtre, zone de notification, installateur
 ├── reparer-electron.ps1 # Dépannage de l'installation d'Electron sous Windows (voir Installation)
+├── outils/sonde.js    # Sonde des sites lus par l'appli (npm run sonde, et chaque jour sur GitHub)
 ├── docs/captures/     # Captures du README
 ├── docs/prompt-selection-auto.md # Cahier des charges du pick et ban automatiques
 ├── src/
