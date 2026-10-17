@@ -101,13 +101,14 @@ test("nettoyerChat (seuils fixes) : agrandi 3 fois, texte en noir sur blanc", ()
   assert.throws(() => I.nettoyerChat({ largeur: 0, hauteur: 0, canaux: 3, pixels: Buffer.alloc(0) }), /vide/);
 });
 
-test("teintes du chat : rouge, orange et bleu gardés ; vert et jaune du décor jamais", () => {
+test("teintes du chat : rouge, orange, jaune et bleu gardés ; vert du décor jamais", () => {
   const r = { luminosite: 100, saturation: 60 };
   assert.ok(I.estTexteChat(230, 60, 60, r), "rouge");
   assert.ok(I.estTexteChat(250, 170, 40, r), "orange");
   assert.ok(I.estTexteChat(70, 170, 235, r), "bleu");
   assert.ok(!I.estTexteChat(120, 210, 60, r), "herbe verte saturée");
-  assert.ok(!I.estTexteChat(220, 220, 60, r), "jaune");
+  assert.ok(I.estTexteChat(255, 255, 0, r), "jaune pur du nom du sort (vu en partie le 17/10/2026)");
+  assert.ok(!I.estTexteChat(170, 220, 60, r), "herbe vert-jaune");
   assert.ok(I.estTexteChat(120, 210, 60, { ...r, teintes: null }), "sans tri des teintes, l'herbe passait");
   assert.strictEqual(Math.round(I.teinte(255, 0, 0)), 0);
   assert.strictEqual(Math.round(I.teinte(0, 255, 0)), 120);

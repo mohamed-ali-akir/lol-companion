@@ -397,8 +397,8 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   jeu écrit « Pseudo (Champion): ChampionEnnemi Sort » (ex. « wDark (Ashe): Vex Flash »), sans heure ni temps
   restant. Aucune API ne donne le chat : chaque seconde, l'appli capture la zone du chat (en bas à gauche, à sa place
   par défaut), la **nettoie** (agrandie 3 fois, seuls les pixels du texte gardés, en noir sur blanc : sans ça, l'OCR
-  lisait « V c y Rash » pour « Vex Flash »). Un pixel est gardé s'il a une **teinte du chat** (rouge, orange ou bleu :
-  le vert et le jaune de l'herbe ne passent jamais) et s'il est assez vif par rapport aux pixels les plus vifs de la
+  lisait « V c y Rash » pour « Vex Flash »). Un pixel est gardé s'il a une **teinte du chat** (rouge, orange, jaune ou bleu :
+  le vert de l'herbe ne passe jamais ; le nom du sort est parfois jaune pur) et s'il est assez vif par rapport aux pixels les plus vifs de la
   zone : ce **seuil adaptatif** suit la lumière du décor (le texte paraît terne sur un fond sombre ; avec un seuil
   fixe, plus aucun ping n'était retrouvé une fois les captures assombries). Puis l'appli la lit avec l'OCR du système et cherche à la FIN de
   chaque ligne un des 5 adversaires suivi d'un de SES sorts. Les erreurs de lecture courantes sont tolérées

@@ -131,10 +131,10 @@ function teinte(r, v, b) {
   return h * 60;
 }
 
-// Teintes du texte du chat (mesurées le 17/10/2026 sur de vraies captures) : rouge des ennemis (vers 0°), orange des
-// sorts (20 à 45°), bleu des pseudos (180 à 220°). Le vert et le jaune du décor (50 à 170°) ne sont jamais gardés :
-// sur l'herbe, ils passaient pour du texte et gênaient l'OCR.
-const TEINTES_CHAT = [[330, 360], [0, 50], [170, 235]];
+// Teintes du texte du chat (mesurées le 17/10/2026 sur de vraies captures) : rouge des ennemis (vers 0°), orange et
+// jaune des sorts (20 à 60° : le nom du sort est parfois jaune pur, vu en partie), bleu des pseudos (180 à 220°).
+// Le vert du décor (70 à 170°) n'est jamais gardé : sur l'herbe, il passait pour du texte et gênait l'OCR.
+const TEINTES_CHAT = [[330, 360], [0, 65], [170, 235]];
 const dansTeintes = (h, teintes) => teintes.some(([de, a]) => h >= de && h <= a);
 
 /**
