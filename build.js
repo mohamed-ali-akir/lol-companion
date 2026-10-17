@@ -272,11 +272,18 @@ function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisPar
  * on ne garde que ceux du champion actuel (1 à 3, recréés à chaque champion verrouillé).
  * Pourquoi (14/10/2026) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413) ;
  * avec un set par champion joué, 40 sets "LoL Companion" s'étaient accumulés et bloquaient tout nouveau set.
+ * Nos sets passent EN PREMIER (17/10/2026) : la boutique du jeu range les sets par « sortrank », du plus grand au plus
+ * petit, et sélectionne le premier (Porofessor met 10 000 et plus ; nos sets à 0 arrivaient derniers). On leur donne
+ * donc un sortrank plus grand que tous les autres, le plus grand pour le premier (la famille la plus jouée).
  */
 function fusionnerSets(existants, nouveaux) {
   const estLeNotre = (s) => s && typeof s.title === "string" && s.title.startsWith(`${PREFIXE_SET} - `);
+  const autres = Array.isArray(existants) ? existants.filter((s) => !estLeNotre(s)) : [];
   const ajouts = Array.isArray(nouveaux) ? nouveaux : [nouveaux]; // un set, ou un par famille de build
-  return [...(Array.isArray(existants) ? existants.filter((s) => !estLeNotre(s)) : []), ...ajouts];
+  const rang = (s) => Number(s && s.sortrank); // tolérant : set abîmé ou sortrank absent -> 0
+  const plusGrand = Math.max(0, ...autres.map((s) => (Number.isFinite(rang(s)) ? rang(s) : 0)));
+  const devant = ajouts.map((s, i) => ({ ...s, sortrank: plusGrand + 100 + (ajouts.length - i) }));
+  return [...devant, ...autres];
 }
 
 /**

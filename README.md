@@ -132,6 +132,9 @@ Client fermé, elle affiche ton dernier compte enregistré (« Données du 30/09
   - crée le set d'objets « LoL Companion - Champion (Rôle) », visible dans la boutique en jeu : un bloc par
     emplacement avec ses 3 choix, le recommandé en premier. Un seul set « LoL Companion » est gardé (celui du champion
     actuel) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413).
+    Il est **sélectionné d'office** dans la boutique : la boutique range les sets par `sortrank` (du plus grand au plus
+    petit) et prend le premier ; le nôtre reçoit un `sortrank` plus grand que tous les autres (Porofessor met 10 000
+    et plus), et la famille la plus jouée passe devant.
   - **plusieurs sets pour un champion qui se joue de plusieurs façons** (`familles.js`) : Vi combattant ou
     létalité / critique, Kai'Sa à l'impact ou AP, Kayn rouge (Rhaast) ou bleu (Assassin de l'ombre)... La page
     Lolalytics donne les combinaisons des 3 premiers objets réellement construites (`itemSets`). Chaque combinaison est
@@ -441,7 +444,8 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   - **Runes** : la page « LoL Companion » est supprimée puis recréée (plus simple et plus fiable qu'une
     modification) ; les pages qui ont un autre nom ne sont jamais touchées.
   - **Set d'objets** : le `PUT` du client remplace TOUTE la liste des sets ; l'appli renvoie donc tes sets exactement
-    comme elle les a lus et ne remplace que le set « LoL Companion » du même champion.
+    comme elle les a lus (seul leur ordre change : les nôtres sont placés devant) et ne remplace que le set
+    « LoL Companion » du même champion.
 - **Augments ARAM Mayhem** (`augments.js`, `ocr.js`, fenêtre `src/overlay.html`) : Riot ne dit pas quels augments te
   sont proposés (ni le client, ni l'API du jeu ; seul Overwolf le fournit). Comme ezlol ou aram-mayhem-tracker, l'appli
   lit donc leurs noms à l'écran, seulement pendant une partie ARAM Mayhem (file 2400, détectée par la phase
