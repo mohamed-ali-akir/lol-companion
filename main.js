@@ -29,7 +29,7 @@ const { creerLecteurOpgg, positionOpgg, modeOpgg, ErreurOpgg } = require("./opgg
 const { creerLecteurLolalytics, ErreurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
-const { creerSuiviObjectifs, creerLectureJeuPartagee, estFaille } = require("./objectifs.js");
+const { creerLectureJeuPartagee, estFaille } = require("./jeu.js");
 const { creerSuiviSorts } = require("./sorts.js");
 const { creerLecteurChat } = require("./pings.js");
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
@@ -77,9 +77,8 @@ let langueJeu = null; // "en_US"...
 let lecteurEcran = null; // lecture d'écran (ocr.js), lancée seulement pendant une ARAM Mayhem
 let fenetreAugments = null; // fenêtre transparente par-dessus le jeu
 let suiviAugments = null;
-let suiviObjectifs = null; // bandeau « Larves du Néant dans 30 s » en jeu (objectifs.js), désactivé par défaut
 let suiviSorts = null; // chronos des sorts d'invocateur adverses, cliquables en jeu (sorts.js), désactivé par défaut
-const contenuOverlay = { augments: null, objectif: null, sorts: null }; // ce qu'affiche la fenêtre transparente
+const contenuOverlay = { augments: null, sorts: null }; // ce qu'affiche la fenêtre transparente
 const lancement = Date.now(); // ouverture de l'appli : début de session en mode "depuis l'ouverture"
 const suiviAlertes = creerSuiviAlertes(); // alertes de pause déjà notifiées
 let icone = null; // icône dans la zone de notification (Tray)
@@ -722,11 +721,10 @@ function creerFenetreAugments() {
   });
 }
 
-const overlayVide = () => !contenuOverlay.augments && !contenuOverlay.objectif && !contenuOverlay.sorts;
+const overlayVide = () => !contenuOverlay.augments && !contenuOverlay.sorts;
 
 /**
- * Met à jour la fenêtre transparente : étiquettes des augments (ARAM Mayhem), bandeau des objectifs et panneau des
- * sorts (Faille). Elle est cachée quand il n'y a rien à montrer.
+ * Met à jour la fenêtre transparente : étiquettes des augments (ARAM Mayhem) et panneau des sorts (Faille). Elle est cachée quand il n'y a rien à montrer.
  */
 function majOverlay() {
   if (overlayVide()) {
@@ -741,7 +739,6 @@ function majOverlay() {
     if (!fenetreAugments || fenetreAugments.isDestroyed()) return;
     // Contenu relu au moment d'envoyer : jamais un état plus ancien que le dernier demandé.
     fenetreAugments.webContents.send("augments:etiquettes", { echelle: ecranJeu().echelle, liste: contenuOverlay.augments || [] });
-    fenetreAugments.webContents.send("objectifs:alerte", contenuOverlay.objectif);
     fenetreAugments.webContents.send("sorts:position", stockage.positionSorts());
     fenetreAugments.webContents.send("sorts:etat", contenuOverlay.sorts);
     if (!contenuOverlay.sorts) fenetreAugments.setIgnoreMouseEvents(true, { forward: true });
@@ -756,12 +753,6 @@ function majOverlay() {
 /** Affiche les étiquettes sous les cartes (liste), ou les retire (null). */
 function afficherAugments(liste) {
   contenuOverlay.augments = liste || null;
-  majOverlay();
-}
-
-/** Affiche le bandeau des objectifs ([{ texte, restantS }]), ou le retire (null). */
-function afficherObjectif(lignes) {
-  contenuOverlay.objectif = lignes || null;
   majOverlay();
 }
 
@@ -810,9 +801,9 @@ function demarrerAugments() {
   });
 }
 
-function demarrerObjectifs() {
-  const lire = creerLectureJeuPartagee(); // une seule lecture du jeu par seconde pour les deux suivis
-  // Pings des sorts lus dans le chat (pings.js, exception du 16/10/2026 ; case « sortsPings », désactivée par défaut).
+function demarrerChronosSorts() {
+  const lire = creerLectureJeuPartagee(); // une seule lecture du jeu par seconde
+  // Pings des sorts lus dans le chat (pings.js, exception du 16/10/2026 ; même case que les chronos, désactivée par défaut).
   // Le lecteur d'écran est demandé à chaque lecture : c'est le même que celui des augments (un seul processus).
   const lectureEcranPossible = process.platform === "win32" || process.platform === "darwin";
   const lecteurChat = creerLecteurChat({
@@ -823,27 +814,12 @@ function demarrerObjectifs() {
     ecran: () => ecranJeu(),
   });
   suiviSorts = creerSuiviSorts({
-    reglages: () => stockage.reglagesBuild(), // cases « sorts » et « sortsPings »
+    reglages: () => stockage.reglagesBuild(), // case « sorts » (chronos et pings)
     lire,
     afficher: (panneau) => proteger("chronos des sorts", () => afficherSorts(panneau)),
     journal: noter,
     lireChat: lectureEcranPossible ? () => lecteurChat.lire() : null,
   });
-  suiviObjectifs = creerSuiviObjectifs({
-    reglages: () => stockage.reglagesBuild(), // cases « objectifs » et « réapparitions »
-    lire,
-    afficher: afficherObjectif,
-    journal: noter,
-  });
-}
-
-/** Phase de jeu : le chrono des objectifs n'est lu que pendant une partie sur la Faille de l'invocateur. */
-async function surPhaseObjectifs(phase) {
-  if (!suiviObjectifs) return;
-  if (phase !== "InProgress") return suiviObjectifs.arreter();
-  const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
-  if (estFaille(partie)) suiviObjectifs.demarrer();
-  else suiviObjectifs.arreter();
 }
 
 /** Phase de jeu : panneau des sorts seulement pendant une partie sur la Faille. */
@@ -855,10 +831,9 @@ async function surPhaseSorts(phase) {
   else suiviSorts.arreter();
 }
 
-/** Phase de jeu pour tout ce qui s'affiche en jeu, chacun dans sa bulle (augments, objectifs). */
+/** Phase de jeu pour tout ce qui s'affiche en jeu, chacun dans sa bulle (augments, chronos des sorts). */
 function surPhaseEnJeu(phase) {
   proteger("augments en jeu", () => surPhase(phase));
-  proteger("alerte des objectifs", () => surPhaseObjectifs(phase));
   proteger("chronos des sorts", () => surPhaseSorts(phase));
 }
 
@@ -1228,7 +1203,7 @@ if (!instanceUnique) {
     demarrerAcceptation();
     demarrerSelection();
     demarrerAugments();
-    demarrerObjectifs();
+    demarrerChronosSorts();
     demarrerSurveillance();
     demarrerMiseAJour();
 

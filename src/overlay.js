@@ -30,24 +30,6 @@ function afficherEtiquettes(info) {
   }
 }
 
-/**
- * Bandeau des objectifs, en haut à droite sous le chrono du jeu : [{ texte, restantS }] ou null (caché).
- * Une ligne par objectif ; plus visible dans les 10 dernières secondes.
- */
-function afficherObjectif(lignes) {
-  const bandeau = document.getElementById("alerteObjectif");
-  const liste = Array.isArray(lignes) ? lignes : [];
-  bandeau.hidden = liste.length === 0;
-  bandeau.replaceChildren(
-    ...liste.map((l) => {
-      const ligne = document.createElement("div");
-      ligne.className = `ligne-objectif${l.restantS <= 10 ? " imminent" : ""}`;
-      ligne.textContent = l.texte;
-      return ligne;
-    })
-  );
-}
-
 /** "4:05" à partir de 245 secondes. */
 const minutesSecondes = (s) => `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`;
 
@@ -139,7 +121,6 @@ function rendreDeplacable() {
 
 if (window.overlay) {
   window.overlay.surEtiquettes(afficherEtiquettes);
-  if (window.overlay.surObjectif) window.overlay.surObjectif(afficherObjectif);
   if (window.overlay.surSorts) window.overlay.surSorts(afficherSorts);
   if (window.overlay.surPositionSorts) window.overlay.surPositionSorts(placerSorts);
   // La fenêtre laisse passer les clics au jeu, sauf quand la souris est sur le panneau des sorts (poignée comprise).

@@ -12,13 +12,13 @@
  * même manuels ; ils ne sont donc pas proposés. Les chronos de sorts d'invocateur restent tolérés (applis connues),
  * et reposent sur ce que tu vois toi-même. Exception décidée par le propriétaire, en connaissance du risque.
  *
- * Données : API officielle « Live Client Data » (voir objectifs.js) :
+ * Données : API officielle « Live Client Data » (voir jeu.js) :
  *   allPlayers: [{ rawChampionName: "game_character_displayname_Ahri", team, level, position: "TOP"...,
  *                  items: [{ itemID, displayName }],
  *                  summonerSpells: { summonerSpellOne: { rawDisplayName: "GeneratedTip_SummonerSpell_SummonerFlash_DisplayName" }, summonerSpellTwo } }]
  * Aucun pseudo n'est affiché : seulement les champions.
  */
-const { lireJeu, monEquipe } = require("./objectifs.js");
+const { lireJeu, monEquipe } = require("./jeu.js");
 const { NOMS_SORTS, pingDepuisLigne, creerCompteurPings } = require("./pings.js"); // pings des sorts lus dans le chat
 
 /**
@@ -131,11 +131,11 @@ function ciblesPings(jeu) {
 /**
  * Panneau des sorts adverses : relu toutes les secondes, et mis à jour à chaque clic.
  *  reglages()        : { sorts } (case de l'onglet Build)
- *  lire()            : { tempsS, joueurs, actif } ou null (objectifs.js : lireJeu)
+ *  lire()            : { tempsS, joueurs, actif } ou null (jeu.js : lireJeu)
  *  afficher(panneau) : [{ alias, sorts: [{ id, nom, restantS (0 = disponible), cliquable }] }] ou null (cacher)
  *  maintenant()      : horloge en ms (pour estimer le temps de jeu entre deux lectures)
  *  lireChat()        : (facultatif) lignes du chat lues à l'écran (pings.js : creerLecteurChat) ; utilisé seulement
- *                      si les cases « sorts » ET « sortsPings » sont cochées. Lu dans sa propre boucle : une lecture
+ *                      si la case des chronos est cochée (réglage « sortsPings », qui la suit). Lu dans sa propre boucle : une lecture
  *                      lente (Mac) ne retarde jamais le panneau.
  */
 function creerSuiviSorts({ reglages, lire = lireJeu, afficher, intervalleMs = 1000, maintenant = Date.now, journal = () => {}, lireChat = null, intervalleChatMs = 1000 }) {

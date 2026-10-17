@@ -468,72 +468,35 @@
       <section class="panneau" id="panneau-build" role="tabpanel" aria-labelledby="onglet-build" tabindex="0" hidden>
         <div class="card parametres">
           <h2>Build</h2>
-          <p class="aide">
-            Quand ton champion est verrouillé (ou attribué en ARAM), l'appli lit les statistiques de Lolalytics (objets
-            emplacement par emplacement) et d'OP.GG (runes, sorts) pour ce champion, ton rôle et le mode de jeu.
-            Pour chaque emplacement (départ, objet 1, bottes, objets 2 à 5), elle propose 3 choix : d'abord ceux pris
-            dans au moins 10 % des achats et sur 200 parties, classés par taux de victoire « prudent ».
-          </p>
-          <p class="aide">
-            Seules connexions à Internet de l'appli (Lolalytics, OP.GG, et arammayhem.com pour les augments) : elle
-            n'envoie que le champion, le rôle et le mode, jamais ton pseudo. Runes et set d'objets sont autorisés par Riot (comme Blitz ou Porofessor) ; tes pages et tes sets
-            ne sont jamais modifiés, seulement ceux nommés « LoL Companion ».
-          </p>
           <form id="formBuild" class="reglages-acceptation">
             <label class="check">
               <input type="checkbox" id="buildStats">
-              <span>Récupérer le build de mon champion <small>(Lolalytics et OP.GG, connexion à Internet)</small></span>
+              <span>Récupérer le build de mon champion</span>
             </label>
             <label class="check">
               <input type="checkbox" id="buildRunes">
-              <span>Créer ma page de runes <small>(runes d'OP.GG, sinon celles recommandées par Riot)</small></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="buildObjets">
-              <span>Créer le set d'objets dans la boutique en jeu <small>(3 choix par emplacement ; nécessite le build)</small></span>
+              <span>Créer ma page de runes</span>
             </label>
             <label class="check">
               <input type="checkbox" id="buildRank1">
-              <span>Ajouter le set « Champion Rank 1 » <small>(objets du meilleur joueur du champion sur ton serveur, d'après ses parties récentes sur OP.GG ; envoie ton serveur et le Riot ID public de ce joueur, jamais le tien ; Faille seulement)</small></span>
+              <span>Ajouter le set « Champion Rank 1 »</span>
             </label>
             <label class="check">
               <input type="checkbox" id="buildSortsAuto">
-              <span>Choisir mes sorts d'invocateur <small>(les plus joués d'après OP.GG ; Flash reste sur ta touche habituelle ; nécessite le build)</small></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="buildAugments">
-              <span>Afficher les stats des augments en jeu <small>(ARAM Mayhem : taux de victoire de chaque augment, avec ton champion si possible, sous chaque carte ; arammayhem.com)</small><small id="augmentsMac" hidden> · Sur Mac : autorise LoL Companion dans Réglages Système → Confidentialité et sécurité → Enregistrement de l'écran, puis relance l'appli (sans ça, l'appli ne voit pas les cartes).</small></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="buildObjectifs">
-              <span>Prévenir avant les objectifs en jeu <small>(Faille : bandeau 30 s avant le premier dragon, les larves, le Héraut et le Baron ; chrono du jeu, sans Internet)</small></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="buildReapparitions">
-              <span>Aussi avant les réapparitions du dragon, du Baron et des inhibiteurs <small>(⚠ chrono que Riot juge contraire à l'esprit de ses règles : risque faible, mais pas nul)</small></span>
+              <span>Choisir mes sorts d'invocateur</span>
             </label>
             <label class="check">
               <input type="checkbox" id="buildSorts">
-              <span>Chronos des sorts d'invocateur adverses <small>(Faille : panneau en haut à gauche ; clique sur un sort quand l'adversaire l'utilise ; ⚠ même risque)</small></span>
-            </label>
-            <label class="check">
-              <input type="checkbox" id="buildSortsPings">
-              <span>Lancer aussi le chrono quand un allié (ou toi) pingue le sort dans le chat <small>(le chat est lu à l'écran, en bas à gauche, à sa place par défaut ; un clic annule un chrono lancé par erreur ; ⚠ automatisation que Riot pourrait juger contraire à ses règles)</small><small id="pingsMac" hidden> · Sur Mac : autorise LoL Companion dans Réglages Système → Confidentialité et sécurité → Enregistrement de l'écran, puis relance l'appli.</small></span>
+              <span>Chronos des sorts d'invocateur adverses</span>
             </label>
           </form>
           <p id="rappelSansBordure" class="rappel-bordure" hidden>
             Mets le jeu en mode <b>« Sans bordure »</b> (en jeu : Échap → Vidéo → Mode de la fenêtre) : en plein écran,
-            <span data-mac="macOS">Windows</span> ne peut rien afficher par-dessus le jeu, et les chronos, alertes et augments restent invisibles.
+            <span data-mac="macOS">Windows</span> ne peut rien afficher par-dessus le jeu, et les chronos et augments restent invisibles.
           </p>
-          <p class="aide">
-            Augments : Riot ne dit pas quels augments te sont proposés, l'appli lit donc leurs noms à l'écran (OCR de <span data-mac="macOS">Windows</span>,
-            rien ne quitte ton PC), seulement pendant une ARAM Mayhem. Mets le jeu en mode « Sans bordure » (Options → Vidéo) :
-            en plein écran, rien ne peut s'afficher par-dessus. L'appli ne choisit jamais à ta place.
-            Objectifs : leur première apparition, à heure fixe (Carapateurs 2:55, dragon 5:00, larves 8:00, Héraut 15:00,
-            Baron 20:00). En option, les réapparitions : dragon 5:00 après sa mort (dragon ancestral 6:00 après l'âme),
-            Baron 6:00, inhibiteurs 5:00. Sorts adverses : c'est toi qui cliques quand tu vois un sort utilisé, l'appli
-            compte le temps de recharge (bottes de lucidité comprises). Jamais les ultimes : Riot les interdit depuis 2025.
-            Riot juge injuste un chrono qui n'existe que dans une appli : à activer en connaissance de cause.
+          <p id="ecranMac" class="rappel-bordure" hidden>
+            Sur Mac : autorise LoL Companion dans Réglages Système → Confidentialité et sécurité → Enregistrement de l'écran,
+            puis relance l'appli (sans ça, l'appli ne voit ni les augments ni le chat).
           </p>
           <p id="etatBuild" class="etat" hidden></p>
 

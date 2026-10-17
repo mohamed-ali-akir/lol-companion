@@ -21,6 +21,7 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
     « Allow: / »), avec les mêmes règles que Lolalytics (User-Agent honnête, cache 3 h, seul le nom du champion dans
     l'adresse). La lecture des cartes à l'écran (`ocr.js`, OCR de Windows, ou Vision sur Mac) reste 100 % locale, et
     seulement pendant une ARAM Mayhem ; l'overlay n'affiche que des stats, il ne choisit jamais.
+    **Activé d'office, sans case** (décision du propriétaire, 17/10/2026, pour alléger l'onglet Build).
   - Conseiller de draft (`draft.js`, décidé le 04/10/2026) : Lolalytics encore (tier list du poste, page de chaque
     adversaire verrouillé pour ses matchups, API `a1.lolalytics.com/mega/?ep=build-team` pour les synergies des
     alliés), mêmes règles. Case de l'onglet Sélection ; il propose seulement, ne choisit jamais.
@@ -33,10 +34,11 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
   - Set « Champion Rank 1 » (`rank1.js`, décidé le 17/10/2026) : OP.GG encore (outils lol_list_champions,
     lol_list_champion_leaderboard, lol_list_summoner_matches). En plus du champion, on envoie le SERVEUR du compte
     (EUW...) et le Riot ID PUBLIC des meilleurs joueurs du classement (jamais celui du joueur) ; leur Riot ID n'est ni
-    affiché, ni gardé (seul leur rang l'est). Case séparée sous celle du set d'objets, désactivée par défaut.
+    affiché, ni gardé (seul leur rang l'est). Case séparée de l'onglet Build, désactivée par défaut.
   Règles communes (User-Agent honnête, cache 3 h, délai maximal, erreurs claires) : écrites une seule fois dans
   `internet.js` (14/10/2026). Tout nouvel appel à Internet doit passer par ce module.
-  Conditions à garder : désactivé par défaut (case de l'onglet Build, ou Sélection pour le conseiller), lecture seule, appels uniquement depuis le
+  Conditions à garder : désactivé par défaut (case de l'onglet Build, ou Sélection pour le conseiller ; sauf les
+  augments, voir plus haut), lecture seule, appels uniquement depuis le
   processus principal, certificats vérifiés normalement, et on n'envoie QUE champion / rôle / mode / langue
   (jamais Riot ID, puuid, ni aucune donnée personnelle). Aucune autre adresse Internet.
 
@@ -46,25 +48,24 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
 - Lectures **tolérantes** : un champ manquant ou inattendu ne doit jamais faire planter l'appli
   (valeur ignorée, message clair, ou valeur par défaut).
 - Toute action qui **modifie** quelque chose dans le client (accepter une partie, créer une page de runes...) :
-  désactivée par défaut, activable dans l'onglet Paramètres, et appliquée uniquement au compte connecté.
+  désactivée par défaut, activable dans l'onglet Paramètres ou Build, et appliquée uniquement au compte connecté.
+  Seule exception (décision du propriétaire, 17/10/2026) : le set d'objets « LoL Companion » n'a plus de case ; il est
+  créé dès que « Récupérer le build de mon champion » est coché (case désactivée par défaut).
 - **Interdit** (règles de Riot) : révéler les pseudos en sélection des champions, donner une information en jeu
   que les joueurs n'ont pas normalement.
 - **Exception décidée par le propriétaire (02/10/2026)** : pick et ban automatiques (`selection.js`), contraires aux
   règles de Riot, acceptés en connaissance du risque pour son compte. Garde-fous à conserver : désactivés par défaut,
   délai avant d'agir, uniquement l'action du joueur connecté, rien si le joueur survole ou choisit lui-même,
   jamais un champion survolé ou déclaré par un coéquipier.
-- **Alerte des objectifs en jeu** (`objectifs.js`, 10/10/2026) : première apparition de chaque objectif, à heure
-  fixe, d'après l'API officielle Live Client Data (`127.0.0.1:2999`, lecture seule).
-- **Exception décidée par le propriétaire (10/10/2026)** : chrono des réapparitions (dragon, Baron), que Riot juge
-  injuste quand il vient d'une appli tierce, accepté en connaissance du risque. Garde-fous : case séparée désactivée
-  par défaut, seulement les morts annoncées à tous (événements de l'API officielle : dragon, Baron, inhibiteurs).
+- **Alerte des objectifs et chrono des réapparitions** : supprimés le 17/10/2026 (choix du propriétaire). La lecture
+  de l'API officielle Live Client Data (`127.0.0.1:2999`, lecture seule) reste dans `jeu.js`, pour les chronos des sorts.
 - **Exception décidée par le propriétaire (10/10/2026)** : chronos des sorts d'invocateur adverses (`sorts.js`),
   comme Porofessor ou Blitz. Garde-fous : case désactivée par défaut, le joueur CLIQUE lui-même quand il voit un sort
   utilisé (l'appli ne le devine jamais), seuls les objets visibles comptent (bottes de lucidité), aucun pseudo affiché.
 - **Exception décidée par le propriétaire (16/10/2026)** : démarrage AUTOMATIQUE d'un chrono de sort adverse quand un
   joueur de ton équipe (ou toi) le signale par un ping, lu dans le chat du jeu (`pings.js`, OCR local de l'écran ;
-  message « Pseudo (Champion): ChampionEnnemi Sort »). Garde-fous : case séparée désactivée par défaut (en plus de
-  celle des chronos), seulement les pings visibles par l'équipe, seulement les 5 adversaires et LEURS sorts
+  message « Pseudo (Champion): ChampionEnnemi Sort »). Garde-fous : désactivé par défaut, avec la MÊME case que les
+  chronos (une seule case depuis le 17/10/2026, choix du propriétaire), seulement les pings visibles par l'équipe, seulement les 5 adversaires et LEURS sorts
   d'invocateur, jamais un ultime ni une rune ; un chrono déjà lancé n'est pas relancé ; un clic l'annule comme
   avant ; rien d'autre du chat n'est lu, gardé ou affiché (aucun pseudo).
 - **Toujours interdit** : chronos des ULTIMES adverses (interdits par Riot depuis le 13/03/2025, même manuels),

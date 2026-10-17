@@ -32,14 +32,18 @@ const ANALYSE = {
   },
 };
 
-test("réglages : tout désactivé par défaut ; reprise de l'ancien réglage des runes", () => {
-  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false, rank1: false });
-  assert.deepStrictEqual(B.normaliserReglagesBuild({ stats: "oui", runes: 1, objets: true, augments: "oui" }), {
-    stats: false, runes: false, objets: true, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false, rank1: false,
-  });
-  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined, { actif: true }), { stats: false, runes: true, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false, rank1: false });
-  assert.deepStrictEqual(B.normaliserReglagesBuild({ runes: false }, { actif: true }), { stats: false, runes: false, objets: false, augments: false, objectifs: false, reapparitions: false, sorts: false, sortsAuto: false, sortsPings: false, rank1: false });
-  assert.strictEqual(B.normaliserReglagesBuild({ augments: true }).augments, true);
+test("réglages : désactivés par défaut, sauf le set d'objets et les augments (toujours) ; reprise de l'ancien réglage des runes", () => {
+  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined), { stats: false, runes: false, objets: true, rank1: false, augments: true, sorts: false, sortsPings: false, sortsAuto: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild({ stats: "oui", runes: 1, objets: false, augments: false }), { stats: false, runes: false, objets: true, rank1: false, augments: true, sorts: false, sortsPings: false, sortsAuto: false }, "plus de case : toujours actifs");
+  assert.deepStrictEqual(B.normaliserReglagesBuild(undefined, { actif: true }), { stats: false, runes: true, objets: true, rank1: false, augments: true, sorts: false, sortsPings: false, sortsAuto: false });
+  assert.deepStrictEqual(B.normaliserReglagesBuild({ runes: false }, { actif: true }), { stats: false, runes: false, objets: true, rank1: false, augments: true, sorts: false, sortsPings: false, sortsAuto: false });
+  // Ancienne config : les cases de l'alerte des objectifs (supprimée le 17/10/2026) sont simplement ignorées
+  assert.ok(!("objectifs" in B.normaliserReglagesBuild({ objectifs: true, reapparitions: true })));
+});
+
+test("réglages : une seule case pour les chronos des sorts ET les pings du chat (17/10/2026)", () => {
+  assert.deepStrictEqual([B.normaliserReglagesBuild({ sorts: true }).sorts, B.normaliserReglagesBuild({ sorts: true }).sortsPings], [true, true]);
+  assert.strictEqual(B.normaliserReglagesBuild({ sorts: false, sortsPings: true }).sortsPings, false, "jamais les pings sans les chronos");
 });
 
 test("taux de victoire prudent : moins de parties = plus de marge", () => {
@@ -588,10 +592,9 @@ const RANK1 = {
 };
 const AVEC_RANK1 = { stats: true, runes: false, objets: true, rank1: true };
 
-test("réglage rank1 : seulement avec le set d'objets ; désactivé par défaut", () => {
+test("réglage rank1 : sa propre case, désactivée par défaut", () => {
   assert.strictEqual(B.normaliserReglagesBuild({}).rank1, false);
-  assert.strictEqual(B.normaliserReglagesBuild({ rank1: true }).rank1, false, "sans le set d'objets");
-  assert.strictEqual(B.normaliserReglagesBuild({ objets: true, rank1: true }).rank1, true);
+  assert.strictEqual(B.normaliserReglagesBuild({ rank1: true }).rank1, true);
 });
 
 test("set Rank 1 : ajouté APRÈS le set principal, départ du build général, la page le sait", async () => {

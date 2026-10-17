@@ -50,20 +50,22 @@ const SORTS = {
   12: "Téléportation", 13: "Clarté", 14: "Embrasement", 21: "Barrière", 32: "Marque",
 };
 
-/** Réglages lisibles et tous désactivés par défaut. ancienRunes : ancien réglage "runesAuto" (migration). */
+/**
+ * Réglages lisibles, désactivés par défaut, sauf le set d'objets et les augments (toujours actifs, décision du
+ * 17/10/2026 ; le set d'objets ne se fait que si « Récupérer le build » est coché). ancienRunes : ancien réglage
+ * "runesAuto" (migration).
+ */
 function normaliserReglagesBuild(brut, ancienRunes) {
   const r = brut && typeof brut === "object" ? brut : {};
   const runesAvant = Boolean(ancienRunes && ancienRunes.actif === true);
   return {
     stats: r.stats === true,
     runes: brut && typeof brut === "object" ? r.runes === true : runesAvant,
-    objets: r.objets === true,
-    rank1: r.objets === true && r.rank1 === true, // + set « Champion Rank 1 » (rank1.js, exception du 17/10/2026)
-    augments: r.augments === true, // stats des augments ARAM Mayhem affichées en jeu (augments.js)
-    objectifs: r.objectifs === true, // bandeau avant la 1re apparition des objectifs, en jeu (objectifs.js)
-    reapparitions: r.objectifs === true && r.reapparitions === true, // + réapparitions dragon / Baron / inhibiteurs (exception, voir objectifs.js)
+    objets: true, // set d'objets : toujours, dès que le build est récupéré (décision du 17/10/2026, plus de case)
+    rank1: r.rank1 === true, // + set « Champion Rank 1 » (rank1.js, exception du 17/10/2026)
+    augments: true, // stats des augments ARAM Mayhem en jeu (augments.js) : toujours (décision du 17/10/2026, plus de case)
     sorts: r.sorts === true, // chronos des sorts d'invocateur adverses, cliquables en jeu (sorts.js)
-    sortsPings: r.sorts === true && r.sortsPings === true, // + lancés par les pings lus dans le chat (pings.js, exception du 16/10/2026)
+    sortsPings: r.sorts === true, // + lancés par les pings lus dans le chat (pings.js) : même case depuis le 17/10/2026
     sortsAuto: r.sortsAuto === true, // choisir mes sorts d'invocateur (les plus joués d'après OP.GG ; nécessite les stats)
   };
 }

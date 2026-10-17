@@ -72,35 +72,22 @@ function dessinerBuild(conteneur, { titre, build }) {
 function afficherReglagesBuild(r) {
   $("buildStats").checked = r.stats;
   $("buildRunes").checked = r.runes;
-  $("buildObjets").checked = r.objets;
-  $("buildObjets").disabled = !r.stats; // le set d'objets vient des stats OP.GG
   $("buildRank1").checked = r.rank1;
-  $("buildRank1").disabled = !r.objets; // set en plus du set d'objets
+  $("buildRank1").disabled = !r.stats; // set en plus du set d'objets, qui vient du build
   $("buildSortsAuto").checked = r.sortsAuto;
   $("buildSortsAuto").disabled = !r.stats; // les sorts aussi
-  $("buildAugments").checked = r.augments;
-  $("buildObjectifs").checked = r.objectifs;
-  $("buildReapparitions").checked = r.reapparitions;
-  $("buildReapparitions").disabled = !r.objectifs; // option en plus de l'alerte des objectifs
   $("buildSorts").checked = r.sorts;
-  $("buildSortsPings").checked = r.sortsPings;
-  $("buildSortsPings").disabled = !r.sorts; // option en plus des chronos des sorts
-  // Ces trois options dessinent par-dessus le jeu : impossible en plein écran.
-  $("rappelSansBordure").hidden = !(r.augments || r.objectifs || r.sorts);
+  // Les augments (toujours actifs) et les chronos dessinent par-dessus le jeu : impossible en plein écran.
+  $("rappelSansBordure").hidden = !(r.augments || r.sorts);
 }
 
 async function enregistrerBuild() {
   const reponse = await window.appli.enregistrerBuild({
     stats: $("buildStats").checked,
     runes: $("buildRunes").checked,
-    objets: $("buildStats").checked && $("buildObjets").checked,
-    rank1: $("buildStats").checked && $("buildObjets").checked && $("buildRank1").checked,
+    rank1: $("buildStats").checked && $("buildRank1").checked,
     sortsAuto: $("buildStats").checked && $("buildSortsAuto").checked,
-    augments: $("buildAugments").checked,
-    objectifs: $("buildObjectifs").checked,
-    reapparitions: $("buildObjectifs").checked && $("buildReapparitions").checked,
-    sorts: $("buildSorts").checked,
-    sortsPings: $("buildSorts").checked && $("buildSortsPings").checked,
+    sorts: $("buildSorts").checked, // chronos des sorts ET lancement par les pings du chat
   });
   if (!reponse.ok) {
     afficherEtat("etatBuild", reponse.erreur, "erreur");
@@ -177,7 +164,7 @@ async function consulterBuild(evenement) {
 function brancherBuild() {
   window.appli.lireBuild().then(afficherReglagesBuild);
   window.appli.surBuild(surEvenementBuild);
-  for (const id of ["buildStats", "buildRunes", "buildObjets", "buildRank1", "buildSortsAuto", "buildAugments", "buildObjectifs", "buildReapparitions", "buildSorts", "buildSortsPings"]) $(id).addEventListener("change", enregistrerBuild);
+  for (const id of ["buildStats", "buildRunes", "buildRank1", "buildSortsAuto", "buildSorts"]) $(id).addEventListener("change", enregistrerBuild);
   $("formConsulterBuild").addEventListener("submit", consulterBuild);
   $("buildMode").addEventListener("change", () => ($("buildRole").disabled = $("buildMode").value === "aram"));
   remplirChampionsBuild().then((ok) => {

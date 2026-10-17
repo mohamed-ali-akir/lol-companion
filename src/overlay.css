@@ -51,39 +51,8 @@ body {
   color: #f0c75e;
 }
 
-/* Alerte des objectifs (Faille) : discrète, en haut à droite sous le chrono et le score du jeu */
-#alerteObjectif {
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 4px;
-  position: absolute;
-  right: 0.8vw;
-  top: 4.5vh;
-}
-
-#alerteObjectif[hidden],
 #panneauSorts[hidden] {
   display: none;
-}
-
-.ligne-objectif {
-  background: rgba(10, 20, 40, 0.5);
-  border: 1px solid rgba(91, 90, 86, 0.6);
-  border-radius: 6px;
-  color: rgba(240, 230, 210, 0.9);
-  font-family: "Segoe UI", sans-serif;
-  font-size: 16px;
-  font-weight: 600;
-  padding: 4px 12px;
-  white-space: nowrap;
-}
-
-/* 10 dernières secondes : un peu plus visible, liseré doré */
-.ligne-objectif.imminent {
-  background: rgba(10, 20, 40, 0.65);
-  border-color: rgba(200, 170, 110, 0.8);
-  color: #f0c75e;
 }
 
 /* Sorts adverses (Faille) : petit panneau cliquable, en haut à gauche par défaut, déplaçable par sa poignée */
