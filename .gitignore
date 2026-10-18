@@ -9,3 +9,5 @@ config.json
 *.key
 *.pem
 lockfile
+
+CLAUDE.md

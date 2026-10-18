@@ -602,7 +602,6 @@ selon le niveau atteint.
 
 ```
 lol-level-calculator/
-├── CLAUDE.md          # Règles du projet (sécurité, tests, pas d'Internet...), relues par Claude Code
 ├── main.js            # Processus principal : fenêtre, surveillance, notifications ; branche les autres modules
 ├── messages.js        # Messages de la page et de la fenêtre du jeu (ipcMain) : origine vérifiée, erreurs notées
 ├── en-jeu.js          # Par-dessus le jeu : fenêtre transparente, stats des augments, chronos des sorts (branchement)
