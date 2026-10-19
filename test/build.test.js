@@ -229,28 +229,25 @@ test("set d'objets : format du client, potions regroupées, taux dans les titres
   assert.strictEqual(B.setObjets({ etapes: [], championId: 1, nomChampion: "X", role: null }).title, "LoL Companion - X");
 });
 
-test("fusion des sets : tes sets intacts, un seul set LoL Companion (celui du champion actuel), placé à la fin", () => {
+test("sets : seuls ceux du champion actuel sont écrits ; les tiens sont reconnus (pour être sauvegardés), les nôtres non", () => {
   const porofessor = { title: "Porofessor - LeBlanc (Mid)", associatedChampions: [7], uid: "a" };
   const notreAhri = { title: "LoL Companion - Ahri (Haut)", associatedChampions: [AHRI], uid: "b" };
   const notreLux = { title: "LoL Companion - Lux (Support)", associatedChampions: [99], uid: "c" };
   const monSetAhri = { title: "Mon set Ahri", associatedChampions: [AHRI], uid: "d" };
   const monSetLoL = { title: "LoL Companion perso", associatedChampions: [], uid: "f" }; // pas notre préfixe exact
   const nouveau = { title: "LoL Companion - Ahri (Milieu)", associatedChampions: [AHRI], uid: "e" };
-  assert.deepStrictEqual(
-    B.fusionnerSets([porofessor, notreAhri, notreLux, monSetAhri, monSetLoL], nouveau),
-    [porofessor, monSetAhri, monSetLoL, { ...nouveau, sortrank: 0 }],
-  );
-  assert.deepStrictEqual(B.fusionnerSets(undefined, nouveau), [{ ...nouveau, sortrank: 0 }]);
-  assert.deepStrictEqual(B.fusionnerSets([null, { uid: "sans titre" }], nouveau), [null, { uid: "sans titre" }, { ...nouveau, sortrank: 0 }]);
+  assert.deepStrictEqual(B.fusionnerSets(nouveau), [{ ...nouveau, sortrank: 0 }]);
+  assert.deepStrictEqual(B.autresSets([porofessor, notreAhri, notreLux, monSetAhri, monSetLoL, null, "abîmé"]), [porofessor, monSetAhri, monSetLoL]);
+  assert.deepStrictEqual(B.autresSets(undefined), []);
+  assert.deepStrictEqual(B.fusionnerSets([nouveau, null]), [{ ...nouveau, sortrank: 0 }]);
 });
 
-test("fusion des sets : 40 anciens sets LoL Companion -> il n'en reste qu'un (évite le refus 413 du client)", () => {
+test("sets : 40 anciens sets LoL Companion -> il n'en reste qu'un (évite le refus 413 du client), et ils ne sont pas sauvegardés", () => {
   const anciens = Array.from({ length: 40 }, (_, i) => ({ title: `LoL Companion - Champion ${i}`, associatedChampions: [i + 1], uid: `x${i}` }));
   const porofessor = Array.from({ length: 6 }, (_, i) => ({ title: `Porofessor - LeBlanc ${i}`, associatedChampions: [7], uid: `p${i}` }));
   const nouveau = { title: "LoL Companion - Cassiopeia (Milieu)", associatedChampions: [69], uid: "n" };
-  const fusion = B.fusionnerSets([...porofessor, ...anciens], nouveau);
-  assert.strictEqual(fusion.length, 7);
-  assert.strictEqual(fusion.filter((s) => s.title.startsWith("LoL Companion - ")).length, 1);
+  assert.deepStrictEqual(B.fusionnerSets(nouveau).map((s) => s.uid), ["n"]);
+  assert.deepStrictEqual(B.autresSets([...porofessor, ...anciens]), porofessor);
 });
 
 test("résumé pour l'appli : étapes avec taux, runes, sorts nommés", () => {
@@ -439,19 +436,69 @@ async function fauxClient({ sets, statusPut = 201 }) {
   return { dossier, requetes, fermer: () => new Promise((ok) => serveur.close(ok)) };
 }
 
-test("faux client : PUT de TOUS les sets, les tiens renvoyés exactement comme lus", async () => {
+test("faux client : tes sets sauvegardés exactement comme lus, puis SEULS les nôtres écrits dans le client", async () => {
   const porofessor = { title: "Porofessor - LeBlanc (Mid)", associatedChampions: [7], blocks: [{ type: "x", items: [] }], uid: "a" };
-  const client = await fauxClient({ sets: [porofessor] });
+  const ancien = { title: "LoL Companion - Lux (Support)", uid: "1c0a9a10-0000-4000-8000-000000000099" };
+  const client = await fauxClient({ sets: [porofessor, ancien] });
   try {
     const set = B.setObjets({ etapes: B.composerBuild(ANALYSE), championId: AHRI, nomChampion: "Ahri", role: "middle" });
-    await B.appliquerSet(client.dossier, set);
+    const sauvegardes = [];
+    await B.appliquerSet(client.dossier, set, { sauvegarder: (compte, sets) => sauvegardes.push([compte, sets]) });
+    assert.deepStrictEqual(sauvegardes, [["42", [porofessor]]], "sauvegardés pour CE compte, sans nos anciens sets");
     const put = client.requetes.find((r) => r.methode === "PUT");
     assert.strictEqual(put.url, "/lol-item-sets/v1/item-sets/42/sets");
     assert.strictEqual(put.corps.accountId, 42);
-    assert.deepStrictEqual(put.corps.itemSets, [porofessor, { ...set, sortrank: 0 }]); // le nôtre à la fin, sortrank 0
+    assert.deepStrictEqual(put.corps.itemSets, [{ ...set, sortrank: 0 }]);
   } finally {
     await client.fermer();
   }
+});
+
+test("faux client : sauvegarde impossible -> rien n'est retiré du client (pas d'écriture)", async () => {
+  const client = await fauxClient({ sets: [{ title: "Mon set", uid: "m" }] });
+  try {
+    const set = B.setObjets({ etapes: B.composerBuild(ANALYSE), championId: AHRI, nomChampion: "Ahri", role: "middle" });
+    const sauvegarder = () => {
+      throw new Error("disque plein");
+    };
+    await assert.rejects(B.appliquerSet(client.dossier, set, { sauvegarder }), /disque plein/);
+    assert.ok(!client.requetes.some((r) => r.methode === "PUT"));
+  } finally {
+    await client.fermer();
+  }
+});
+
+test("faux client : « Remettre mes anciens sets » renvoie les sets absents, les nôtres restent en dernier", async () => {
+  const notre = { title: "LoL Companion - Ahri (Milieu)", uid: "1c0a9a10-0000-4000-8000-000000000103", sortrank: 0 };
+  const nouveauDuJoueur = { title: "Créé depuis", uid: "n" };
+  const client = await fauxClient({ sets: [nouveauDuJoueur, notre] });
+  try {
+    const sauves = [{ title: "Porofessor", uid: "p" }, { title: "Créé depuis", uid: "n" }, { title: "LoL Companion - Lux", uid: "x" }];
+    assert.strictEqual(await B.remettreSets(client.dossier, async (compte) => (compte === "42" ? sauves : [])), 1);
+    const put = client.requetes.find((r) => r.methode === "PUT");
+    assert.deepStrictEqual(put.corps.itemSets.map((s) => s.uid), ["n", "p", notre.uid]);
+  } finally {
+    await client.fermer();
+  }
+  const rien = await fauxClient({ sets: [{ title: "Porofessor", uid: "p" }] });
+  try {
+    assert.strictEqual(await B.remettreSets(rien.dossier, () => [{ title: "Porofessor", uid: "p" }]), 0);
+    assert.ok(!rien.requetes.some((r) => r.methode === "PUT"), "rien à remettre : pas d'écriture");
+  } finally {
+    await rien.fermer();
+  }
+  const plein = await fauxClient({ sets: [], statusPut: 413 });
+  try {
+    await assert.rejects(B.remettreSets(plein.dossier, () => [{ title: "Porofessor", uid: "p" }]), /Trop de sets/);
+  } finally {
+    await plein.fermer();
+  }
+});
+
+test("remise des sets : sets sans identifiant comparés par titre, entrées abîmées ignorées", () => {
+  const { sets, remis } = B.remettreDansListe([null, { title: "A" }], [{ title: "A" }, { title: "B" }, null, 3]);
+  assert.deepStrictEqual([sets.map((s) => s.title), remis], [["A", "B"], 1]);
+  assert.deepStrictEqual(B.remettreDansListe(undefined, undefined), { sets: [], remis: 0 });
 });
 
 test("faux client : set refusé -> erreur claire", async () => {
@@ -566,12 +613,9 @@ test("plusieurs sets : un par famille, titres et identifiants différents ; sans
   assert.strictEqual(B.setsObjets({ ...commun, troisParBloc: false, familles: FAMILLES }).length, 1, "build d'OP.GG : un seul set");
 });
 
-test("fusion : tous les sets du champion sont ajoutés, les anciens sets LoL Companion retirés", () => {
-  const porofessor = { title: "Porofessor - LeBlanc (Mid)", associatedChampions: [7], uid: "a" };
-  const ancien = { title: "LoL Companion - Lux (Support)", associatedChampions: [99], uid: "c" };
+test("sets : tous les sets du champion sont écrits (un par façon de jouer)", () => {
   const nouveaux = [{ title: "LoL Companion - Kayn (Jungle) · Bleu", uid: "x" }, { title: "LoL Companion - Kayn (Jungle) · Rouge", uid: "y" }];
-  assert.deepStrictEqual(B.fusionnerSets([porofessor, ancien], nouveaux), [
-    porofessor,
+  assert.deepStrictEqual(B.fusionnerSets(nouveaux), [
     { ...nouveaux[1], sortrank: 1 },
     { ...nouveaux[0], sortrank: 0 },
   ]);
@@ -579,15 +623,11 @@ test("fusion : tous les sets du champion sont ajoutés, les anciens sets LoL Com
 
 test("fusion : le 1er set (famille la plus jouée) sélectionné d'office : DERNIER de la liste ET plus petit sortrank", () => {
   // Vu en jeu le 17/10/2026 : Tank 10188 / AP 10187 / Rank 1 10186 -> la boutique a pris « Rank 1 » (le dernier, le plus petit).
-  const porofessor = [10085, 10012, 10000].map((sortrank, i) => ({ title: `Porofessor - LeBlanc ${i}`, sortrank, uid: `p${i}` }));
-  const ancien = { title: "LoL Companion - Cho'Gath · Tank", sortrank: 10188, uid: "vieux" }; // retiré
-  const abime = { title: "Mon set", sortrank: "pas un nombre", uid: "m" };
   const nouveaux = [{ title: "LoL Companion - Cho'Gath · Tank", uid: "a" }, { title: "LoL Companion - Cho'Gath · AP", uid: "b" }, { title: "Cho'Gath Rank 1", uid: "r" }];
-  const fusion = B.fusionnerSets([...porofessor, ancien, abime], nouveaux);
-  assert.deepStrictEqual(fusion.map((s) => s.uid), ["p0", "p1", "p2", "m", "r", "b", "a"]);
-  assert.deepStrictEqual(fusion.slice(-3).map((s) => s.sortrank), [2, 1, 0]);
+  const fusion = B.fusionnerSets(nouveaux);
+  assert.deepStrictEqual(fusion.map((s) => s.uid), ["r", "b", "a"]);
+  assert.deepStrictEqual(fusion.map((s) => s.sortrank), [2, 1, 0]);
   assert.strictEqual(fusion.at(-1).uid, "a", "le set principal tout à la fin");
-  assert.strictEqual(Math.min(...fusion.map((s) => (Number.isFinite(Number(s.sortrank)) ? Number(s.sortrank) : Infinity))), 0);
   assert.strictEqual(nouveaux[0].sortrank, undefined, "les sets reçus ne sont pas modifiés");
 });
 
@@ -660,11 +700,12 @@ test("set Rank 1 : case décochée -> aucune demande ; Lolalytics en échec -> e
   assert.match(peu.journal.resultats[0].erreurs.rank1, /Pas assez de parties/);
 });
 
-test("fusion : l'ancien set Rank 1 (sans le préfixe « LoL Companion ») est remplacé, tes sets gardés", () => {
+test("sets : l'ancien set Rank 1 (sans le préfixe « LoL Companion ») est reconnu comme le nôtre, pas comme le tien", () => {
   const ancienRank1 = { title: "Lux Rank 1", uid: "1c0a9a10-0000-4000-9000-000000000099" };
   const monSet = { title: "Ahri Rank 1 (le mien)", uid: "a1b2c3" };
   const nouveaux = [{ title: "LoL Companion - Ahri (Milieu)", uid: "1c0a9a10-0000-4000-8000-000000001033" }, { title: "Ahri Rank 1", uid: "1c0a9a10-0000-4000-9000-000000000103" }];
-  assert.deepStrictEqual(B.fusionnerSets([ancienRank1, monSet], nouveaux).map((s) => s.title), ["Ahri Rank 1 (le mien)", "Ahri Rank 1", "LoL Companion - Ahri (Milieu)"]);
+  assert.deepStrictEqual(B.autresSets([ancienRank1, monSet]), [monSet], "seul ton set est sauvegardé");
+  assert.deepStrictEqual(B.fusionnerSets(nouveaux).map((s) => s.title), ["Ahri Rank 1", "LoL Companion - Ahri (Milieu)"]);
 });
 
 test("Arena : étape « Objet prismatique » juste après le départ, avec ses 3 choix", () => {

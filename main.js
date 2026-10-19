@@ -23,7 +23,8 @@ const { lireRecommandations, appliquerPage, monChampion } = require("./runes.js"
 const { creerLecteurArammayhem } = require("./arammayhem.js");
 const { creerSondage, etatPreparation } = require("./sondage.js");
 const { creerJournal } = require("./journal.js");
-const { creerBuildAuto, lirePartie, appliquerSet, appliquerSorts } = require("./build.js");
+const { creerBuildAuto, lirePartie, appliquerSet, remettreSets, appliquerSorts } = require("./build.js");
+const { creerSauvegardeSets } = require("./sauvegarde-sets.js"); // tes sets, copiés avant d'être retirés du client
 const { creerLecteurOpgg } = require("./opgg.js");
 const { creerStatsBuild } = require("./stats-build.js");
 const { creerLecteurLolalytics } = require("./lolalytics.js");
@@ -111,6 +112,9 @@ process.on("unhandledRejection", (erreur) => signalerErreur("promesse en erreur"
 // Les services sont lus au moment du message (fenêtres et suivis créés plus tard, ou recréés).
 // ---------------------------------------------------------------------------
 
+/** Sauvegarde de tes sets d'objets (sauvegarde-sets.js), dans le dossier des données de l'appli. */
+const sauvegardeSets = () => creerSauvegardeSets({ dossier: app.getPath("userData") });
+
 function brancherMessagesAppli() {
   brancherMessages(ipcMain, {
     estPage: (evenement) => Boolean(fenetre && !fenetre.isDestroyed() && evenement.sender === fenetre.webContents),
@@ -118,6 +122,7 @@ function brancherMessagesAppli() {
     stockage: () => stockage,
     progression: () => progression,
     historiqueParties: () => historiqueParties,
+    remettreSets: () => remettreSets(stockage.dossierJeu(), (compte) => sauvegardeSets().setsDu(compte)),
     config: () => ({
       dossierJeuParDefaut: DOSSIER_JEU_PAR_DEFAUT,
       plateforme: process.platform, // "win32" ou "darwin" (Mac) : la page adapte ses textes
@@ -416,7 +421,8 @@ function demarrerSelection() {
     runesRiot: ({ championId, role }) => lireRecommandations(stockage.dossierJeu(), championId, role),
     appliquerRunes: (page, noms) => appliquerPage(stockage.dossierJeu(), page, { noms }),
     appliquerSorts: (ids) => appliquerSorts(stockage.dossierJeu(), ids),
-    appliquerObjets: (set) => appliquerSet(stockage.dossierJeu(), set),
+    // Seuls nos sets restent dans le client (19/10/2026) : les tiens sont d'abord copiés dans sets-sauvegarde.json.
+    appliquerObjets: (set) => appliquerSet(stockage.dossierJeu(), set, { sauvegarder: (compte, sets) => sauvegardeSets().ajouter(compte, sets) }),
     nomChampion: async (championId) => (await obtenirNomsChampions()).get(championId) || `Champion n° ${championId}`,
     carte: async () => {
       const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);

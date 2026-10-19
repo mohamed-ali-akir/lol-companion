@@ -67,6 +67,7 @@ function listeChampions(noms) {
  * ou changent : fenêtre recréée, surveillance relancée...) :
  *  - estPage(evenement), estOverlay(evenement) : le message vient-il de la page de l'appli / de la fenêtre du jeu ?
  *  - stockage(), progression(), historiqueParties() : fichiers de données ;
+ *  - remettreSets() : tes sets sauvegardés remis dans le client (renvoie leur nombre) ;
  *  - config() : { dossierJeuParDefaut, plateforme, autorisationEcran, lancement } ;
  *  - lireCompte(), lireMaitrise(), importerHistorique(), obtenirNomsChampions(), analyserOpgg(c), analyserLolalytics(c) ;
  *  - apresReglagesAcceptation(), appliquerDemarrageWindows(reglages) ;
@@ -142,6 +143,8 @@ function brancherMessages(ipcMain, services) {
   repondre("draft:lire", () => s.dernierConseil()); // si la page s'ouvre pendant une sélection
   repondre("build:lire", () => s.stockage().reglagesBuild());
   repondre("build:enregistrer", (reglages) => essayer(() => ({ reglages: s.stockage().enregistrerReglagesBuild(reglages) })));
+  // « Remettre mes anciens sets » (onglet Build) : tes sets sauvegardés renvoyés au client -> { ok, remis }.
+  repondre("build:remettreSets", () => essayer(async () => ({ remis: await s.remettreSets() })));
   // Consulter le build d'un champion (bouton de l'onglet Build) : lecture seule, rien n'est appliqué.
   repondre("build:consulter", async (demande) => {
     try {

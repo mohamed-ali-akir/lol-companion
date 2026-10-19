@@ -54,6 +54,9 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
   désactivée par défaut, activable dans l'onglet Paramètres ou Build, et appliquée uniquement au compte connecté.
   Seule exception (décision du propriétaire, 17/10/2026) : le set d'objets « LoL Companion » n'a plus de case ; il est
   créé dès que « Récupérer le build de mon champion » est coché (case désactivée par défaut).
+  Depuis le 19/10/2026 (choix du propriétaire, sans case) : il ne reste QUE les sets LoL Companion dans le client.
+  Les autres sets du joueur sont TOUJOURS copiés d'abord dans `sets-sauvegarde.json` (`sauvegarde-sets.js` ; si la
+  copie échoue, rien n'est retiré), et le bouton « Remettre mes anciens sets » (onglet Build) les renvoie au client.
 - **Assistant de première ouverture** (`src/onglets/assistant.js`, 17/10/2026) : il coche ces cases seulement quand le
   joueur répond « Oui » à une question ; « Passer » ou Échap ne change rien. Les valeurs par défaut restent désactivées.
 - **Interdit** (règles de Riot) : révéler les pseudos en sélection des champions, donner une information en jeu

@@ -119,6 +119,21 @@ function surEvenementBuild(info) {
   if (info.build) dessinerBuild($("buildResultat"), { titre: `Build ${champion}${role}`, build: info.build });
 }
 
+// --- Tes anciens sets ---------------------------------------------------------------------
+
+/** Bouton « Remettre mes anciens sets » : les sets retirés du client (sauvegardés sur le PC) y reviennent. */
+async function remettreAnciensSets() {
+  $("remettreSets").disabled = true;
+  try {
+    const reponse = await window.appli.remettreSets();
+    if (!reponse.ok) afficherEtat("etatBuild", reponse.erreur, "erreur");
+    else if (reponse.remis === 0) afficherEtat("etatBuild", "Aucun ancien set à remettre : ils sont déjà dans le client, ou l'appli n'en a retiré aucun.", "info");
+    else afficherEtat("etatBuild", `${pluriel(reponse.remis, "ancien set remis", "anciens sets remis")} dans le client ✓ (retirés de nouveau au prochain set créé).`, "ok");
+  } finally {
+    $("remettreSets").disabled = false;
+  }
+}
+
 // --- Consulter un build -------------------------------------------------------------------
 
 let championsBuild = []; // [{ id, nom }], pour la recherche du champion à consulter
@@ -166,6 +181,7 @@ function brancherBuild() {
   window.appli.surBuild(surEvenementBuild);
   for (const id of ["buildStats", "buildRunes", "buildRank1", "buildSortsAuto", "buildSorts"]) $(id).addEventListener("change", enregistrerBuild);
   $("formConsulterBuild").addEventListener("submit", consulterBuild);
+  $("remettreSets").addEventListener("click", remettreAnciensSets);
   $("buildMode").addEventListener("change", () => ($("buildRole").disabled = $("buildMode").value !== "ranked")); // pas de rôle en ARAM ni en Arena
   remplirChampionsBuild().then((ok) => {
     if (!ok) window.appli.surConnexion((connecte) => connecte && championsBuild.length === 0 && remplirChampionsBuild());

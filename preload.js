@@ -27,6 +27,7 @@ contextBridge.exposeInMainWorld("appli", {
   lireBuild: () => ipcRenderer.invoke("build:lire"),
   enregistrerBuild: (reglages) => ipcRenderer.invoke("build:enregistrer", reglages),
   consulterBuild: (demande) => ipcRenderer.invoke("build:consulter", demande),
+  remettreSets: () => ipcRenderer.invoke("build:remettreSets"), // tes anciens sets d'objets renvoyés au client
   lireMaj: () => ipcRenderer.invoke("maj:lire"),
   verifierMaj: () => ipcRenderer.invoke("maj:verifier"),
   installerMaj: () => ipcRenderer.invoke("maj:installer"),

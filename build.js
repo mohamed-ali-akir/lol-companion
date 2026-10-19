@@ -28,8 +28,10 @@
  *
  * Sets d'objets (vérifié sur le client le 02/10/2026) :
  *   GET/PUT /lol-item-sets/v1/item-sets/{summonerId}/sets -> { accountId, itemSets: [...], timestamp }
- *   Le PUT remplace TOUTE la liste : on renvoie tes sets (Porofessor...) exactement comme on les a lus,
- *   et on remplace tous les anciens sets "LoL Companion" par ceux du champion actuel.
+ *   Le PUT remplace TOUTE la liste. Depuis le 19/10/2026 (choix du propriétaire), il ne reste QUE les sets
+ *   "LoL Companion" du champion actuel : tes autres sets (Porofessor, les tiens...) sont d'abord copiés sur ton PC
+ *   (sauvegarde-sets.js), puis retirés du client, pour que la boutique ne propose que les nôtres. Le bouton
+ *   « Remettre mes anciens sets » (onglet Build) les renvoie au client (remettreSets).
  */
 const { lireLockfile, lireJson, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
 const { monChampion, pageDepuisRecommandation, nomsPage } = require("./runes.js");
@@ -289,25 +291,45 @@ function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisPar
   };
 }
 
+/** Set créé par l'appli : titre « LoL Companion - ... », ou identifiant de l'appli (le set « Ahri Rank 1 » n'a pas le préfixe). */
+function estNotreSet(s) {
+  return Boolean(s) && ((typeof s.title === "string" && s.title.startsWith(`${PREFIXE_SET} - `)) || (typeof s.uid === "string" && s.uid.startsWith(PREFIXE_UID_APPLI)));
+}
+
+/** Tes sets à toi (tout ce qui n'est pas à l'appli), tels que lus : ce qu'on sauvegarde avant de les retirer du client. */
+function autresSets(existants) {
+  return Array.isArray(existants) ? existants.filter((s) => s && typeof s === "object" && !estNotreSet(s)) : [];
+}
+
 /**
- * Tes sets inchangés (Porofessor, les tiens...) + les nouveaux sets. TOUS les anciens sets "LoL Companion" sont retirés :
- * on ne garde que ceux du champion actuel (1 à 3, recréés à chaque champion verrouillé).
- * Pourquoi (14/10/2026) : le client reçoit tous les sets d'un coup et refuse au-delà d'environ 64 Ko (code 413) ;
- * avec un set par champion joué, 40 sets "LoL Companion" s'étaient accumulés et bloquaient tout nouveau set.
+ * Les sets à écrire dans le client : SEULEMENT les nouveaux sets du champion (choix du propriétaire, 19/10/2026 :
+ * la boutique ne doit proposer que les sets de LoL Companion). Tes autres sets sont sauvegardés avant (appliquerSet),
+ * et tous les anciens sets "LoL Companion" disparaissent aussi (avant le 14/10/2026, 40 s'étaient accumulés et le
+ * client refusait tout, au-delà d'environ 64 Ko : code 413).
  * Le PREMIER des nouveaux sets (la famille la plus jouée) doit être sélectionné d'office dans la boutique.
  * Vu en jeu le 17/10/2026 (capture) : avec Tank 10188 / AP 10187 / Rank 1 10186, dans cet ordre, la boutique a pris
- * « Rank 1 », c'est-à-dire le plus PETIT sortrank, qui était aussi le DERNIER de la liste (l'idée inverse, « le plus
- * grand d'abord », était fausse). On satisfait donc les deux : nos sets vont en fin de liste, dans l'ordre inverse
- * (le premier tout à la fin), avec les sortrank les plus petits (0 pour le premier, 1, 2... pour les suivants).
+ * « Rank 1 », c'est-à-dire le plus PETIT sortrank, qui était aussi le DERNIER de la liste. On satisfait donc les deux :
+ * ordre inverse (le premier tout à la fin), avec les sortrank les plus petits (0 pour le premier, 1, 2...).
  */
-function fusionnerSets(existants, nouveaux) {
-  // Les nôtres : titre « LoL Companion - ... », ou identifiant de l'appli (le set « Ahri Rank 1 » n'a pas le préfixe).
-  const estLeNotre = (s) =>
-    Boolean(s) && ((typeof s.title === "string" && s.title.startsWith(`${PREFIXE_SET} - `)) || (typeof s.uid === "string" && s.uid.startsWith(PREFIXE_UID_APPLI)));
-  const autres = Array.isArray(existants) ? existants.filter((s) => !estLeNotre(s)) : [];
-  const ajouts = Array.isArray(nouveaux) ? nouveaux : [nouveaux]; // un set, ou un par famille de build
-  const derriere = ajouts.map((s, i) => ({ ...s, sortrank: i })).reverse(); // le premier : sortrank 0, tout à la fin
-  return [...autres, ...derriere];
+function fusionnerSets(nouveaux) {
+  const ajouts = (Array.isArray(nouveaux) ? nouveaux : [nouveaux]).filter(Boolean); // un set, ou un par famille de build
+  return ajouts.map((s, i) => ({ ...s, sortrank: i })).reverse(); // le premier : sortrank 0, tout à la fin
+}
+
+/** Clé d'un set : son identifiant, ou à défaut son titre (un set sans identifiant ni titre est comparé en entier). */
+const cleSet = (s) => (typeof s.uid === "string" && s.uid ? `uid:${s.uid}` : typeof s.title === "string" ? `titre:${s.title}` : JSON.stringify(s));
+
+/**
+ * Anciens sets remis dans le client (bouton « Remettre mes anciens sets ») : les sets du client restent (les nôtres
+ * en dernier, pour rester sélectionnés d'office), et chaque set sauvegardé absent du client revient.
+ * Renvoie { sets, remis } : la liste à écrire et le nombre de sets remis.
+ */
+function remettreDansListe(actuels, sauvegardes) {
+  const liste = (Array.isArray(actuels) ? actuels : []).filter((s) => s && typeof s === "object");
+  const presents = new Set(liste.map(cleSet));
+  const aRemettre = (Array.isArray(sauvegardes) ? sauvegardes : []).filter((s) => s && typeof s === "object" && !estNotreSet(s) && !presents.has(cleSet(s)));
+  const notres = liste.filter(estNotreSet);
+  return { sets: [...liste.filter((s) => !estNotreSet(s)), ...aRemettre, ...notres], remis: aRemettre.length };
 }
 
 /**
@@ -592,16 +614,41 @@ async function appliquerSorts(dossierJeu, [spell1Id, spell2Id]) {
   if (status < 200 || status >= 300) throw new ErreurClient(`Le client a refusé les sorts d'invocateur (code ${status}).`);
 }
 
-/** Écrit le ou les sets "LoL Companion" du champion (un par famille de build) sans toucher à tes autres sets. */
-async function appliquerSet(dossierJeu, sets) {
+/** Lit tes sets dans le client : { connexion, route, compte, actuels } (compte : le summonerId, pour la sauvegarde). */
+async function lireSets(dossierJeu) {
   const connexion = lireLockfile(dossierJeu);
   const moi = await lireJson(connexion, "/lol-summoner/v1/current-summoner");
   const route = `/lol-item-sets/v1/item-sets/${moi.summonerId}/sets`;
   const actuels = await lireJson(connexion, route);
   if (!actuels || !Array.isArray(actuels.itemSets)) throw new ErreurClient("Sets d'objets illisibles dans le client.");
-  const corps = { ...actuels, itemSets: fusionnerSets(actuels.itemSets, sets), timestamp: Date.now() };
+  return { connexion, route, compte: String(moi.summonerId), actuels };
+}
+
+/**
+ * Écrit le ou les sets "LoL Companion" du champion (un par famille de build), et ne garde qu'eux dans le client.
+ * sauvegarder(compte, sets) reçoit d'abord tes autres sets : si elle échoue, rien n'est retiré (le PUT n'a pas lieu).
+ */
+async function appliquerSet(dossierJeu, sets, { sauvegarder = () => {} } = {}) {
+  const { connexion, route, compte, actuels } = await lireSets(dossierJeu);
+  const autres = autresSets(actuels.itemSets);
+  if (autres.length > 0) await sauvegarder(compte, autres);
+  const corps = { ...actuels, itemSets: fusionnerSets(sets), timestamp: Date.now() };
   const { status } = await appelerClient(connexion, route, { methode: "PUT", corps });
   if (status < 200 || status >= 300) throw new ErreurClient(`Le client a refusé le set d'objets (code ${status}).`);
+}
+
+/**
+ * Remet dans le client tes sets sauvegardés (bouton de l'onglet Build). sauvegardes(compte) : tes sets sauvegardés
+ * pour ce compte. Renvoie le nombre de sets remis. Ils seront de nouveau rangés au prochain set créé par l'appli.
+ */
+async function remettreSets(dossierJeu, sauvegardes) {
+  const { connexion, route, compte, actuels } = await lireSets(dossierJeu);
+  const { sets, remis } = remettreDansListe(actuels.itemSets, await sauvegardes(compte));
+  if (remis === 0) return 0;
+  const { status } = await appelerClient(connexion, route, { methode: "PUT", corps: { ...actuels, itemSets: sets, timestamp: Date.now() } });
+  if (status === 413) throw new ErreurClient("Trop de sets d'un coup pour le client (code 413) : supprimes-en quelques-uns dans le client, puis réessaie.");
+  if (status < 200 || status >= 300) throw new ErreurClient(`Le client a refusé tes anciens sets (code ${status}).`);
+  return remis;
 }
 
 module.exports = {
@@ -622,12 +669,16 @@ module.exports = {
   etapesFamille,
   setsObjets,
   fusionnerSets,
+  estNotreSet,
+  autresSets,
+  remettreDansListe,
   resumeBuild,
   creerBuildAuto,
   lirePartie,
   lireObjets,
   lireAliasChampions,
   appliquerSet,
+  remettreSets,
   appliquerSorts,
   ordreSorts,
 };

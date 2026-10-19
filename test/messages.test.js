@@ -52,6 +52,7 @@ function fauxServices(changements = {}) {
     stockage: () => stockage,
     progression: () => ({ pointsDu: (riotId) => [riotId] }),
     historiqueParties: () => ({ partiesDu: (riotId) => [riotId] }),
+    remettreSets: async () => 3,
     config: () => ({ dossierJeuParDefaut: "C:\\Riot Games\\League of Legends", plateforme: "win32", autorisationEcran: null, lancement: 123 }),
     lireCompte: async () => ({ ok: true }),
     lireMaitrise: async () => ({ ok: true }),
@@ -166,6 +167,12 @@ test("config:lire : réglages du disque et de l'appli réunis", async () => {
     ongletActif: "stats",
     assistantVu: false,
   });
+});
+
+test("anciens sets remis : nombre renvoyé ; client fermé -> erreur claire, pas d'exception", async () => {
+  assert.deepStrictEqual(await brancher().ipc.demander("build:remettreSets"), { ok: true, remis: 3 });
+  const ferme = brancher({ remettreSets: async () => { throw new ErreurClient("Client League fermé."); } });
+  assert.deepStrictEqual(await ferme.ipc.demander("build:remettreSets"), { ok: false, erreur: "Client League fermé.", probleme: null });
 });
 
 test("assistant de première ouverture : noté comme vu, puis config:lire le dit", async () => {

@@ -131,7 +131,11 @@ achète, puis on choisit l'objet). L'onglet Build peut aussi afficher le build A
 - crée la **page de runes** « Hwei · Mid · LoL Companion » (runes d'OP.GG, ou celles recommandées par Riot en secours) ;
 - crée le **set d'objets** « LoL Companion - Champion (Rôle) », visible et sélectionné d'office dans la boutique en
   jeu ; un champion qui se joue de plusieurs façons (Vi combattant ou létalité, Kayn rouge ou bleu...) a un set par
-  façon (`familles.js`). Le meilleur set (le build général, ou la façon la plus jouée) finit par **« · Recommandé »** ;
+  façon (`familles.js`). Le meilleur set (le build général, ou la façon la plus jouée) finit par **« · Recommandé »**.
+  **Seuls les sets LoL Companion restent dans le client** (19/10/2026) : tes autres sets (les tiens, Porofessor...)
+  sont d'abord copiés sur ton PC (`sets-sauvegarde.json`), puis retirés, pour que la boutique ne propose que les
+  nôtres. Le bouton **« Remettre mes anciens sets »** de l'onglet Build les renvoie au client (ils sont de nouveau
+  rangés au prochain set créé) ;
 - choisit tes **sorts d'invocateur** (sa case) : les plus joués d'après OP.GG, chaque sort gardé sur ta touche
   habituelle (si Flash est sur F, il y reste) ;
 - ajoute le **set « Champion Rank 1 »** (sa case) : le build des **meilleurs joueurs** du champion, rangé comme le
@@ -477,9 +481,9 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
     du rôle) ; les noms sont tolérants (`MONKEYKING`, `MONKEY_KING` et `WUKONG` marchent).
   - **Runes** : la page « LoL Companion » est supprimée puis recréée (plus simple et plus fiable qu'une
     modification) ; les pages qui ont un autre nom ne sont jamais touchées.
-  - **Set d'objets** : le `PUT` du client remplace TOUTE la liste des sets ; l'appli renvoie donc tes sets exactement
-    comme elle les a lus (les nôtres sont placés après) et ne remplace que le set
-    « LoL Companion » du même champion.
+  - **Set d'objets** : le `PUT` du client remplace TOUTE la liste des sets. Depuis le 19/10/2026, l'appli n'y écrit
+    que les sets du champion actuel ; tes autres sets sont d'abord copiés dans `sets-sauvegarde.json` (si la copie
+    échoue, rien n'est retiré), par compte, sans jamais en oublier un (`sauvegarde-sets.js`).
 - **Augments ARAM Mayhem** (`augments.js`, `ocr.js`, fenêtre `src/overlay.html`) : Riot ne dit pas quels augments te
   sont proposés (ni le client, ni l'API du jeu ; seul Overwolf le fournit). Comme ezlol ou aram-mayhem-tracker, l'appli
   lit donc leurs noms à l'écran, seulement pendant une partie ARAM Mayhem (file 2400, détectée par la phase
@@ -603,6 +607,7 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 |---|---|
 | `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
 | `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`), assistant de première ouverture déjà vu (`assistantVu`) |
+| `sets-sauvegarde.json` | Tes sets d'objets retirés du client quand l'appli crée les siens (`{ "summonerId": [sets] }`), pour le bouton « Remettre mes anciens sets » |
 | `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, plus `cs`, `or`, `degats`, `vision` quand le client les donne (résumé d'après-partie), sans doublons, 25 000 au maximum par compte |
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |
@@ -641,6 +646,7 @@ lol-level-calculator/
 ├── stockage.js        # Réglages (config.json)
 ├── progression.js     # Courbe de progression (progression.json)
 ├── parties.js         # Historique local des parties (parties.json)
+├── sauvegarde-sets.js # Copie de tes sets d'objets avant qu'ils soient retirés du client (sets-sauvegarde.json)
 ├── champions.js       # Noms et icônes des champions (protocole lcu-image), pour plusieurs onglets et l'overlay
 ├── maitrise.js        # Maîtrise : lecture tolérante, mesure des points par partie (maitrise.json)
 ├── acceptation.js     # Acceptation automatique + détection du premier plan
