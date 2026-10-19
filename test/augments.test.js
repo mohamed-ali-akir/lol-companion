@@ -334,3 +334,88 @@ test("lecture d'écran : sur Mac, creerLecteurEcran donne le lecteur du Mac", ()
   assert.strictEqual(typeof lecteur.lire, "function");
   assert.strictEqual(typeof lecteur.arreter, "function");
 });
+
+// --- Arena (19/10/2026) : mêmes cartes, stats de Lolalytics reliées par le numéro de l'augment ---------------
+
+// Augments du client (cherry-augments.json) : un même nom peut exister en version Arena et en version Mayhem.
+const CLIENT = [
+  { id: 1205, nom: "Hellbent" }, // version Mayhem : pas de stats en Arena
+  { id: 48, nom: "Hellbent" },
+  { id: 133, nom: "Biggest Snowball Ever" },
+  { id: 30, nom: "Overloaded" },
+];
+const ARENA = {
+  victoireChampion: 0.5889,
+  augments: new Map([
+    [48, { victoire: 0.6692, choix: 0.1927, parties: 3392 }],
+    [133, { victoire: 0.6363, choix: 0.1843, parties: 3244 }],
+    [30, { victoire: 0.658, choix: 0.176, parties: 3099 }],
+  ]),
+};
+
+test("Arena reconnue par le numéro de file (1700, 1710) ou le mode CHERRY ; pas l'ARAM Mayhem", () => {
+  assert.strictEqual(A.estArena({ gameData: { queue: { id: 1700 } } }), true);
+  assert.strictEqual(A.estArena({ gameData: { queue: { id: 1710 } } }), true);
+  assert.strictEqual(A.estArena({ gameData: { queue: { id: 9999, gameMode: "CHERRY" } } }), true);
+  assert.strictEqual(A.estArena({ gameData: { queue: { id: 2400, gameMode: "KIWI" } } }), false);
+  assert.strictEqual(A.estArena(null), false);
+});
+
+test("augments du client : numéro + nom, entrées abîmées ignorées", () => {
+  assert.deepStrictEqual(A.augmentsDuClient([{ id: 48, nameTRA: "Hellbent" }, { id: "x", nameTRA: "Faux" }, null, { id: 3 }, { id: 7, name: "Vi" }]), [{ id: 48, nom: "Hellbent" }, { id: 7, nom: "Vi" }]);
+  assert.deepStrictEqual(A.augmentsDuClient(null), []);
+});
+
+test("Arena : stats reliées aux noms du client (version avec stats gardée), écart avec la moyenne du champion", () => {
+  const index = A.indexStatsArena(CLIENT, ARENA);
+  const hellbent = index.get("hellbent");
+  assert.strictEqual(hellbent.victoire, 0.6692);
+  assert.ok(Math.abs(hellbent.ecart - 0.0803) < 1e-9);
+  assert.strictEqual(hellbent.source, "champion");
+  assert.strictEqual(A.indexStatsArena(CLIENT, { augments: ARENA.augments }).get("hellbent").ecart, null, "moyenne inconnue");
+  assert.strictEqual(A.indexStatsArena(null, null).size, 0);
+});
+
+test("Arena : étiquettes (vraie capture) au taux de victoire, meilleure carte = meilleur taux", () => {
+  const cartes = A.trouverCartes(LIGNES_CAPTURE, NOMS);
+  const liste = A.etiquettesArena(cartes, A.indexStatsArena(CLIENT, ARENA), 1440);
+  assert.deepStrictEqual(liste.map((e) => e.texte), ["67 % de victoires", "64 % de victoires", "66 % de victoires"]);
+  assert.strictEqual(liste[0].detail, "avec ton champion · +8 pts · pris 19 %");
+  assert.strictEqual(liste[1].detail, "avec ton champion · +5 pts · pris 18 %");
+  assert.deepStrictEqual(liste.map((e) => e.meilleur), [true, false, false]);
+  assert.strictEqual(liste[0].y, Math.round(581 + 1440 * A.DECALAGE_ETIQUETTE));
+});
+
+test("Arena : pas de mise en avant si presque à égalité ou si l'échantillon est trop petit ; stats absentes", () => {
+  const cartes = A.trouverCartes(LIGNES_CAPTURE, NOMS);
+  const stats = (lignes) => A.indexStatsArena(CLIENT, { victoireChampion: 0.6, augments: new Map(lignes) });
+  const egalite = A.etiquettesArena(cartes, stats([[48, { victoire: 0.655, choix: 0.1, parties: 500 }], [30, { victoire: 0.65, choix: 0.1, parties: 500 }]]), 1440);
+  assert.deepStrictEqual(egalite.map((e) => e.meilleur), [false, false, false]);
+  assert.strictEqual(egalite[1].texte, "Pas de données");
+  // Une seule carte assez jouée, mais une autre a des stats sur peu de parties : on ne tranche pas.
+  const petit = A.etiquettesArena(cartes, stats([[48, { victoire: 0.6, choix: 0.1, parties: 500 }], [30, { victoire: 0.8, choix: 0.01, parties: 20 }]]), 1440);
+  assert.deepStrictEqual(petit.map((e) => e.meilleur), [false, false, false]);
+  const seule = A.etiquettesArena(cartes, stats([[48, { victoire: 0.6, choix: 0.1, parties: 500 }]]), 1440);
+  assert.deepStrictEqual(seule.map((e) => e.meilleur), [true, false, false]);
+  assert.strictEqual(seule[0].detail, "avec ton champion · +0 pts · pris 10 %");
+  const sansStats = A.etiquettesArena(cartes, null, 1440);
+  assert.deepStrictEqual(sansStats.map((e) => [e.texte, e.meilleur]), [["Stats indisponibles", false], ["Stats indisponibles", false], ["Stats indisponibles", false]]);
+});
+
+test("surveillance : les étiquettes Arena remplacent celles de l'ARAM quand on les donne", async () => {
+  const affichages = [];
+  const s = A.creerSuiviAugments({
+    actif: () => true,
+    ecran: () => ({ largeur: 2560, hauteur: 1440 }),
+    lireEcran: async () => LIGNES_CAPTURE,
+    nomsAugments: async () => NOMS,
+    statsAugments: async () => A.indexStatsArena(CLIENT, ARENA),
+    calculerEtiquettes: A.etiquettesArena,
+    afficher: (liste) => affichages.push(liste && liste.map((e) => e.texte)),
+    intervalleMs: 10,
+  });
+  s.demarrer();
+  await attendre(30);
+  s.arreter();
+  assert.deepStrictEqual(affichages[0], ["67 % de victoires", "64 % de victoires", "66 % de victoires"]);
+});

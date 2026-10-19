@@ -59,6 +59,12 @@ const VERIFICATIONS = [
     exiger(m.size > 20, `${m.size} matchups seulement`);
     return `${m.size} matchups`;
   }],
+  ["Lolalytics : augments Arena d'Ahri (stats sous les cartes en Arena)", async () => {
+    const r = await lolalytics.augmentsArena({ alias: "Ahri" });
+    exiger(r.augments.size > 100, `${r.augments.size} augments seulement (format changé ?)`);
+    exiger(Number.isFinite(r.victoireChampion), "taux de victoire moyen du champion absent");
+    return `${r.augments.size} augments, ${Math.round(r.victoireChampion * 100)} % de victoires en moyenne`;
+  }],
   ["OP.GG : analyse Ahri Milieu (runes, sorts, objets de secours)", async () => {
     const a = await opgg.analyser({ alias: "Ahri", position: "mid", mode: "ranked" });
     exiger(a.runes && a.sorts, "runes ou sorts absents");

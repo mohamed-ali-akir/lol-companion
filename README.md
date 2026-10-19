@@ -56,7 +56,7 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 ### Build
 ![Onglet Build](docs/captures/build.png)
 
-### Augments en jeu (ARAM Mayhem)
+### Augments en jeu (ARAM Mayhem, Arena)
 ![Stats des augments sous chaque carte, en jeu](docs/captures/apercu-augments.png)
 
 ### Paramètres
@@ -148,6 +148,10 @@ peut rien afficher par-dessus. L'onglet Build le rappelle.
   ses meilleurs, et met en avant la meilleure carte (cadre doré), d'après la note du site (S+, S, A...). Le site ne
   publie plus de taux de victoire par augment depuis octobre 2026 (ni sur ses pages, ni dans son serveur MCP).
   Appli lancée en pleine partie : le champion est lu dans la partie en cours. Elle ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png)).
+- **Augments Arena** (toujours actif, 19/10/2026) : le même système en Arena. Sous chaque carte, le vrai **taux de
+  victoire** de l'augment **avec ton champion**, d'après Lolalytics (« 63 % de victoires », puis « +4 pts » par rapport à
+  la moyenne de ton champion et le taux de choix). La meilleure carte est mise en avant si elle a au moins 1 point
+  d'avance et 100 parties. Marche aussi avec le jeu en français (cartes reliées par le numéro de l'augment).
 - **Chronos des sorts d'invocateur adverses** (Build, désactivé par défaut, ⚠ voir [Sécurité](#sécurité)) : un petit
   panneau avec les 5 adversaires et leurs 2 sorts. Quand tu vois un sort utilisé, **tu cliques dessus** : le compte à
   rebours démarre (bottes de lucidité comptées, TP déchaînée après 10:00) ; un 2e clic l'annule. Le chrono démarre
@@ -493,6 +497,19 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   - affichage : fenêtre transparente toujours au premier plan, qui **laisse passer les clics** (`setIgnoreMouseEvents`)
     et ne prend jamais la main au jeu (`focusable: false`, `showInactive`), avec son propre pont (`preload-overlay.js`,
     une seule fonction) ; étiquette à 19 % de la hauteur de l'écran sous le titre, dans le bas vide de la carte.
+- **Augments Arena** (19/10/2026, mêmes fichiers) : même lecture d'écran pendant une Arena (files 1700 / 1710, mode
+  `CHERRY` : le nom interne de l'Arena, dont l'ARAM Mayhem reprend les cartes). Seule la source des stats change :
+  - **Lolalytics** (`lolalytics.js`, `augmentsArena`) : page Arena de ton champion
+    (`https://lolalytics.com/lol/<champion>/arena/build/`), même lecture que le build (bloc `qwik/json`). Elle donne,
+    pour chaque augment, `[numéro, % de victoire, % de choix, parties]` (tous emplacements confondus, « aucun
+    augment » ignoré) et le taux de victoire moyen du champion. « Victoire » chez Lolalytics = finir dans la première
+    moitié (top 3 sur 6 équipes). Arena absente d'OP.GG et d'arammayhem.com (vérifié le 19/10/2026) ;
+  - les **numéros** de Lolalytics sont ceux du client (`cherry-augments.json` : les 227 augments d'Ahri retrouvés, un
+    par un) : la carte lue à l'écran (dans la langue du jeu) donne son numéro, qui donne ses stats. Un nom présent en
+    version Arena et Mayhem garde la version qui a des stats ;
+  - mise en avant (`etiquettesArena`) : meilleur taux de victoire, au moins 100 parties, au moins 1 point d'avance sur
+    la deuxième ; une seule carte assez jouée n'est mise en avant que si les autres n'ont aucune stat ;
+  - à vérifier en jeu : la position des titres des cartes (même bande que l'ARAM Mayhem, mesurée sur Mayhem).
     Elle se cache après 2 lectures sans cartes (tu as choisi). En plein écran exclusif, Windows ne peut rien afficher
     par-dessus le jeu : mode « Sans bordure » obligatoire.
 - **Deux canaux vers le client** (`sondage.js`) : la connexion en direct (WebSocket, `surveillance.js`) s'établissait
@@ -544,7 +561,7 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   ces appels (agent HTTPS dédié), jamais pour le reste.
 - **Seules connexions à Internet** (décision du propriétaire, 02/10/2026) : les statistiques de builds d'OP.GG et de
   Lolalytics et celles du conseiller de draft (Lolalytics), seulement si tu les actives (désactivé par défaut), et
-  celles des augments (arammayhem.com), actives d'office pendant une ARAM Mayhem (décision du 17/10/2026). Lecture seule, depuis le processus principal, certificats vérifiés
+  celles des augments (arammayhem.com en ARAM Mayhem, Lolalytics en Arena), actives d'office pendant ces modes (décisions du 17/10/2026 et du 19/10/2026). Lecture seule, depuis le processus principal, certificats vérifiés
   normalement, et seuls le champion, le rôle, le mode et la langue sont envoyés : jamais ton Riot ID ni rien de
   personnel (le set « Champion Rank 1 » n'envoie plus ni ton serveur ni le Riot ID des meilleurs joueurs depuis le
   17/10/2026 : il lit Lolalytics comme le reste du build). La page web de l'appli, elle, ne se connecte
@@ -622,12 +639,12 @@ lol-level-calculator/
 ├── internet.js        # Règles communes des appels à Internet : User-Agent honnête, cache de 3 h, délai, erreurs
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
 ├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
-├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies ; cache
+├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies, augments Arena ; cache
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
 ├── pings.js           # Pings des sorts lus dans le chat : capture, OCR, reconnaissance « ChampionEnnemi Sort »
 ├── image.js           # Images PNG (lecture, écriture) et nettoyage de la zone du chat avant l'OCR
 ├── jeu.js             # Lecture de la partie en cours (API locale « Live Client Data ») : temps de jeu, joueurs
-├── augments.js        # Augments ARAM Mayhem : reconnaissance des cartes, étiquettes, surveillance pendant la partie
+├── augments.js        # Augments ARAM Mayhem et Arena : reconnaissance des cartes, étiquettes, surveillance pendant la partie
 ├── ocr.js             # Lecture de texte à l'écran : OCR de Windows (PowerShell) ou de macOS (screencapture + Vision)
 ├── arammayhem.js      # Notes des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »

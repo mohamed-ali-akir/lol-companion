@@ -16,11 +16,17 @@
  * L'appli ne choisit JAMAIS à ta place : elle affiche des statistiques publiques (autorisé par Riot, comme Blitz).
  * Vérifié le 02/10/2026 sur des captures en 2560x1440 : titres à y = 581, lus en 10 à 65 ms.
  * Le jeu doit être en mode « Sans bordure » : en plein écran exclusif, rien ne peut s'afficher par-dessus.
+ *
+ * ARENA (19/10/2026, même système) : mêmes cartes (« cherry » est le nom interne de l'Arena, Mayhem reprend ses
+ * cartes), même lecture d'écran, mais les stats viennent de Lolalytics (lolalytics.js, page Arena de TON champion) :
+ * le vrai TAUX DE VICTOIRE de chaque augment avec ce champion. Les cartes sont reliées aux stats par le NUMÉRO de
+ * l'augment (le même chez Lolalytics et dans le client), donc ça marche aussi avec le jeu en français.
  */
 const { lireLockfile, lireJsonOuNull } = require("./lcu.js");
 const { simplifierNom } = require("./src/calculs.js");
 
 const FILE_MAYHEM = 2400; // "ARAM: Mayhem" (même numéro que dans lcu.js)
+const FILES_ARENA = [1700, 1710]; // Arena (mêmes numéros que dans src/calculs.js)
 // Bande de capture, en proportion de la hauteur de l'écran (titres à 581 / 1440 = 40 %).
 const BANDE_HAUT = 0.36;
 const BANDE_BAS = 0.47;
@@ -34,6 +40,12 @@ const ECART_MAX_TITRES = 15; // les titres des 3 cartes sont à la même hauteur
 function estMayhem(partie) {
   const file = partie && partie.gameData && partie.gameData.queue ? partie.gameData.queue : {};
   return file.id === FILE_MAYHEM || String(file.gameMode || "").toUpperCase() === "KIWI";
+}
+
+/** La partie en cours est-elle une Arena ? (file 1700 / 1710, ou mode CHERRY) */
+function estArena(partie) {
+  const file = partie && partie.gameData && partie.gameData.queue ? partie.gameData.queue : {};
+  return FILES_ARENA.includes(file.id) || String(file.gameMode || "").toUpperCase() === "CHERRY";
 }
 
 /** Zone de l'écran à capturer (pixels réels) pour un écran de largeur x hauteur. */
@@ -132,6 +144,69 @@ function indexStats({ champion = [], global = [] } = {}) {
 
 const pourcent = (x) => `${Math.round(x * 100)} %`;
 
+// --- Arena : stats de Lolalytics ------------------------------------------------------------------
+
+const PARTIES_MIN_ARENA = 100; // en dessous, le taux de victoire d'un augment est trop incertain pour être mis en avant
+const ECART_MIN_ARENA = 0.01; // 1 point d'écart au moins entre les 2 meilleures cartes, sinon pas de mise en avant
+
+/**
+ * Stats Arena de Lolalytics (numéro -> stats) -> Map nom simplifié (langue du jeu) -> { victoire, choix, parties,
+ * ecart, source }. augmentsClient : [{ id, nom }] (cherry-augments.json). Un même nom peut exister deux fois dans le
+ * client (version Arena et version Mayhem d'un augment) : on garde celui qui a des stats.
+ * ecart : différence avec le taux de victoire moyen du champion (+0,03 = 3 points de mieux), ou null.
+ */
+function indexStatsArena(augmentsClient, arena) {
+  const index = new Map();
+  const stats = arena && arena.augments instanceof Map ? arena.augments : new Map();
+  const moyenne = arena && Number.isFinite(arena.victoireChampion) ? arena.victoireChampion : null;
+  for (const a of Array.isArray(augmentsClient) ? augmentsClient : []) {
+    const s = a && stats.get(a.id);
+    const cle = a && simplifierNom(a.nom);
+    if (!s || !cle || index.has(cle)) continue;
+    index.set(cle, { ...s, ecart: moyenne === null ? null : s.victoire - moyenne, source: "champion" });
+  }
+  return index;
+}
+
+const points = (x) => {
+  const n = Math.round(x * 100);
+  return `${n >= 0 ? "+" : "−"}${Math.abs(n)} pts`; // arrondi d'abord : −0,4 point s'affiche « +0 pts », pas « −0 pts »
+};
+
+/**
+ * Étiquettes Arena : « 62 % de victoires » sous chaque carte, avec ton champion (Lolalytics).
+ * Mise en avant : la carte au meilleur taux de victoire, seulement parmi celles jouées dans au moins 100 parties,
+ * et seulement si elle a au moins 1 point d'avance sur la deuxième (sinon ce serait trompeur).
+ */
+function etiquettesArena(cartes, stats, hauteurEcran) {
+  const avecStats = cartes.map((c) => ({ carte: c, stat: stats ? stats.get(simplifierNom(c.nom)) || null : null }));
+  const classees = avecStats.filter((a) => a.stat && a.stat.parties >= PARTIES_MIN_ARENA).sort((a, b) => b.stat.victoire - a.stat.victoire);
+  // Une seule carte assez jouée : mise en avant seulement si les autres n'ont aucune stat (pas un petit échantillon
+  // qui ferait peut-être mieux).
+  const seule = classees.length === 1 && avecStats.filter((a) => a.stat).length === 1;
+  const nette = seule || (classees.length > 1 && classees[0].stat.victoire - classees[1].stat.victoire >= ECART_MIN_ARENA);
+  const meilleure = nette ? classees[0] : null;
+  return avecStats.map((a) => {
+    const { carte, stat } = a;
+    let texte = stats ? "Pas de données" : "Stats indisponibles";
+    let detail = "";
+    if (stat) {
+      texte = `${pourcent(stat.victoire)} de victoires`;
+      const ecart = Number.isFinite(stat.ecart) ? ` · ${points(stat.ecart)}` : "";
+      detail = `avec ton champion${ecart} · pris ${pourcent(stat.choix)}`;
+    }
+    return {
+      nom: carte.nom,
+      x: Math.round(carte.x + carte.largeur / 2),
+      y: Math.round(carte.y + hauteurEcran * DECALAGE_ETIQUETTE),
+      texte,
+      detail,
+      source: stat ? stat.source : null,
+      meilleur: a === meilleure,
+    };
+  });
+}
+
 /**
  * Étiquettes à afficher sous les cartes : [{ nom, x, y, texte, detail, source, meilleur }] (pixels réels de l'écran).
  * stats : Map (indexStats) ou null si indisponibles (site en panne, pas d'Internet...).
@@ -180,12 +255,13 @@ function etiquettes(cartes, stats, hauteurEcran) {
  *  - lireEcran(zone)    : textes lus dans cette zone (promesse, ocr.js) ;
  *  - nomsAugments()     : index des noms (indexNoms), promesse ;
  *  - statsAugments()    : index des stats du champion (indexStats) ou null, promesse ;
+ *  - calculerEtiquettes : (facultatif) etiquettes (ARAM Mayhem, par défaut) ou etiquettesArena ;
  *  - afficher(liste)    : affiche les étiquettes, ou les cache (null) ;
  *  - arreterLecture()   : arrête la lecture d'écran (fin de partie) ;
  *  - journal(...)       : (facultatif) erreurs.
  * Renvoie { demarrer(), arreter() }.
  */
-function creerSuiviAugments({ actif, ecran, lireEcran, nomsAugments, statsAugments, afficher, arreterLecture = () => {}, intervalleMs = 1000, journal = () => {} }) {
+function creerSuiviAugments({ actif, ecran, lireEcran, nomsAugments, statsAugments, calculerEtiquettes = etiquettes, afficher, arreterLecture = () => {}, intervalleMs = 1000, journal = () => {} }) {
   let derniereRaison = null; // dernière raison des stats indisponibles notée dans le journal
   let enMarche = false;
   let minuterie = null;
@@ -219,7 +295,7 @@ function creerSuiviAugments({ actif, ecran, lireEcran, nomsAugments, statsAugmen
             derniereRaison = raison;
             return null;
           });
-          const liste = etiquettes(cartes, stats, taille.hauteur);
+          const liste = calculerEtiquettes(cartes, stats, taille.hauteur);
           const cle = JSON.stringify(liste);
           if (enMarche && cle !== dernier) {
             afficher(liste);
@@ -253,10 +329,17 @@ function creerSuiviAugments({ actif, ecran, lireEcran, nomsAugments, statsAugmen
 
 // --- Appels au client ------------------------------------------------------------------------
 
-/** Noms de tous les augments (langue du client), depuis cherry-augments.json (Arena et Mayhem). */
-async function lireNomsAugments(dossierJeu) {
+/** Tous les augments du client : [{ id, nom }] (nom dans la langue du client), depuis cherry-augments.json (Arena et Mayhem). */
+async function lireAugmentsClient(dossierJeu) {
   const liste = await lireJsonOuNull(lireLockfile(dossierJeu), "/lol-game-data/assets/v1/cherry-augments.json");
-  return Array.isArray(liste) ? liste.map((a) => a && (a.nameTRA || a.name)).filter((n) => typeof n === "string" && n) : [];
+  return augmentsDuClient(liste);
+}
+
+/** Réponse de cherry-augments.json -> [{ id, nom }], en ignorant les entrées abîmées. */
+function augmentsDuClient(liste) {
+  return (Array.isArray(liste) ? liste : [])
+    .map((a) => a && { id: a.id, nom: a.nameTRA || a.name })
+    .filter((a) => a && Number.isInteger(a.id) && typeof a.nom === "string" && a.nom);
 }
 
 /** Langue du jeu ("en_US"...), pour que l'OCR lise les noms dans la bonne langue. */
@@ -267,9 +350,12 @@ async function lireLangueJeu(dossierJeu) {
 
 module.exports = {
   FILE_MAYHEM,
+  FILES_ARENA,
   DECALAGE_ETIQUETTE,
   APPARITION_MIN,
+  PARTIES_MIN_ARENA,
   estMayhem,
+  estArena,
   zoneTitres,
   distance,
   indexNoms,
@@ -277,7 +363,10 @@ module.exports = {
   trouverCartes,
   indexStats,
   etiquettes,
+  indexStatsArena,
+  etiquettesArena,
   creerSuiviAugments,
-  lireNomsAugments,
+  augmentsDuClient,
+  lireAugmentsClient,
   lireLangueJeu,
 };

@@ -227,3 +227,45 @@ test("familles de builds : itemSets de la page -> un set par façon de jouer (ca
   assert.deepStrictEqual(L.analyseDepuisDonnees(L.extraireDonnees(pageQwik(HWEI))).familles, []);
   assert.deepStrictEqual(L.analyseDepuisDonnees(d).familles, []);
 });
+
+// --- Augments Arena (format vérifié le 19/10/2026 sur la page d'Ahri) ---------------------------------
+
+// Extrait des vraies données d'Ahri en Arena : [numéro de l'augment, % victoire, % sélection, parties] ; 0 = aucun.
+const AHRI_ARENA = {
+  header: { cid: 103, n: 17606, wr: 58.89, place1: 21.5, place2: 19.9, place3: 17.5 },
+  augment: {
+    augment0: [[0, 25.01, 36.02, 6341], [48, 66.92, 19.27, 3392], [133, 63.63, 18.43, 3244], [30, 65.8, 17.6, 3099]],
+    augment1: [[65, 61.26, 8.47, 1492]],
+  },
+};
+
+test("Arena : adresse de la page, augments lus par numéro (sans « aucun augment »), moyenne du champion", () => {
+  assert.strictEqual(L.adresseArena("MonkeyKing"), "https://lolalytics.com/lol/wukong/arena/build/");
+  assert.strictEqual(L.adresseArena(""), null);
+  const r = L.augmentsArena(pageQwik(AHRI_ARENA, { autres: [{ augment: false, spell: false }] }));
+  assert.strictEqual(r.victoireChampion, 0.5889);
+  assert.deepStrictEqual([...r.augments.keys()], [48, 133, 30]);
+  assert.deepStrictEqual(r.augments.get(48), { victoire: 0.6692, choix: 0.1927, parties: 3392 });
+});
+
+test("Arena : pages abîmées ou changées -> null (jamais d'erreur)", () => {
+  for (const mauvaise of [undefined, "<html></html>", pageQwik({ header: {}, augment: {} }), pageQwik({ header: {}, augment: { augment0: [[0, 25, 36, 6341], ["x", 1, 1, 1], [5, null, 1, 10], [7, 50, 1, 0]] } })]) {
+    assert.strictEqual(L.augmentsArena(mauvaise), null);
+  }
+  const sansEntete = L.augmentsArena(pageQwik({ header: "?", augment: { augment0: [[48, 60, 10, 100]] } }));
+  assert.strictEqual(sansEntete.victoireChampion, null);
+});
+
+test("Arena : lecture de la page du champion, identification honnête, cache 3 h, erreurs claires", async () => {
+  const site = fauxSite([{ status: 200, texte: pageQwik(AHRI_ARENA) }]);
+  const lecteur = L.creerLecteurLolalytics({ appeler: site.appeler });
+  const r = await lecteur.augmentsArena({ alias: "Ahri" });
+  assert.strictEqual(r.augments.size, 3);
+  await lecteur.augmentsArena({ alias: "Ahri" });
+  assert.strictEqual(site.appels.length, 1, "en cache : pas de nouvelle lecture");
+  assert.strictEqual(site.appels[0].url, "https://lolalytics.com/lol/ahri/arena/build/");
+  assert.strictEqual(site.appels[0].options.headers["User-Agent"], L.IDENTITE);
+  const change = L.creerLecteurLolalytics({ appeler: fauxSite([{ status: 200, texte: "<html>nouveau</html>" }]).appeler });
+  await assert.rejects(change.augmentsArena({ alias: "Ahri" }), /Arena de Lolalytics a changé de format/);
+  await assert.rejects(lecteur.augmentsArena({ alias: null }), /inconnu/);
+});

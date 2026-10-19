@@ -74,6 +74,7 @@ function fauxSuivi(journal, nom) {
 
 const FAILLE = { map: { id: 11 }, gameData: { queue: { id: 420, mapId: 11 } } };
 const MAYHEM = { map: { id: 12 }, gameData: { queue: { id: 2400, gameMode: "KIWI", mapId: 12 } } };
+const ARENA = { map: { id: 30 }, gameData: { queue: { id: 1700, gameMode: "CHERRY", mapId: 30 } } };
 
 function enJeu({ plateforme = "win32", partie = FAILLE, mediaAccess, reglages = { augments: true, sorts: true } } = {}) {
   const journal = [];
@@ -87,8 +88,9 @@ function enJeu({ plateforme = "win32", partie = FAILLE, mediaAccess, reglages = 
     dossierAppli: "/appli",
     stockage: () => ({ dossierJeu: () => "/jeu-absent", reglagesBuild: () => reglages, positionSorts: () => ({ x: 0.4, y: 0.1 }) }),
     obtenirAliasChampions: async () => new Map([[103, "Ahri"], [222, "Jinx"]]),
-    lecteurArammayhem: { augments: async () => [] },
-    championPartie: () => null,
+    lecteurArammayhem: { augments: async () => ({ champion: [], global: [{ nom: "Hellbent", note: "S", rang: 3, apparition: 0.2 }] }) },
+    lecteurLolalytics: { augmentsArena: async ({ alias }) => ({ victoireChampion: 0.5, augments: new Map([[48, { victoire: 0.62, choix: 0.1, parties: 900, alias }]]) }) },
+    championPartie: () => 103,
     noter: () => {},
     proteger: (nom, f) => {
       try {
@@ -100,6 +102,7 @@ function enJeu({ plateforme = "win32", partie = FAILLE, mediaAccess, reglages = 
     },
     fabriques: {
       lirePartie: async () => partie,
+      lireAugmentsClient: async () => [{ id: 48, nom: "Hellbent" }], // cherry-augments.json du client
       creerSuiviAugments: augments.fabrique,
       creerSuiviSorts: sorts.fabrique,
       creerLecteurEcran: () => ({ lire: async () => [], arreter: () => journal.push("ecran:arreter") }),
@@ -162,7 +165,7 @@ test("messages : seule la vraie fenêtre du jeu est reconnue ; un clic est trans
   module.souris(true); // sans panneau des sorts : ne plante pas
 });
 
-test("phases : chronos sur la Faille, augments en ARAM Mayhem, tout arrêté hors partie", async () => {
+test("phases : chronos sur la Faille, augments en ARAM Mayhem et en Arena, tout arrêté hors partie", async () => {
   const faille = enJeu({ partie: FAILLE });
   faille.module.surPhase("InProgress");
   await attendre();
@@ -174,11 +177,27 @@ test("phases : chronos sur la Faille, augments en ARAM Mayhem, tout arrêté hor
   await new Promise((ok) => setTimeout(ok, 20));
   assert.ok(mayhem.journal.includes("augments:demarrer") && mayhem.journal.includes("sorts:arreter"));
 
+  const arena = enJeu({ partie: ARENA });
+  arena.module.surPhase("InProgress");
+  await new Promise((ok) => setTimeout(ok, 20));
+  assert.ok(arena.journal.includes("augments:demarrer") && arena.journal.includes("sorts:arreter"));
+
   const fin = enJeu();
   fin.module.surPhase("EndOfGame");
   await attendre();
   assert.deepStrictEqual(fin.journal.sort(), ["augments:arreter", "sorts:arreter"]);
-  assert.deepStrictEqual([faille.erreurs, mayhem.erreurs, fin.erreurs], [[], [], []]);
+  assert.deepStrictEqual([faille.erreurs, mayhem.erreurs, arena.erreurs, fin.erreurs], [[], [], [], []]);
+});
+
+test("augments : stats et étiquettes de Lolalytics en Arena, d'arammayhem.com en ARAM Mayhem", async () => {
+  const cartes = [{ nom: "Hellbent", x: 700, y: 581, largeur: 100, hauteur: 20 }];
+  for (const [partie, attendu] of [[ARENA, "62 % de victoires"], [MAYHEM, "Top 3 · choisi 20 %"]]) {
+    const { module, augments } = enJeu({ partie });
+    module.surPhase("InProgress");
+    await new Promise((ok) => setTimeout(ok, 20));
+    const stats = await augments.options.statsAugments();
+    assert.strictEqual(augments.options.calculerEtiquettes(cartes, stats, 1440)[0].texte, attendu);
+  }
 });
 
 test("quitter : les deux suivis s'arrêtent (les chronos aussi, oubliés avant) et la fenêtre est détruite", () => {

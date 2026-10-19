@@ -22,6 +22,9 @@ Ces règles s'appliquent à **toutes** les modifications du projet.
     l'adresse). La lecture des cartes à l'écran (`ocr.js`, OCR de Windows, ou Vision sur Mac) reste 100 % locale, et
     seulement pendant une ARAM Mayhem ; l'overlay n'affiche que des stats, il ne choisit jamais.
     **Activé d'office, sans case** (décision du propriétaire, 17/10/2026, pour alléger l'onglet Build).
+  - Augments Arena (demandé par le propriétaire le 19/10/2026) : même système, stats de Lolalytics (page Arena du
+    champion, `https://lolalytics.com/lol/<champion>/arena/build/`, `lolalytics.js`), mêmes règles ; activé d'office
+    comme les augments ARAM, lecture d'écran seulement pendant une Arena.
   - Conseiller de draft (`draft.js`, décidé le 04/10/2026) : Lolalytics encore (tier list du poste, page de chaque
     adversaire verrouillé pour ses matchups, API `a1.lolalytics.com/mega/?ep=build-team` pour les synergies des
     alliés), mêmes règles. Case de l'onglet Sélection ; il propose seulement, ne choisit jamais.

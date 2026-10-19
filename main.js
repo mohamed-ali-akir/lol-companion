@@ -155,13 +155,14 @@ const { obtenirNomsChampions, obtenirAliasChampions, analyserOpgg, analyserLolal
   lecteurLolalytics,
 });
 
-// Ce qui s'affiche par-dessus le jeu (en-jeu.js) : stats des augments (ARAM Mayhem) et chronos des sorts (Faille).
+// Ce qui s'affiche par-dessus le jeu (en-jeu.js) : stats des augments (ARAM Mayhem et Arena) et chronos des sorts (Faille).
 const enJeu = creerEnJeu({
   electron: { BrowserWindow, screen, systemPreferences },
   dossierAppli: __dirname,
   stockage: () => stockage,
   obtenirAliasChampions,
   lecteurArammayhem,
+  lecteurLolalytics, // augments Arena
   championPartie: () => championPartie,
   noter,
   proteger,

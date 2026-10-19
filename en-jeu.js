@@ -1,5 +1,5 @@
 /*
- * Ce qui s'affiche PAR-DESSUS LE JEU : fenêtre transparente, stats des augments (ARAM Mayhem), chronos des sorts (Faille)
+ * Ce qui s'affiche PAR-DESSUS LE JEU : fenêtre transparente, stats des augments (ARAM Mayhem, Arena), chronos des sorts (Faille)
  * -----------------------------------------------------------------------------------------------------------------------
  * Tourne dans le processus principal. Sorti de main.js le 17/10/2026 (main.js devenait trop gros, et cette partie
  * n'était pas testée) : test/en-jeu.test.js l'essaie avec une fausse fenêtre et un faux écran.
@@ -8,7 +8,7 @@
  *  - une seule fenêtre transparente (src/overlay.html), créée au premier contenu, cachée quand il n'y a rien ;
  *    elle laisse passer les clics au jeu et ne prend jamais le clavier, sauf la souris sur le panneau des sorts ;
  *  - une seule lecture d'écran (un seul processus PowerShell / Vision) partagée par les augments et le chat ;
- *  - surPhase(phase) : augments seulement pendant une ARAM Mayhem, chronos seulement sur la Faille.
+ *  - surPhase(phase) : augments seulement pendant une ARAM Mayhem ou une Arena, chronos seulement sur la Faille.
  */
 const path = require("path");
 const augments = require("./augments.js");
@@ -25,18 +25,20 @@ const lectureEcranPossible = (plateforme) => plateforme === "win32" || plateform
  * electron : { BrowserWindow, screen, systemPreferences } ; plateforme : process.platform ;
  * dossierAppli : dossier de main.js (pour src/overlay.html et preload-overlay.js) ;
  * stockage() : réglages (build, place du panneau) ; obtenirAliasChampions() : Map id -> alias (stats-build.js) ;
- * lecteurArammayhem : arammayhem.js ; championPartie() : ton champion retenu pendant la sélection, ou null ;
+ * lecteurArammayhem : arammayhem.js ; lecteurLolalytics : lolalytics.js (augments Arena) ; championPartie() : ton champion retenu pendant la sélection, ou null ;
  * noter(...), proteger(nom, f) : journal et cloisons de main.js.
- * fabriques : (tests) remplace lirePartie, creerSuiviAugments, creerSuiviSorts, creerLecteurEcran.
+ * fabriques : (tests) remplace lirePartie, lireAugmentsClient, creerSuiviAugments, creerSuiviSorts, creerLecteurEcran.
  */
-function creerEnJeu({ electron, plateforme = process.platform, dossierAppli, stockage, obtenirAliasChampions, lecteurArammayhem, championPartie, noter, proteger, fabriques = {} }) {
+function creerEnJeu({ electron, plateforme = process.platform, dossierAppli, stockage, obtenirAliasChampions, lecteurArammayhem, lecteurLolalytics, championPartie, noter, proteger, fabriques = {} }) {
   const { BrowserWindow, screen, systemPreferences } = electron;
-  const f = { lirePartie, creerSuiviAugments: augments.creerSuiviAugments, creerSuiviSorts, creerLecteurEcran, ...fabriques };
+  const f = { lirePartie, lireAugmentsClient: augments.lireAugmentsClient, creerSuiviAugments: augments.creerSuiviAugments, creerSuiviSorts, creerLecteurEcran, ...fabriques };
   let fenetre = null; // fenêtre transparente par-dessus le jeu
   const contenu = { augments: null, sorts: null }; // ce qu'elle affiche
   let lecteurEcran = null; // lecture d'écran (ocr.js), lancée seulement quand il faut lire l'écran
   let langueJeu = null; // "en_US"...
-  let indexAugments = null; // noms de tous les augments (langue du jeu)
+  let augmentsClient = null; // tous les augments du client : [{ id, nom }] (langue du jeu)
+  let indexAugments = null; // leurs noms, pour reconnaître les cartes
+  let modeAugments = null; // "mayhem" ou "arena" : la partie en cours (choisit la source des stats)
   let suiviAugments = null;
   let suiviSorts = null;
 
@@ -159,9 +161,23 @@ function creerEnJeu({ electron, plateforme = process.platform, dossierAppli, sto
     return langueJeu;
   }
 
+  async function obtenirAugmentsClient() {
+    if (!augmentsClient || augmentsClient.length === 0) augmentsClient = await f.lireAugmentsClient(stockage().dossierJeu());
+    return augmentsClient;
+  }
+
   async function obtenirIndexAugments() {
-    if (!indexAugments || indexAugments.size === 0) indexAugments = augments.indexNoms(await augments.lireNomsAugments(stockage().dossierJeu()));
+    if (!indexAugments || indexAugments.size === 0) indexAugments = augments.indexNoms((await obtenirAugmentsClient()).map((a) => a.nom));
     return indexAugments;
+  }
+
+  /** Alias de TON champion : retenu pendant la sélection, sinon lu dans la partie en cours (jeu.js), sinon null. */
+  async function aliasPartie() {
+    const id = championPartie();
+    const alias = id ? (await obtenirAliasChampions()).get(id) : null;
+    if (alias) return alias;
+    const partie = await jeu.lireJeu();
+    return partie ? jeu.monAlias(partie.actif, partie.joueurs) : null;
   }
 
   function obtenirLecteurEcran() {
@@ -176,18 +192,19 @@ function creerEnJeu({ electron, plateforme = process.platform, dossierAppli, sto
       ecran: ecranJeu,
       lireEcran: (zone) => obtenirLecteurEcran().lire(zone),
       nomsAugments: obtenirIndexAugments,
-      // Taux de victoire d'arammayhem.com (arammayhem.js) : avec ton champion, sinon tous champions.
+      // ARAM Mayhem : notes d'arammayhem.com (arammayhem.js), avec ton champion, sinon tous champions.
+      // Arena (19/10/2026) : taux de victoire de Lolalytics (lolalytics.js) avec ton champion.
       // Champion retenu pendant la sélection ; appli lancée en pleine partie (vu le 17/10/2026 : « Stats
-      // indisponibles ») : on le lit dans la partie en cours (jeu.js) ; sinon, stats tous champions seulement.
+      // indisponibles ») : on le lit dans la partie en cours (jeu.js).
       statsAugments: async () => {
-        const id = championPartie();
-        let alias = id ? (await obtenirAliasChampions()).get(id) : null;
-        if (!alias) {
-          const partie = await jeu.lireJeu();
-          alias = partie ? jeu.monAlias(partie.actif, partie.joueurs) : null;
+        const alias = await aliasPartie();
+        if (modeAugments === "arena") {
+          const [client, arena] = await Promise.all([obtenirAugmentsClient(), lecteurLolalytics.augmentsArena({ alias })]);
+          return augments.indexStatsArena(client, arena);
         }
         return augments.indexStats(await lecteurArammayhem.augments({ alias }));
       },
+      calculerEtiquettes: (...args) => (modeAugments === "arena" ? augments.etiquettesArena(...args) : augments.etiquettes(...args)),
       afficher: afficherAugments,
       arreterLecture: () => {
         if (lecteurEcran) lecteurEcran.arreter();
@@ -215,12 +232,13 @@ function creerEnJeu({ electron, plateforme = process.platform, dossierAppli, sto
     });
   }
 
-  /** Augments : on lit l'écran seulement pendant une partie ARAM Mayhem, et on arrête tout le reste du temps. */
+  /** Augments : on lit l'écran seulement pendant une partie ARAM Mayhem ou Arena, et on arrête tout le reste du temps. */
   async function surPhaseAugments(phase) {
     if (!suiviAugments) return;
     if (phase !== "InProgress") return suiviAugments.arreter();
     const partie = await f.lirePartie(stockage().dossierJeu()).catch(() => null);
-    if (!augments.estMayhem(partie)) return suiviAugments.arreter();
+    modeAugments = augments.estArena(partie) ? "arena" : augments.estMayhem(partie) ? "mayhem" : null;
+    if (!modeAugments) return suiviAugments.arreter();
     await obtenirLangueJeu();
     suiviAugments.demarrer();
   }

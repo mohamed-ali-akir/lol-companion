@@ -10,6 +10,7 @@
  *
  * Lolalytics n'a PAS d'accès prévu pour les applis : on lit la page publique du build, comme un navigateur.
  *   GET https://lolalytics.com/lol/<champion>/build/?lane=<voie>    (ARAM : /lol/<champion>/aram/build/)
+ *   Augments Arena (19/10/2026) : /lol/<champion>/arena/build/ (taux de victoire de chaque augment avec ce champion).
  * Vérifié le 02/10/2026 :
  *  - la page (≈ 600 Ko) contient ses données dans un bloc <script type="qwik/json"> : un tableau "objs" où les
  *    valeurs renvoient à d'autres cases par un numéro en base 36 ("4c6" -> objs[5622]) ;
@@ -194,6 +195,44 @@ function analyseDepuisDonnees(d, nomObjet = (id) => `Objet ${id}`, { categoriesO
   };
 }
 
+// --- Augments Arena (vérifié le 19/10/2026) ----------------------------------------------------------
+
+/** Page Arena d'un champion : https://lolalytics.com/lol/<champion>/arena/build/ (tous les rangs, réglage du site). */
+function adresseArena(alias) {
+  const nom = nomLolalytics(alias);
+  return nom ? `${URL_LOLALYTICS}/lol/${nom}/arena/build/` : null;
+}
+
+/**
+ * Page Arena d'un champion -> { victoireChampion, augments: Map id -> { victoire, choix, parties } }, ou null.
+ * Format vérifié le 19/10/2026 (page d'Ahri) : un objet contient header ({ wr, n, place1..place8 }) et
+ * augment ({ augment0: tous les emplacements, augment1..augment4: 1er à 4e augment pris }). Chaque option vaut
+ * [numéro de l'augment, % de victoire, % de sélection, parties] ; le numéro 0 = pas d'augment (ignoré).
+ * « Victoire » en Arena chez Lolalytics = finir dans la première moitié (wr = place1 + place2 + place3 à 6 équipes).
+ * Les numéros sont ceux du client (cherry-augments.json : les 225 de la page vérifiés un par un) : on retrouve
+ * donc les cartes dans la langue du jeu, pas seulement en anglais.
+ */
+// 19.27 % -> 0.1927 (toFixed : sinon 0.19269999999999998)
+const enFraction = (pourcentage) => Number((pourcentage / 100).toFixed(6));
+
+function augmentsArena(html) {
+  const etat = etatQwik(html);
+  if (!etat) return null;
+  const page = etat.objs.find((o) => o && typeof o === "object" && !Array.isArray(o) && "augment" in o && "header" in o);
+  if (!page) return null;
+  const tous = (etat.resoudre(page.augment) || {}).augment0;
+  if (!Array.isArray(tous)) return null;
+  const augments = new Map();
+  for (const ligne of tous) {
+    if (!Array.isArray(ligne)) continue;
+    const [id, victoire, choix, parties] = ligne;
+    if (!Number.isInteger(id) || id <= 0 || !Number.isFinite(victoire) || !(nombre(parties) > 0)) continue;
+    if (!augments.has(id)) augments.set(id, { victoire: enFraction(victoire), choix: enFraction(nombre(choix)), parties });
+  }
+  const entete = etat.resoudre(page.header) || {};
+  return augments.size > 0 ? { victoireChampion: Number.isFinite(entete.wr) ? enFraction(entete.wr) : null, augments } : null;
+}
+
 // --- Appel -------------------------------------------------------------------------------------
 
 /** Lecteur Lolalytics avec cache. appeler (fetch) et maintenant sont modifiables pour les tests. */
@@ -280,7 +319,18 @@ function creerLecteurLolalytics({ appeler = (...a) => fetch(...a), maintenant = 
     }).then((equipe) => tableDuels(equipe[voie]));
   }
 
-  return { analyser, tierlist, matchups, synergies };
+  /** Augments Arena de TON champion (augments.js, en jeu) -> { victoireChampion, augments: Map id -> stats }. */
+  function augmentsArenaChampion({ alias } = {}) {
+    const adresse = adresseArena(alias);
+    if (!adresse) return Promise.reject(new ErreurLolalytics("Champion inconnu."));
+    return avecCache(adresse, "text/html", (html) => {
+      const stats = augmentsArena(html);
+      if (!stats) throw new ErreurLolalytics("La page Arena de Lolalytics a changé de format.");
+      return stats;
+    });
+  }
+
+  return { analyser, tierlist, matchups, synergies, augmentsArena: augmentsArenaChampion };
 }
 
 module.exports = {
@@ -294,5 +344,7 @@ module.exports = {
   tableDuels,
   optionsEmplacement,
   analyseDepuisDonnees,
+  adresseArena,
+  augmentsArena,
   creerLecteurLolalytics,
 };
