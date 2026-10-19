@@ -419,3 +419,19 @@ test("surveillance : les étiquettes Arena remplacent celles de l'ARAM quand on 
   s.arreter();
   assert.deepStrictEqual(affichages[0], ["67 % de victoires", "64 % de victoires", "66 % de victoires"]);
 });
+
+test("objets prismatiques : les objets 44xxxx du client, dans sa langue", () => {
+  const noms = new Map([[447108, "Sculpteur de rune"], [223089, "Coiffe de Rabadon"], [443056, "Couronne du Roi-démon"], [449999, ""], ["x", "Faux"]]);
+  assert.deepStrictEqual(A.objetsPrismatiques(noms), [{ id: 447108, nom: "Sculpteur de rune" }, { id: 443056, nom: "Couronne du Roi-démon" }]);
+  assert.deepStrictEqual(A.objetsPrismatiques(null), []);
+});
+
+test("Arena : cartes d'objets prismatiques reconnues et notées comme les augments", () => {
+  const prismatiques = [{ id: 447108, nom: "Sculpteur de rune" }, { id: 447113, nom: "Orbe détonant" }];
+  const arena = { victoireChampion: 0.59, augments: new Map(), prismatiques: new Map([[447108, { victoire: 0.61, choix: 0.25, parties: 4478 }], [447113, { victoire: 0.66, choix: 0.23, parties: 4105 }]]) };
+  const noms = A.indexNoms([...CLIENT, ...prismatiques].map((a) => a.nom));
+  const lignes = [{ texte: "Sculpteur de rune", x: 700, y: 581, largeur: 150, hauteur: 20 }, { texte: "Orbe detonant", x: 1150, y: 583, largeur: 150, hauteur: 20 }];
+  const liste = A.etiquettesArena(A.trouverCartes(lignes, noms), A.indexStatsArena(CLIENT, arena, prismatiques), 1440);
+  assert.deepStrictEqual(liste.map((e) => [e.nom, e.texte, e.meilleur]), [["Sculpteur de rune", "61 % de victoires", false], ["Orbe détonant", "66 % de victoires", true]]);
+  assert.strictEqual(A.indexStatsArena(CLIENT, arena).size, 0, "sans la liste des prismatiques du client : rien");
+});

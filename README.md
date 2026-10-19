@@ -120,7 +120,11 @@ Chaque option est désactivée par défaut ; c'est autorisé par Riot, comme Bli
 verrouillé (ou attribué en ARAM), l'appli lit les **vraies statistiques** de **Lolalytics** (objets emplacement par
 emplacement) et d'**OP.GG** (runes, sorts) pour ce champion et ton rôle, **toujours celles de la Faille**, même en
 ARAM (choix du 17/10/2026 ; en ARAM, le rôle est le rôle principal du champion, et seuls les sorts d'invocateur
-viennent des stats ARAM, puisque Téléportation ou Châtiment n'y existent pas), puis :
+viennent des stats ARAM, puisque Téléportation ou Châtiment n'y existent pas). **En Arena** (19/10/2026), les objets
+de la Faille n'existent pas (l'Arena a ses propres versions) : le build vient de la page **Arena** de Lolalytics, avec
+**Départ (les bottes), Objet prismatique, Objets 1 à 5** ; OP.GG n'a pas l'Arena, donc ni runes ni sorts de sa part.
+« Objet de mage légendaire » ou « Objet prismatique » dans le build sont les enclumes de la boutique Arena (on les
+achète, puis on choisit l'objet). L'onglet Build peut aussi afficher le build Arena de n'importe quel champion. Puis :
 - compose le build comme Lolalytics : **Départ, Objet 1, Bottes, Objets 2 à 5**, chacun avec **3 choix** (le
   recommandé + 2 pour t'adapter), avec taux de victoire, part des achats, nombre de parties et minute d'achat
   (« ⚠ peu de données » sous 200 parties). Si Lolalytics ne répond pas, le build d'OP.GG prend le relais ;
@@ -152,6 +156,8 @@ peut rien afficher par-dessus. L'onglet Build le rappelle.
   victoire** de l'augment **avec ton champion**, d'après Lolalytics (« 63 % de victoires », puis « +4 pts » par rapport à
   la moyenne de ton champion et le taux de choix). La meilleure carte est mise en avant si elle a au moins 1 point
   d'avance et 100 parties. Marche aussi avec le jeu en français (cartes reliées par le numéro de l'augment).
+  **Objets prismatiques** : pareil quand l'enclume « Objet prismatique » te propose des objets prismatiques (taux de
+  victoire de chaque objet avec ton champion).
 - **Chronos des sorts d'invocateur adverses** (Build, désactivé par défaut, ⚠ voir [Sécurité](#sécurité)) : un petit
   panneau avec les 5 adversaires et leurs 2 sorts. Quand tu vois un sort utilisé, **tu cliques dessus** : le compte à
   rebours démarre (bottes de lucidité comptées, TP déchaînée après 10:00) ; un 2e clic l'annule. Le chrono démarre
@@ -499,7 +505,7 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
     une seule fonction) ; étiquette à 19 % de la hauteur de l'écran sous le titre, dans le bas vide de la carte.
 - **Augments Arena** (19/10/2026, mêmes fichiers) : même lecture d'écran pendant une Arena (files 1700 / 1710, mode
   `CHERRY` : le nom interne de l'Arena, dont l'ARAM Mayhem reprend les cartes). Seule la source des stats change :
-  - **Lolalytics** (`lolalytics.js`, `augmentsArena`) : page Arena de ton champion
+  - **Lolalytics** (`lolalytics.js`, `donneesArena`) : page Arena de ton champion
     (`https://lolalytics.com/lol/<champion>/arena/build/`), même lecture que le build (bloc `qwik/json`). Elle donne,
     pour chaque augment, `[numéro, % de victoire, % de choix, parties]` (tous emplacements confondus, « aucun
     augment » ignoré) et le taux de victoire moyen du champion. « Victoire » chez Lolalytics = finir dans la première
@@ -509,7 +515,13 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
     version Arena et Mayhem garde la version qui a des stats ;
   - mise en avant (`etiquettesArena`) : meilleur taux de victoire, au moins 100 parties, au moins 1 point d'avance sur
     la deuxième ; une seule carte assez jouée n'est mise en avant que si les autres n'ont aucune stat ;
-  - à vérifier en jeu : la position des titres des cartes (même bande que l'ARAM Mayhem, mesurée sur Mayhem).
+  - **objets prismatiques** : l'enclume « Objet prismatique » (objet 220007 de la boutique) propose des objets
+    prismatiques sur les mêmes cartes. On reconnaît aussi leurs noms (les 49 objets 440000 à 449999 de `items.json`,
+    dans la langue du client) et leurs stats viennent de `prismatic` sur la même page (une seule lecture, cache 3 h) ;
+  - build Arena (`analyseArena`, `stats-build.js`) : `startItem` (départ : les bottes), `prismatic`, puis `item2` à
+    `item6` (`item1` est le même achat que le départ) ; mêmes règles de choix que sur la Faille ;
+  - à vérifier en jeu : la position des titres des cartes (même bande que l'ARAM Mayhem, mesurée sur Mayhem), pour
+    les augments comme pour les objets prismatiques.
     Elle se cache après 2 lectures sans cartes (tu as choisi). En plein écran exclusif, Windows ne peut rien afficher
     par-dessus le jeu : mode « Sans bordure » obligatoire.
 - **Deux canaux vers le client** (`sondage.js`) : la connexion en direct (WebSocket, `surveillance.js`) s'établissait
@@ -635,7 +647,7 @@ lol-level-calculator/
 ├── selection.js       # Pick et ban automatiques (rôle, listes, champions disponibles, délais)
 ├── draft.js           # Conseiller de draft : picks verrouillés, score (matchups, synergies, confort), suivi
 ├── build.js           # Build : classement des objets, page de runes, set d'objets, logique automatique
-├── stats-build.js     # Stats de build d'un champion : mode (toujours la Faille), rôle, OP.GG, Lolalytics, set Rank 1 (testé)
+├── stats-build.js     # Stats de build d'un champion : mode (la Faille, sauf en Arena), rôle, OP.GG, Lolalytics, set Rank 1 (testé)
 ├── internet.js        # Règles communes des appels à Internet : User-Agent honnête, cache de 3 h, délai, erreurs
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
 ├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
@@ -644,7 +656,7 @@ lol-level-calculator/
 ├── pings.js           # Pings des sorts lus dans le chat : capture, OCR, reconnaissance « ChampionEnnemi Sort »
 ├── image.js           # Images PNG (lecture, écriture) et nettoyage de la zone du chat avant l'OCR
 ├── jeu.js             # Lecture de la partie en cours (API locale « Live Client Data ») : temps de jeu, joueurs
-├── augments.js        # Augments ARAM Mayhem et Arena : reconnaissance des cartes, étiquettes, surveillance pendant la partie
+├── augments.js        # Augments ARAM Mayhem et Arena, objets prismatiques : reconnaissance des cartes, étiquettes, surveillance
 ├── ocr.js             # Lecture de texte à l'écran : OCR de Windows (PowerShell) ou de macOS (screencapture + Vision)
 ├── arammayhem.js      # Notes des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »

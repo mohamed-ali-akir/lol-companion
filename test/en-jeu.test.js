@@ -89,7 +89,9 @@ function enJeu({ plateforme = "win32", partie = FAILLE, mediaAccess, reglages = 
     stockage: () => ({ dossierJeu: () => "/jeu-absent", reglagesBuild: () => reglages, positionSorts: () => ({ x: 0.4, y: 0.1 }) }),
     obtenirAliasChampions: async () => new Map([[103, "Ahri"], [222, "Jinx"]]),
     lecteurArammayhem: { augments: async () => ({ champion: [], global: [{ nom: "Hellbent", note: "S", rang: 3, apparition: 0.2 }] }) },
-    lecteurLolalytics: { augmentsArena: async ({ alias }) => ({ victoireChampion: 0.5, augments: new Map([[48, { victoire: 0.62, choix: 0.1, parties: 900, alias }]]) }) },
+    lecteurLolalytics: {
+      arena: async () => ({ victoireChampion: 0.5, augments: new Map([[48, { victoire: 0.62, choix: 0.1, parties: 900 }]]), prismatiques: new Map([[447108, { victoire: 0.7, choix: 0.2, parties: 900 }]]) }),
+    },
     championPartie: () => 103,
     noter: () => {},
     proteger: (nom, f) => {
@@ -103,6 +105,7 @@ function enJeu({ plateforme = "win32", partie = FAILLE, mediaAccess, reglages = 
     fabriques: {
       lirePartie: async () => partie,
       lireAugmentsClient: async () => [{ id: 48, nom: "Hellbent" }], // cherry-augments.json du client
+      lireObjets: async () => ({ noms: new Map([[447108, "Sculpteur de rune"], [3089, "Coiffe de Rabadon"]]) }), // items.json du client
       creerSuiviAugments: augments.fabrique,
       creerSuiviSorts: sorts.fabrique,
       creerLecteurEcran: () => ({ lire: async () => [], arreter: () => journal.push("ecran:arreter") }),
@@ -197,6 +200,10 @@ test("augments : stats et étiquettes de Lolalytics en Arena, d'arammayhem.com e
     await new Promise((ok) => setTimeout(ok, 20));
     const stats = await augments.options.statsAugments();
     assert.strictEqual(augments.options.calculerEtiquettes(cartes, stats, 1440)[0].texte, attendu);
+    // Objets prismatiques : reconnus et notés en Arena seulement.
+    const noms = await augments.options.nomsAugments();
+    assert.strictEqual(noms.has("sculpteurderune"), partie === ARENA);
+    if (partie === ARENA) assert.strictEqual(stats.get("sculpteurderune").victoire, 0.7);
   }
 });
 

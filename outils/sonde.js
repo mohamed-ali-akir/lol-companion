@@ -59,11 +59,14 @@ const VERIFICATIONS = [
     exiger(m.size > 20, `${m.size} matchups seulement`);
     return `${m.size} matchups`;
   }],
-  ["Lolalytics : augments Arena d'Ahri (stats sous les cartes en Arena)", async () => {
-    const r = await lolalytics.augmentsArena({ alias: "Ahri" });
+  ["Lolalytics : page Arena d'Ahri (augments, objets prismatiques, build)", async () => {
+    const r = await lolalytics.arena({ alias: "Ahri" });
     exiger(r.augments.size > 100, `${r.augments.size} augments seulement (format changé ?)`);
+    exiger(r.prismatiques.size > 10, `${r.prismatiques.size} objets prismatiques seulement`);
     exiger(Number.isFinite(r.victoireChampion), "taux de victoire moyen du champion absent");
-    return `${r.augments.size} augments, ${Math.round(r.victoireChampion * 100)} % de victoires en moyenne`;
+    const b = await lolalytics.analyserArena({ alias: "Ahri" });
+    exiger(b.depart.length > 0 && b.prismatique.length > 0 && b.emplacements.every((e) => e.length > 0), "build Arena incomplet");
+    return `${r.augments.size} augments, ${r.prismatiques.size} prismatiques, ${b.stats.parties} parties`;
   }],
   ["OP.GG : analyse Ahri Milieu (runes, sorts, objets de secours)", async () => {
     const a = await opgg.analyser({ alias: "Ahri", position: "mid", mode: "ranked" });

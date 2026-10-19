@@ -228,7 +228,7 @@ test("familles de builds : itemSets de la page -> un set par façon de jouer (ca
   assert.deepStrictEqual(L.analyseDepuisDonnees(d).familles, []);
 });
 
-// --- Augments Arena (format vérifié le 19/10/2026 sur la page d'Ahri) ---------------------------------
+// --- Arena : augments, objets prismatiques, build (format vérifié le 19/10/2026 sur la page d'Ahri) -------
 
 // Extrait des vraies données d'Ahri en Arena : [numéro de l'augment, % victoire, % sélection, parties] ; 0 = aucun.
 const AHRI_ARENA = {
@@ -237,35 +237,61 @@ const AHRI_ARENA = {
     augment0: [[0, 25.01, 36.02, 6341], [48, 66.92, 19.27, 3392], [133, 63.63, 18.43, 3244], [30, 65.8, 17.6, 3099]],
     augment1: [[65, 61.26, 8.47, 1492]],
   },
+  prismatic: [[447108, 61.17, 25.43, 4478], [447113, 65.9, 23.32, 4105]],
+  startItem: [[223020, 60.21, 51.51, 9069], [223158, 62.23, 24.78, 4363]],
+  item1: [[223020, 59.97, 55.46, 9764, 1]], // le même achat que le départ : ignoré
+  item2: [[223089, 61.07, 18.16, 3198, 7], [220004, 62.65, 17.05, 3001, 7]],
+  item3: [[223089, 59.57, 19.62, 3455, 11]],
+  item4: [[220004, 66.84, 17.06, 3004, 14]],
+  item5: [[220007, 78.07, 10.93, 1924, 18]],
+  item6: [[220007, 86.72, 9.67, 1702, 20]],
 };
 
 test("Arena : adresse de la page, augments lus par numéro (sans « aucun augment »), moyenne du champion", () => {
   assert.strictEqual(L.adresseArena("MonkeyKing"), "https://lolalytics.com/lol/wukong/arena/build/");
   assert.strictEqual(L.adresseArena(""), null);
-  const r = L.augmentsArena(pageQwik(AHRI_ARENA, { autres: [{ augment: false, spell: false }] }));
+  const r = L.donneesArena(pageQwik(AHRI_ARENA, { autres: [{ augment: false, spell: false }] }));
   assert.strictEqual(r.victoireChampion, 0.5889);
+  assert.strictEqual(r.parties, 17606);
   assert.deepStrictEqual([...r.augments.keys()], [48, 133, 30]);
   assert.deepStrictEqual(r.augments.get(48), { victoire: 0.6692, choix: 0.1927, parties: 3392 });
+  assert.deepStrictEqual(r.prismatiques.get(447113), { victoire: 0.659, choix: 0.2332, parties: 4105 });
+});
+
+test("Arena : build (départ = bottes, objet prismatique, objets 1 à 5 sans reprendre les bottes), noms du client", () => {
+  const noms = { 223020: "Chaussures de sorcier", 447108: "Sculpteur de rune", 223089: "Coiffe de Rabadon" };
+  const a = L.analyseArena(L.donneesArena(pageQwik(AHRI_ARENA)), (id) => noms[id] || `Objet ${id}`);
+  assert.deepStrictEqual(a.stats, { parties: 17606, tauxVictoire: 0.5889 });
+  assert.deepStrictEqual(a.depart[0].noms, ["Chaussures de sorcier"]);
+  assert.deepStrictEqual(a.prismatique.map((o) => o.ids[0]), [447108, 447113]);
+  assert.deepStrictEqual(a.emplacements.map((e) => e[0].ids[0]), [223089, 223089, 220004, 220007, 220007]);
+  assert.deepStrictEqual([a.bottes, a.familles], [[], []]);
+  assert.strictEqual(L.analyseArena(null), null);
+  assert.strictEqual(L.analyseArena(L.donneesArena(pageQwik({ header: {}, augment: { augment0: [[48, 60, 10, 100]] } }))), null, "page sans objets");
 });
 
 test("Arena : pages abîmées ou changées -> null (jamais d'erreur)", () => {
   for (const mauvaise of [undefined, "<html></html>", pageQwik({ header: {}, augment: {} }), pageQwik({ header: {}, augment: { augment0: [[0, 25, 36, 6341], ["x", 1, 1, 1], [5, null, 1, 10], [7, 50, 1, 0]] } })]) {
-    assert.strictEqual(L.augmentsArena(mauvaise), null);
+    assert.strictEqual(L.donneesArena(mauvaise), null);
   }
-  const sansEntete = L.augmentsArena(pageQwik({ header: "?", augment: { augment0: [[48, 60, 10, 100]] } }));
+  const sansEntete = L.donneesArena(pageQwik({ header: "?", augment: { augment0: [[48, 60, 10, 100]] } }));
   assert.strictEqual(sansEntete.victoireChampion, null);
+  assert.deepStrictEqual([sansEntete.prismatiques.size, sansEntete.objets.depart], [0, []], "sans objets : listes vides");
 });
 
 test("Arena : lecture de la page du champion, identification honnête, cache 3 h, erreurs claires", async () => {
   const site = fauxSite([{ status: 200, texte: pageQwik(AHRI_ARENA) }]);
   const lecteur = L.creerLecteurLolalytics({ appeler: site.appeler });
-  const r = await lecteur.augmentsArena({ alias: "Ahri" });
+  const r = await lecteur.arena({ alias: "Ahri" });
   assert.strictEqual(r.augments.size, 3);
-  await lecteur.augmentsArena({ alias: "Ahri" });
-  assert.strictEqual(site.appels.length, 1, "en cache : pas de nouvelle lecture");
+  const build = await lecteur.analyserArena({ alias: "Ahri", nomObjet: (id) => `n° ${id}` });
+  assert.deepStrictEqual(build.prismatique[0].noms, ["n° 447108"]);
+  assert.strictEqual(site.appels.length, 1, "augments et build : une seule lecture de la page (cache)");
   assert.strictEqual(site.appels[0].url, "https://lolalytics.com/lol/ahri/arena/build/");
   assert.strictEqual(site.appels[0].options.headers["User-Agent"], L.IDENTITE);
   const change = L.creerLecteurLolalytics({ appeler: fauxSite([{ status: 200, texte: "<html>nouveau</html>" }]).appeler });
-  await assert.rejects(change.augmentsArena({ alias: "Ahri" }), /Arena de Lolalytics a changé de format/);
-  await assert.rejects(lecteur.augmentsArena({ alias: null }), /inconnu/);
+  await assert.rejects(change.arena({ alias: "Ahri" }), /Arena de Lolalytics a changé de format/);
+  await assert.rejects(lecteur.arena({ alias: null }), /inconnu/);
+  const sansObjets = L.creerLecteurLolalytics({ appeler: fauxSite([{ status: 200, texte: pageQwik({ header: {}, augment: { augment0: [[48, 60, 10, 100]] } }) }]).appeler });
+  await assert.rejects(sansObjets.analyserArena({ alias: "Ahri" }), /Pas d'objets Arena/);
 });

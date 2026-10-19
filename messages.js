@@ -49,7 +49,7 @@ function lireDemandeBuild(demande) {
   const championId = Number(demande && demande.championId);
   if (!Number.isInteger(championId) || championId <= 0) return null;
   const role = typeof demande.role === "string" && demande.role ? demande.role : null;
-  const mode = demande.mode === "aram" ? "aram" : "ranked";
+  const mode = demande.mode === "aram" || demande.mode === "arena" ? demande.mode : "ranked";
   return { championId, role, mode };
 }
 

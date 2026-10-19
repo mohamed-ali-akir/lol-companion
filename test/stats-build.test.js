@@ -5,6 +5,7 @@ const { creerStatsBuild, TIERS_RANK1 } = require("../stats-build.js");
 
 const KAYLE = 10;
 const partieAram = { map: { id: 12, gameMode: "ARAM" }, gameData: { queue: { id: 450, gameMode: "ARAM", mapId: 12 } } };
+const partieArena = { map: { id: 30, gameMode: "CHERRY" }, gameData: { queue: { id: 1700, gameMode: "CHERRY", mapId: 30 } } };
 const partieFaille = { map: { id: 11, gameMode: "CLASSIC" }, gameData: { queue: { id: 420, gameMode: "CLASSIC", mapId: 11 } } };
 
 /** Faux client (lectures comptées) et faux lecteurs qui notent ce qu'on leur demande. */
@@ -27,6 +28,10 @@ function monter({ partie = partieFaille, recommandations = [{ position: "TOP" }]
     },
   };
   const lecteurLolalytics = {
+    analyserArena: async (demande) => {
+      appels.lolalytics.push({ ...demande, arena: true });
+      return { stats: { parties: 17606 }, prismatique: [], nom: demande.nomObjet(3115) };
+    },
     analyser: async (demande) => {
       appels.lolalytics.push(demande);
       const n = demande.tier ? parties[demande.tier] : 45000;
@@ -87,4 +92,18 @@ test("set Rank 1 : meilleurs joueurs (1trick), sinon Maître et plus ; erreur cl
 
   const rien = monter({ parties: {} });
   await assert.rejects(rien.s.analyserRank1({ championId: KAYLE, role: "top" }), /page introuvable/);
+});
+
+test("Arena : stats de l'Arena (pas de la Faille), sans rôle ; ni OP.GG ni set Rank 1", async () => {
+  const { s, appels } = monter({ partie: partieArena });
+  assert.deepStrictEqual(await s.contexteBuild({ championId: KAYLE, role: null }), { alias: "Kayle", role: null, mode: "arena", modeJeu: "arena" });
+  const a = await s.analyserLolalytics({ championId: KAYLE, role: null });
+  assert.deepStrictEqual([a.stats.parties, a.nom], [17606, "Dent de Nashor"]);
+  assert.strictEqual(appels.lolalytics[0].arena, true);
+  await assert.rejects(s.analyserOpgg({ championId: KAYLE, role: null }), /OP\.GG n'a pas de stats/);
+  await assert.rejects(s.analyserRank1({ championId: KAYLE, role: null }), /Rank 1 en Arena/);
+  assert.strictEqual(appels.opgg.length, 0);
+  // Consultation de l'onglet Build : mode Arena choisi, même sur la Faille.
+  const faille = monter({ partie: partieFaille }).s;
+  assert.strictEqual((await faille.contexteBuild({ championId: KAYLE, role: "top", mode: "arena" })).mode, "arena");
 });

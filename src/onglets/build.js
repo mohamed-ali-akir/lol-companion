@@ -154,7 +154,7 @@ async function consulterBuild(evenement) {
       return;
     }
     afficherEtat("etatConsulterBuild", reponse.avertissement || "", "info");
-    const role = reponse.mode === "aram" ? " · ARAM" : ` · ${LIBELLES_ROLES_BUILD[reponse.role] || reponse.role}`;
+    const role = reponse.mode === "aram" ? " · ARAM" : reponse.mode === "arena" ? " · Arena" : ` · ${LIBELLES_ROLES_BUILD[reponse.role] || reponse.role}`;
     dessinerBuild($("buildResultat"), { titre: `Build ${reponse.nom || "champion"}${role}`, build: reponse.build });
   } finally {
     $("boutonConsulterBuild").disabled = false;
@@ -166,7 +166,7 @@ function brancherBuild() {
   window.appli.surBuild(surEvenementBuild);
   for (const id of ["buildStats", "buildRunes", "buildRank1", "buildSortsAuto", "buildSorts"]) $(id).addEventListener("change", enregistrerBuild);
   $("formConsulterBuild").addEventListener("submit", consulterBuild);
-  $("buildMode").addEventListener("change", () => ($("buildRole").disabled = $("buildMode").value === "aram"));
+  $("buildMode").addEventListener("change", () => ($("buildRole").disabled = $("buildMode").value !== "ranked")); // pas de rôle en ARAM ni en Arena
   remplirChampionsBuild().then((ok) => {
     if (!ok) window.appli.surConnexion((connecte) => connecte && championsBuild.length === 0 && remplirChampionsBuild());
   });

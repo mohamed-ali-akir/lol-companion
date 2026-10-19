@@ -10,7 +10,7 @@
  *
  * Lolalytics n'a PAS d'accès prévu pour les applis : on lit la page publique du build, comme un navigateur.
  *   GET https://lolalytics.com/lol/<champion>/build/?lane=<voie>    (ARAM : /lol/<champion>/aram/build/)
- *   Augments Arena (19/10/2026) : /lol/<champion>/arena/build/ (taux de victoire de chaque augment avec ce champion).
+ *   Arena (19/10/2026) : /lol/<champion>/arena/build/ (augments, objets prismatiques et objets avec ce champion).
  * Vérifié le 02/10/2026 :
  *  - la page (≈ 600 Ko) contient ses données dans un bloc <script type="qwik/json"> : un tableau "objs" où les
  *    valeurs renvoient à d'autres cases par un numéro en base 36 ("4c6" -> objs[5622]) ;
@@ -195,7 +195,7 @@ function analyseDepuisDonnees(d, nomObjet = (id) => `Objet ${id}`, { categoriesO
   };
 }
 
-// --- Augments Arena (vérifié le 19/10/2026) ----------------------------------------------------------
+// --- Arena : augments, objets prismatiques et build (vérifié le 19/10/2026) ------------------------------
 
 /** Page Arena d'un champion : https://lolalytics.com/lol/<champion>/arena/build/ (tous les rangs, réglage du site). */
 function adresseArena(alias) {
@@ -203,34 +203,70 @@ function adresseArena(alias) {
   return nom ? `${URL_LOLALYTICS}/lol/${nom}/arena/build/` : null;
 }
 
-/**
- * Page Arena d'un champion -> { victoireChampion, augments: Map id -> { victoire, choix, parties } }, ou null.
- * Format vérifié le 19/10/2026 (page d'Ahri) : un objet contient header ({ wr, n, place1..place8 }) et
- * augment ({ augment0: tous les emplacements, augment1..augment4: 1er à 4e augment pris }). Chaque option vaut
- * [numéro de l'augment, % de victoire, % de sélection, parties] ; le numéro 0 = pas d'augment (ignoré).
- * « Victoire » en Arena chez Lolalytics = finir dans la première moitié (wr = place1 + place2 + place3 à 6 équipes).
- * Les numéros sont ceux du client (cherry-augments.json : les 225 de la page vérifiés un par un) : on retrouve
- * donc les cartes dans la langue du jeu, pas seulement en anglais.
- */
 // 19.27 % -> 0.1927 (toFixed : sinon 0.19269999999999998)
 const enFraction = (pourcentage) => Number((pourcentage / 100).toFixed(6));
 
-function augmentsArena(html) {
+/** Lignes [numéro, % victoire, % sélection, parties] -> Map numéro -> { victoire, choix, parties } (0 = « aucun », ignoré). */
+function tableChoix(lignes) {
+  const table = new Map();
+  for (const ligne of Array.isArray(lignes) ? lignes : []) {
+    if (!Array.isArray(ligne)) continue;
+    const [id, victoire, choix, parties] = ligne;
+    if (!Number.isInteger(id) || id <= 0 || !Number.isFinite(victoire) || !(nombre(parties) > 0)) continue;
+    if (!table.has(id)) table.set(id, { victoire: enFraction(victoire), choix: enFraction(nombre(choix)), parties });
+  }
+  return table;
+}
+
+/**
+ * Page Arena d'un champion -> { victoireChampion, parties, augments, prismatiques, objets }, ou null.
+ * Format vérifié le 19/10/2026 (page d'Ahri) : un objet contient
+ *  - header ({ wr, n, place1..place8 }) : taux de victoire moyen et nombre de parties du champion ;
+ *  - augment ({ augment0: tous les emplacements, augment1..augment4: 1er à 4e augment pris }) ;
+ *  - prismatic : les objets prismatiques pris ;
+ *  chaque option valant [numéro, % de victoire, % de sélection, parties] (le numéro 0 = aucun) ;
+ *  - startItem (départ : des bottes en Arena), item1..item6 : [numéro de l'objet, % victoire, % sélection, parties,
+ *    minute], comme le build de la Faille. item1 est le même achat que startItem (les bottes) : on ne le reprend pas.
+ * « Victoire » en Arena chez Lolalytics = finir dans la première moitié (wr = place1 + place2 + place3 à 6 équipes).
+ * Les numéros sont ceux du client : cherry-augments.json pour les augments (les 227 d'Ahri vérifiés un par un) et
+ * items.json pour les objets (versions Arena 22xxxx, prismatiques 44xxxx) ; les cartes sont donc retrouvées dans
+ * la langue du jeu.
+ */
+function donneesArena(html) {
   const etat = etatQwik(html);
   if (!etat) return null;
   const page = etat.objs.find((o) => o && typeof o === "object" && !Array.isArray(o) && "augment" in o && "header" in o);
   if (!page) return null;
-  const tous = (etat.resoudre(page.augment) || {}).augment0;
-  if (!Array.isArray(tous)) return null;
-  const augments = new Map();
-  for (const ligne of tous) {
-    if (!Array.isArray(ligne)) continue;
-    const [id, victoire, choix, parties] = ligne;
-    if (!Number.isInteger(id) || id <= 0 || !Number.isFinite(victoire) || !(nombre(parties) > 0)) continue;
-    if (!augments.has(id)) augments.set(id, { victoire: enFraction(victoire), choix: enFraction(nombre(choix)), parties });
-  }
+  const augments = tableChoix((etat.resoudre(page.augment) || {}).augment0);
+  if (augments.size === 0) return null;
   const entete = etat.resoudre(page.header) || {};
-  return augments.size > 0 ? { victoireChampion: Number.isFinite(entete.wr) ? enFraction(entete.wr) : null, augments } : null;
+  const liste = (cle) => (Array.isArray(etat.resoudre(page[cle])) ? etat.resoudre(page[cle]) : []);
+  return {
+    victoireChampion: Number.isFinite(entete.wr) ? enFraction(entete.wr) : null,
+    parties: nombre(entete.n),
+    augments,
+    prismatiques: tableChoix(liste("prismatic")),
+    objets: { depart: liste("startItem"), prismatique: liste("prismatic"), emplacements: ["item2", "item3", "item4", "item5", "item6"].map(liste) },
+  };
+}
+
+/**
+ * Build Arena (même forme que analyseDepuisDonnees, pour build.js) : Départ (bottes), Objet prismatique, Objets 1 à 5.
+ * Pas de bottes à part (elles sont le départ) ni de familles de builds. null si la page n'a pas d'objets.
+ */
+function analyseArena(arena, nomObjet = (id) => `Objet ${id}`) {
+  if (!arena || !arena.objets) return null;
+  const nommer = (options) => options.map((o) => ({ ...o, noms: o.ids.map(nomObjet), style: null }));
+  const emplacements = arena.objets.emplacements.map((l) => nommer(optionsEmplacement(l)));
+  if (emplacements[0].length === 0) return null;
+  return {
+    stats: { parties: arena.parties, tauxVictoire: arena.victoireChampion || 0 },
+    depart: nommer(optionsEmplacement(arena.objets.depart)),
+    prismatique: nommer(optionsEmplacement(arena.objets.prismatique)),
+    bottes: [],
+    emplacements,
+    familles: [],
+  };
 }
 
 // --- Appel -------------------------------------------------------------------------------------
@@ -319,18 +355,28 @@ function creerLecteurLolalytics({ appeler = (...a) => fetch(...a), maintenant = 
     }).then((equipe) => tableDuels(equipe[voie]));
   }
 
-  /** Augments Arena de TON champion (augments.js, en jeu) -> { victoireChampion, augments: Map id -> stats }. */
-  function augmentsArenaChampion({ alias } = {}) {
+  /**
+   * Page Arena de TON champion (donneesArena) : augments et objets prismatiques (en jeu, augments.js) et build.
+   * Une seule lecture de la page toutes les 3 h pour les deux.
+   */
+  function arena({ alias } = {}) {
     const adresse = adresseArena(alias);
     if (!adresse) return Promise.reject(new ErreurLolalytics("Champion inconnu."));
     return avecCache(adresse, "text/html", (html) => {
-      const stats = augmentsArena(html);
-      if (!stats) throw new ErreurLolalytics("La page Arena de Lolalytics a changé de format.");
-      return stats;
+      const donnees = donneesArena(html);
+      if (!donnees) throw new ErreurLolalytics("La page Arena de Lolalytics a changé de format.");
+      return donnees;
     });
   }
 
-  return { analyser, tierlist, matchups, synergies, augmentsArena: augmentsArenaChampion };
+  /** Build Arena de TON champion (analyseArena), avec les noms des objets du client. */
+  async function analyserArena({ alias, nomObjet }) {
+    const analyse = analyseArena(await arena({ alias }), nomObjet);
+    if (!analyse) throw new ErreurLolalytics("Pas d'objets Arena sur Lolalytics pour ce champion.");
+    return analyse;
+  }
+
+  return { analyser, tierlist, matchups, synergies, arena, analyserArena };
 }
 
 module.exports = {
@@ -345,6 +391,7 @@ module.exports = {
   optionsEmplacement,
   analyseDepuisDonnees,
   adresseArena,
-  augmentsArena,
+  donneesArena,
+  analyseArena,
   creerLecteurLolalytics,
 };

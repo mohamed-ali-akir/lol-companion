@@ -4,6 +4,7 @@
  * Tourne dans le processus principal (Node).
  *
  * Quand ton champion est verrouillé (ou attribué en ARAM), l'appli :
+ * (En Arena, depuis le 19/10/2026 : objets de la page Arena de Lolalytics, avec l'objet prismatique ; pas d'OP.GG.)
  *  1. lit en parallèle les statistiques de Lolalytics (lolalytics.js : objets emplacement par emplacement)
  *     et d'OP.GG (opgg.js : runes, sorts, et objets en secours) pour ce champion, ton rôle et le mode ;
  *  2. compose le build : avec Lolalytics, Départ, Objet 1, Bottes, Objet 2 à 5, chacun avec 3 choix
@@ -193,7 +194,8 @@ function troisChoix(options, exclus = new Set()) {
 
 /**
  * Build emplacement par emplacement (données de Lolalytics) : Départ, Objet 1, Bottes, Objet 2 à 5,
- * chacun avec son choix recommandé et 2 autres choix. Un objet recommandé à un emplacement n'est plus proposé ensuite.
+ * chacun avec son choix recommandé et 2 autres choix. En Arena (analyse.prismatique, lolalytics.js) : Départ (les
+ * bottes), Objet prismatique, Objets 1 à 5. Un objet recommandé à un emplacement n'est plus proposé ensuite.
  */
 function composerParEmplacement(analyse) {
   if (!analyse || !Array.isArray(analyse.emplacements)) return [];
@@ -210,6 +212,7 @@ function composerParEmplacement(analyse) {
     etapes.push({ cle, titre, option, autres, fiable: option.parties >= PARTIES_MIN, note: null, candidats });
   };
   ajouter("depart", "Départ", troisChoix(analyse.depart), analyse.depart, { retenir: false });
+  if (Array.isArray(analyse.prismatique)) ajouter("prismatique", "Objet prismatique", troisChoix(analyse.prismatique, pris), analyse.prismatique);
   analyse.emplacements.forEach((options, i) => {
     ajouter(`objet${i + 1}`, `Objet ${i + 1}`, troisChoix(options, pris), options);
     if (i === 0) ajouter("bottes", "Bottes", troisChoix(analyse.bottes, pris), analyse.bottes); // achetées en général après le 1er objet

@@ -12,6 +12,7 @@
  */
 const path = require("path");
 const augments = require("./augments.js");
+const { lireObjets } = require("./build.js"); // objets du client (noms des objets prismatiques, en Arena)
 const { creerLecteurEcran } = require("./ocr.js");
 const jeu = require("./jeu.js");
 const { creerSuiviSorts } = require("./sorts.js");
@@ -27,17 +28,19 @@ const lectureEcranPossible = (plateforme) => plateforme === "win32" || plateform
  * stockage() : réglages (build, place du panneau) ; obtenirAliasChampions() : Map id -> alias (stats-build.js) ;
  * lecteurArammayhem : arammayhem.js ; lecteurLolalytics : lolalytics.js (augments Arena) ; championPartie() : ton champion retenu pendant la sélection, ou null ;
  * noter(...), proteger(nom, f) : journal et cloisons de main.js.
- * fabriques : (tests) remplace lirePartie, lireAugmentsClient, creerSuiviAugments, creerSuiviSorts, creerLecteurEcran.
+ * fabriques : (tests) remplace lirePartie, lireAugmentsClient, lireObjets, creerSuiviAugments, creerSuiviSorts, creerLecteurEcran.
  */
 function creerEnJeu({ electron, plateforme = process.platform, dossierAppli, stockage, obtenirAliasChampions, lecteurArammayhem, lecteurLolalytics, championPartie, noter, proteger, fabriques = {} }) {
   const { BrowserWindow, screen, systemPreferences } = electron;
-  const f = { lirePartie, lireAugmentsClient: augments.lireAugmentsClient, creerSuiviAugments: augments.creerSuiviAugments, creerSuiviSorts, creerLecteurEcran, ...fabriques };
+  const f = { lirePartie, lireAugmentsClient: augments.lireAugmentsClient, lireObjets, creerSuiviAugments: augments.creerSuiviAugments, creerSuiviSorts, creerLecteurEcran, ...fabriques };
   let fenetre = null; // fenêtre transparente par-dessus le jeu
   const contenu = { augments: null, sorts: null }; // ce qu'elle affiche
   let lecteurEcran = null; // lecture d'écran (ocr.js), lancée seulement quand il faut lire l'écran
   let langueJeu = null; // "en_US"...
   let augmentsClient = null; // tous les augments du client : [{ id, nom }] (langue du jeu)
   let indexAugments = null; // leurs noms, pour reconnaître les cartes
+  let prismatiques = null; // objets prismatiques du client : [{ id, nom }] (Arena)
+  let indexArena = null; // noms des augments ET des objets prismatiques (cartes de l'Arena)
   let modeAugments = null; // "mayhem" ou "arena" : la partie en cours (choisit la source des stats)
   let suiviAugments = null;
   let suiviSorts = null;
@@ -166,7 +169,20 @@ function creerEnJeu({ electron, plateforme = process.platform, dossierAppli, sto
     return augmentsClient;
   }
 
+  async function obtenirPrismatiques() {
+    if (!prismatiques || prismatiques.length === 0) prismatiques = augments.objetsPrismatiques((await f.lireObjets(stockage().dossierJeu())).noms);
+    return prismatiques;
+  }
+
+  /** Noms à reconnaître sur les cartes : augments ; en Arena, aussi les objets prismatiques. */
   async function obtenirIndexAugments() {
+    if (modeAugments === "arena") {
+      if (!indexArena || indexArena.size === 0) {
+        const [client, objets] = await Promise.all([obtenirAugmentsClient(), obtenirPrismatiques().catch(() => [])]);
+        indexArena = augments.indexNoms([...client, ...objets].map((a) => a.nom));
+      }
+      return indexArena;
+    }
     if (!indexAugments || indexAugments.size === 0) indexAugments = augments.indexNoms((await obtenirAugmentsClient()).map((a) => a.nom));
     return indexAugments;
   }
@@ -193,14 +209,15 @@ function creerEnJeu({ electron, plateforme = process.platform, dossierAppli, sto
       lireEcran: (zone) => obtenirLecteurEcran().lire(zone),
       nomsAugments: obtenirIndexAugments,
       // ARAM Mayhem : notes d'arammayhem.com (arammayhem.js), avec ton champion, sinon tous champions.
-      // Arena (19/10/2026) : taux de victoire de Lolalytics (lolalytics.js) avec ton champion.
+      // Arena (19/10/2026) : taux de victoire de Lolalytics (lolalytics.js) avec ton champion, pour les augments
+      // et pour les objets prismatiques (même page).
       // Champion retenu pendant la sélection ; appli lancée en pleine partie (vu le 17/10/2026 : « Stats
       // indisponibles ») : on le lit dans la partie en cours (jeu.js).
       statsAugments: async () => {
         const alias = await aliasPartie();
         if (modeAugments === "arena") {
-          const [client, arena] = await Promise.all([obtenirAugmentsClient(), lecteurLolalytics.augmentsArena({ alias })]);
-          return augments.indexStatsArena(client, arena);
+          const [client, objets, arena] = await Promise.all([obtenirAugmentsClient(), obtenirPrismatiques().catch(() => []), lecteurLolalytics.arena({ alias })]);
+          return augments.indexStatsArena(client, arena, objets);
         }
         return augments.indexStats(await lecteurArammayhem.augments({ alias }));
       },

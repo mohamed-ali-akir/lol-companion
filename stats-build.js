@@ -13,8 +13,11 @@
  *  - analyserOpgg : runes, sorts, objets de secours (OP.GG) ; en ARAM ou en URF, les sorts de CE mode ;
  *  - analyserLolalytics : objets emplacement par emplacement (Lolalytics) ;
  *  - analyserRank1 : build des meilleurs joueurs (Lolalytics, filtre « 1trick », sinon Maître et plus).
+ * ARENA (19/10/2026) : les objets de la Faille n'existent pas en Arena (versions 22xxxx, objets prismatiques 44xxxx) :
+ * en Arena, le build vient de la page Arena de Lolalytics. OP.GG n'a pas l'Arena : ni runes ni sorts de sa part.
  */
 const { modeOpgg, positionOpgg, ErreurOpgg } = require("./opgg.js");
+const { estArena } = require("./augments.js");
 const { ErreurLolalytics } = require("./lolalytics.js");
 
 // Positions des pages recommandées par Riot ("MIDDLE"...) -> rôles du client ("middle"...).
@@ -89,7 +92,14 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
    */
   async function contexteBuild({ championId, role, mode }) {
     const dossier = dossierJeu();
-    const modeJeu = mode || modeOpgg(await client.lirePartie(dossier).catch(() => null)) || "ranked";
+    const partie = mode ? null : await client.lirePartie(dossier).catch(() => null);
+    if (mode === "arena" || (!mode && estArena(partie))) {
+      // Arena : pas de rôle, et ses propres stats (jamais celles de la Faille).
+      const alias = (await obtenirAliasChampions()).get(championId);
+      if (!alias) throw new ErreurOpgg("Champion inconnu : lance le client League.");
+      return { alias, role: null, mode: "arena", modeJeu: "arena" };
+    }
+    const modeJeu = mode || modeOpgg(partie) || "ranked";
     const modeUtilise = mode || (modeJeu === "flex" ? "flex" : "ranked");
     let roleUtilise = role;
     if (!roleUtilise && modeUtilise !== "aram") {
@@ -107,6 +117,7 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
    */
   async function analyserOpgg(demande) {
     const { alias, role, mode, modeJeu } = await contexteBuild(demande);
+    if (mode === "arena") throw new ErreurOpgg("Arena : OP.GG n'a pas de stats pour ce mode (objets de Lolalytics seulement).");
     const analyse = await lecteurOpgg.analyser({ alias, position: positionOpgg(role, mode), mode });
     if (modeJeu === "aram" || modeJeu === "urf") {
       const duMode = await lecteurOpgg.analyser({ alias, position: positionOpgg(null, modeJeu), mode: modeJeu }).catch(() => null);
@@ -127,6 +138,7 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
   /** Objets emplacement par emplacement (Lolalytics), avec les noms des objets du client. */
   async function analyserLolalytics(demande) {
     const { alias, role, mode } = await contexteBuild(demande);
+    if (mode === "arena") return lecteurLolalytics.analyserArena({ alias, ...(await objetsPourLolalytics()) });
     return lecteurLolalytics.analyser({ alias, role, mode: mode === "flex" ? "ranked" : mode, ...(await objetsPourLolalytics()) });
   }
 
@@ -136,7 +148,8 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
    * 50 parties au moins sur lui) ; si trop peu de parties, Maître et plus. -> { emplacements, libelle, parties }.
    */
   async function analyserRank1(demande) {
-    const { alias, role } = await contexteBuild(demande);
+    const { alias, role, mode } = await contexteBuild(demande);
+    if (mode === "arena") throw new ErreurLolalytics("Pas de set Rank 1 en Arena.");
     const objets = await objetsPourLolalytics();
     let derniere = null;
     for (const { tier, libelle } of TIERS_RANK1) {

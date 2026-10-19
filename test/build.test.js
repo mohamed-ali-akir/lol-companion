@@ -666,3 +666,18 @@ test("fusion : l'ancien set Rank 1 (sans le préfixe « LoL Companion ») est re
   const nouveaux = [{ title: "LoL Companion - Ahri (Milieu)", uid: "1c0a9a10-0000-4000-8000-000000001033" }, { title: "Ahri Rank 1", uid: "1c0a9a10-0000-4000-9000-000000000103" }];
   assert.deepStrictEqual(B.fusionnerSets([ancienRank1, monSet], nouveaux).map((s) => s.title), ["Ahri Rank 1 (le mien)", "Ahri Rank 1", "LoL Companion - Ahri (Milieu)"]);
 });
+
+test("Arena : étape « Objet prismatique » juste après le départ, avec ses 3 choix", () => {
+  const option = (id, parties, victoires) => ({ ids: [id], parties, victoires, selection: 0.3, minute: null, noms: [`Objet ${id}`] });
+  const arena = {
+    depart: [option(223020, 9000, 5400)],
+    prismatique: [option(447108, 4478, 2739), option(447113, 4105, 2705), option(444636, 3476, 2294), option(446656, 3274, 2084)],
+    bottes: [],
+    emplacements: [[option(223089, 3198, 1953)], [option(220004, 3001, 1880)], [], [], []],
+  };
+  const etapes = B.composerParEmplacement(arena);
+  assert.deepStrictEqual(etapes.map((e) => e.titre), ["Départ", "Objet prismatique", "Objet 1", "Objet 2"]);
+  assert.strictEqual(etapes[1].option.ids[0], 447108, "le plus pris d'abord");
+  assert.strictEqual(etapes[1].autres.length, 2);
+  assert.ok(!B.composerParEmplacement(LOLA).some((e) => e.cle === "prismatique"), "pas d'étape prismatique hors Arena");
+});

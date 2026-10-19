@@ -21,6 +21,9 @@
  * cartes), même lecture d'écran, mais les stats viennent de Lolalytics (lolalytics.js, page Arena de TON champion) :
  * le vrai TAUX DE VICTOIRE de chaque augment avec ce champion. Les cartes sont reliées aux stats par le NUMÉRO de
  * l'augment (le même chez Lolalytics et dans le client), donc ça marche aussi avec le jeu en français.
+ * OBJETS PRISMATIQUES (19/10/2026) : en Arena, l'objet « Objet prismatique » de la boutique ouvre un choix entre
+ * plusieurs objets prismatiques, sur les mêmes cartes que les augments. On reconnaît donc aussi leurs noms
+ * (objets 44xxxx du client) et on affiche leur taux de victoire avec ton champion (Lolalytics, même page).
  */
 const { lireLockfile, lireJsonOuNull } = require("./lcu.js");
 const { simplifierNom } = require("./src/calculs.js");
@@ -150,21 +153,39 @@ const PARTIES_MIN_ARENA = 100; // en dessous, le taux de victoire d'un augment e
 const ECART_MIN_ARENA = 0.01; // 1 point d'écart au moins entre les 2 meilleures cartes, sinon pas de mise en avant
 
 /**
+ * Objets du client (Map numéro -> nom, langue du client) -> objets prismatiques de l'Arena [{ id, nom }].
+ * Vérifié le 19/10/2026 (items.json) : les 49 objets numérotés 440000 à 449999 sont les prismatiques
+ * (443056 Couronne du Roi-démon, 447108 Sculpteur de rune...).
+ */
+function objetsPrismatiques(noms) {
+  const liste = [];
+  for (const [id, nom] of noms instanceof Map ? noms : []) {
+    if (Number.isInteger(id) && id >= 440000 && id < 450000 && typeof nom === "string" && nom) liste.push({ id, nom });
+  }
+  return liste;
+}
+
+/**
  * Stats Arena de Lolalytics (numéro -> stats) -> Map nom simplifié (langue du jeu) -> { victoire, choix, parties,
  * ecart, source }. augmentsClient : [{ id, nom }] (cherry-augments.json). Un même nom peut exister deux fois dans le
  * client (version Arena et version Mayhem d'un augment) : on garde celui qui a des stats.
  * ecart : différence avec le taux de victoire moyen du champion (+0,03 = 3 points de mieux), ou null.
+ * prismatiquesClient : [{ id, nom }] (objetsPrismatiques) : leurs stats viennent de arena.prismatiques.
  */
-function indexStatsArena(augmentsClient, arena) {
+function indexStatsArena(augmentsClient, arena, prismatiquesClient = []) {
   const index = new Map();
-  const stats = arena && arena.augments instanceof Map ? arena.augments : new Map();
   const moyenne = arena && Number.isFinite(arena.victoireChampion) ? arena.victoireChampion : null;
-  for (const a of Array.isArray(augmentsClient) ? augmentsClient : []) {
-    const s = a && stats.get(a.id);
-    const cle = a && simplifierNom(a.nom);
-    if (!s || !cle || index.has(cle)) continue;
-    index.set(cle, { ...s, ecart: moyenne === null ? null : s.victoire - moyenne, source: "champion" });
-  }
+  const ajouter = (liste, stats) => {
+    if (!(stats instanceof Map)) return;
+    for (const a of Array.isArray(liste) ? liste : []) {
+      const s = a && stats.get(a.id);
+      const cle = a && simplifierNom(a.nom);
+      if (!s || !cle || index.has(cle)) continue;
+      index.set(cle, { ...s, ecart: moyenne === null ? null : s.victoire - moyenne, source: "champion" });
+    }
+  };
+  ajouter(augmentsClient, arena && arena.augments);
+  ajouter(prismatiquesClient, arena && arena.prismatiques);
   return index;
 }
 
@@ -363,6 +384,7 @@ module.exports = {
   trouverCartes,
   indexStats,
   etiquettes,
+  objetsPrismatiques,
   indexStatsArena,
   etiquettesArena,
   creerSuiviAugments,
