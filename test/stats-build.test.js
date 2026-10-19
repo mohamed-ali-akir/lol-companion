@@ -107,3 +107,29 @@ test("Arena : stats de l'Arena (pas de la Faille), sans rôle ; ni OP.GG ni set 
   const faille = monter({ partie: partieFaille }).s;
   assert.strictEqual((await faille.contexteBuild({ championId: KAYLE, role: "top", mode: "arena" })).mode, "arena");
 });
+
+test("rôle principal : Riot répond « NONE » (19/10/2026) -> voie habituelle de Lolalytics ; Lolalytics muet -> Milieu", async () => {
+  const demandes = [];
+  const avecVoie = creerStatsBuild({
+    dossierJeu: () => "C:\\Riot Games\\League of Legends",
+    lecteurOpgg: { analyser: async () => ({}) },
+    lecteurLolalytics: { roleHabituel: async (d) => (demandes.push(d), "jungle") },
+    client: {
+      lireAliasChampions: async () => new Map([[KAYLE, "Kayle"]]),
+      lirePartie: async () => partieAram,
+      lireRecommandations: async () => [{ position: "NONE" }],
+    },
+  });
+  assert.deepStrictEqual(await avecVoie.contexteBuild({ championId: KAYLE, role: null }), { alias: "Kayle", role: "jungle", mode: "ranked", modeJeu: "aram" });
+  assert.deepStrictEqual(demandes, [{ alias: "Kayle" }]);
+  // Rôle déjà connu (Faille) : Lolalytics n'est pas interrogé pour ça
+  assert.strictEqual((await avecVoie.contexteBuild({ championId: KAYLE, role: "top" })).role, "top");
+  assert.strictEqual(demandes.length, 1);
+  const muet = creerStatsBuild({
+    dossierJeu: () => "C:\\Riot Games\\League of Legends",
+    lecteurOpgg: { analyser: async () => ({}) },
+    lecteurLolalytics: { roleHabituel: async () => { throw new Error("hors ligne"); } },
+    client: { lireAliasChampions: async () => new Map([[KAYLE, "Kayle"]]), lirePartie: async () => partieAram, lireRecommandations: async () => [] },
+  });
+  assert.strictEqual((await muet.contexteBuild({ championId: KAYLE, role: null })).role, "middle");
+});

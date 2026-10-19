@@ -249,7 +249,28 @@ function uidSet(championId, role, indice = 0) {
  * famille, indice : nom et numéro de la famille de build (plusieurs sets pour un champion), sinon null et 0.
  * recommande : ajoute « · Recommandé » à la fin du titre (le set principal, sélectionné d'office dans la boutique).
  */
-function setObjets({ etapes, championId, nomChampion, role, carte = 11, troisParBloc = false, famille = null, indice = 0, recommande = false }) {
+// Objets de départ qui n'existent que sur la Faille (ils demandent Châtiment ou un rôle de support) : bébés de la
+// jungle (Pyrochiot, Ventrenard, Mousseboule) et Atlas du monde. La boutique de l'ARAM ne les vend pas.
+const DEPARTS_FAILLE = new Set([1101, 1102, 1103, 3865]);
+const CARTE_ARAM = 12; // Abîme hurlant
+
+/**
+ * Étapes adaptées à la carte. En ARAM (19/10/2026), les stats viennent de la Faille (voie habituelle du champion) :
+ * le départ d'un jungler serait un bébé de la jungle, impossible à acheter. On prend le premier départ sans objet de la
+ * Faille (option, puis les autres choix) ; s'il n'y en a pas, l'étape Départ disparaît (en ARAM, on commence avec
+ * 1 400 pièces d'or : le premier objet du build est alors le bon achat).
+ */
+function etapesPourCarte(etapes, carte) {
+  if (carte !== CARTE_ARAM) return etapes;
+  return etapes.flatMap((e) => {
+    if (e.cle !== "depart") return [e];
+    const possibles = [e.option, ...e.autres].filter((o) => o && !o.ids.some((id) => DEPARTS_FAILLE.has(id)));
+    return possibles.length > 0 ? [{ ...e, option: possibles[0], autres: possibles.slice(1) }] : [];
+  });
+}
+
+function setObjets({ etapes: etapesFaille, championId, nomChampion, role, carte = 11, troisParBloc = false, famille = null, indice = 0, recommande = false }) {
+  const etapes = etapesPourCarte(etapesFaille, carte);
   const blocs = etapes.map(({ cle, titre, option, autres }) => {
     const compte = new Map();
     for (const id of option.ids) compte.set(id, (compte.get(id) || 0) + 1); // ex. 2 potions
@@ -381,8 +402,15 @@ function setRank1Classique({ etapes, championId, nomChampion, role, carte = 11 }
  */
 function setsObjets({ etapes, familles = [], ...reste }) {
   // Le meilleur set (le build général, ou la famille la plus jouée) porte « · Recommandé » à la fin (17/10/2026).
-  if (!reste.troisParBloc || !Array.isArray(familles) || familles.length < 2) return [setObjets({ etapes, ...reste, recommande: true })];
-  return familles.map((f, indice) => setObjets({ etapes: etapesFamille(etapes, f), ...reste, famille: f.nom, indice, recommande: indice === 0 }));
+  const unSeul = () => [setObjets({ etapes, ...reste, recommande: true })];
+  if (!reste.troisParBloc || !Array.isArray(familles) || familles.length < 2) return unSeul();
+  const parFamille = familles.map((f) => etapesFamille(etapes, f));
+  // Une famille qui perd des objets n'est pas un vrai build à part (19/10/2026, Viego : « À l'impact » gardait Kraken
+  // puis perdait les objets 2 et 3, tous rangés dans « Létalité / Critique », alors que le vrai build mélange les deux) :
+  // dans ce cas, un seul set, celui du build général.
+  const nbObjets = (liste) => liste.filter((e) => /^objet\d$/.test(e.cle)).length;
+  if (parFamille.some((liste) => nbObjets(liste) < nbObjets(etapes))) return unSeul();
+  return familles.map((f, indice) => setObjets({ etapes: parFamille[indice], ...reste, famille: f.nom, indice, recommande: indice === 0 }));
 }
 
 /**
@@ -460,10 +488,18 @@ function creerBuildAuto({
 }) {
   let deja = null;
   let enCours = false;
+  // Session reçue PENDANT un build (19/10/2026) : avant, elle était ignorée, et un champion changé à ce moment-là
+  // (échange ou relance en ARAM, set de Viego jamais créé) restait sans build. On la traite juste après.
+  let enAttente = null;
 
   async function surSession(session) {
     if (!session) {
       deja = null;
+      enAttente = null;
+      return;
+    }
+    if (enCours) {
+      enAttente = session; // seule la dernière compte
       return;
     }
     const champion = monChampion(session);
@@ -471,7 +507,7 @@ function creerBuildAuto({
     const r = reglages();
     if (!r.stats && !r.runes) return; // rien à faire (le set d'objets a besoin des stats)
     const cle = `${session.gameId}:${champion.championId}`;
-    if (cle === deja || enCours) return;
+    if (cle === deja) return;
     deja = cle;
     enCours = true;
     // Tes sorts actuels : pour garder Flash sur la même touche.
@@ -481,6 +517,11 @@ function creerBuildAuto({
       await traiter({ ...champion, sortsActuels }, r);
     } finally {
       enCours = false;
+    }
+    if (enAttente) {
+      const suivante = enAttente;
+      enAttente = null;
+      await surSession(suivante); // même champion : rien à refaire (cle === deja)
     }
   }
 
@@ -666,6 +707,7 @@ module.exports = {
   assemblerBuild,
   pageDepuisOpgg,
   setObjets,
+  etapesPourCarte,
   etapesFamille,
   setsObjets,
   fusionnerSets,

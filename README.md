@@ -441,8 +441,15 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   sont effacées aussitôt ; seuls les pings reconnus (champion + sort, jamais de pseudo) vont dans le journal.
 - **Build** (`build.js`, `lolalytics.js`, `opgg.js`, `runes.js`) : l'appli attend que ton pick soit verrouillé
   (`completed`) ; en ARAM, où il n'y a pas d'action « pick », le champion attribué suffit, et une relance de champion
-  refait tout. Une seule fois par champion et par sélection. Sans rôle attribué, elle prend le rôle principal du
-  champion d'après les runes recommandées par Riot. Lolalytics et OP.GG sont lus en parallèle (quelques secondes).
+  refait tout. Une seule fois par champion et par sélection ; un champion changé **pendant** le calcul (échange en
+  ARAM) est traité juste après (avant le 19/10/2026, il restait sans set : Viego). Sans rôle attribué, elle prend le
+  rôle principal du champion : celui des runes recommandées par Riot, sinon la **voie habituelle donnée par
+  Lolalytics** (en-tête de la page du champion, `defaultLane`). Depuis octobre 2026, Riot répond « NONE » pour tous
+  les champions : l'appli prenait alors le Milieu pour tout le monde, et Kha'Zix en ARAM avait le build de Kha'Zix
+  Milieu (318 parties, presque au hasard) au lieu de Jungle (166 000 parties). En ARAM, le départ ne contient jamais
+  un bébé de la jungle ni l'Atlas du monde (introuvables dans la boutique) : le départ suivant est pris, ou pas de
+  départ. Le résultat de chaque build (runes, sets, sorts, erreurs) est noté dans `journal.txt`.
+  Lolalytics et OP.GG sont lus en parallèle (quelques secondes).
   - **3 choix par emplacement (Lolalytics)** : le choix **recommandé** est l'option **fiable** (au moins 10 % des
     achats de cet emplacement **et** 200 parties) la **plus achetée**, comme le build affiché par Lolalytics : il suit
     le chemin de la majorité des joueurs, donc reste cohérent d'un emplacement à l'autre. Les 2 autres choix (pour
@@ -463,6 +470,8 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
     Statikk). Une famille doit peser 10 % des builds et 300 parties (3 au plus). Bottes retirées, il reste souvent
     2 objets : l'objet 3 (et les suivants) du set d'une famille est pris dans **toutes** les options de l'emplacement,
     celles du style de la famille d'abord, sans les objets d'une autre famille (il manquait souvent avant).
+    Si une famille **perd des objets** quand même (Viego « À l'impact » : Kraken, puis plus rien, car son vrai build
+    continue en critique), ce n'est pas un vrai build à part : un seul set, celui du build général (19/10/2026).
   - **Format de Lolalytics** : la page contient ses données dans un bloc `<script type="qwik/json">` ; les valeurs
     renvoient à d'autres cases par un numéro en base 36 (`"4c6"` → case 5622). Chaque option d'objet vaut
     `[objet, % victoire, % sélection, parties, minute]`, chaque départ `["1056_2003_2003", % victoire, % sélection, parties]`.
@@ -605,7 +614,7 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 
 | Fichier | Contenu |
 |---|---|
-| `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
+| `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, builds, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
 | `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`), assistant de première ouverture déjà vu (`assistantVu`) |
 | `sets-sauvegarde.json` | Tes sets d'objets retirés du client quand l'appli crée les siens (`{ "summonerId": [sets] }`), pour le bouton « Remettre mes anciens sets » |
 | `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, plus `cs`, `or`, `degats`, `vision` quand le client les donne (résumé d'après-partie), sans doublons, 25 000 au maximum par compte |

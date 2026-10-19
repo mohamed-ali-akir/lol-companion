@@ -295,3 +295,12 @@ test("Arena : lecture de la page du champion, identification honnête, cache 3 h
   const sansObjets = L.creerLecteurLolalytics({ appeler: fauxSite([{ status: 200, texte: pageQwik({ header: {}, augment: { augment0: [[48, 60, 10, 100]] } }) }]).appeler });
   await assert.rejects(sansObjets.analyserArena({ alias: "Ahri" }), /Pas d'objets Arena/);
 });
+
+test("voie habituelle : lue dans l'en-tête de la page (Riot ne la donne plus), voies de Lolalytics -> rôles du client", () => {
+  // Comme sur la vraie page : les valeurs de l'en-tête sont des numéros de cases (base 36).
+  const voie = (defaultLane) => L.extraireDonnees(pageQwik(HWEI, { autres: [defaultLane, 121, { cid: "1", lane: "0", defaultLane: "0" }] })).voieHabituelle;
+  assert.strictEqual(voie("jungle"), "jungle");
+  assert.strictEqual(voie("support"), "utility");
+  assert.strictEqual(voie("all"), null, "voie inconnue : rien");
+  assert.strictEqual(L.extraireDonnees(pageQwik(HWEI)).voieHabituelle, null, "pas d'en-tête : rien");
+});

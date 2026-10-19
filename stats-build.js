@@ -9,7 +9,7 @@
  * internes (alias, pour les adresses d'OP.GG et de Lolalytics), noms et catégories des objets.
  * Ce qu'il calcule :
  *  - contexteBuild : alias, rôle et mode à demander. Build automatique : TOUJOURS les stats de la Faille, même en
- *    ARAM (choix du propriétaire, 17/10/2026) ; sans rôle, le rôle principal du champion d'après Riot ;
+ *    ARAM (choix du propriétaire, 17/10/2026) ; sans rôle, le rôle principal du champion (Riot, sinon Lolalytics) ;
  *  - analyserOpgg : runes, sorts, objets de secours (OP.GG) ; en ARAM ou en URF, les sorts de CE mode ;
  *  - analyserLolalytics : objets emplacement par emplacement (Lolalytics) ;
  *  - analyserRank1 : build des meilleurs joueurs (Lolalytics, filtre « 1trick », sinon Maître et plus).
@@ -88,7 +88,8 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
    * Ce qu'il faut pour lire les stats d'un champion : { alias, role, mode, modeJeu }.
    * mode : "ranked" / "aram" imposé (consultation de l'onglet Build). Sinon (build automatique), TOUJOURS les stats
    * de la Faille, quel que soit le mode de la partie. modeJeu : le vrai mode de la partie (« aram »...), pour les sorts.
-   * Sans rôle (partie sans rôles, ARAM), on prend le rôle principal du champion d'après les recommandations de Riot.
+   * Sans rôle (partie sans rôles, ARAM), on prend le rôle principal du champion : celui des recommandations de Riot,
+   * sinon celui de Lolalytics (19/10/2026 : Riot répond « NONE » pour tous les champions), sinon le Milieu.
    */
   async function contexteBuild({ championId, role, mode }) {
     const dossier = dossierJeu();
@@ -101,13 +102,15 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
     }
     const modeJeu = mode || modeOpgg(partie) || "ranked";
     const modeUtilise = mode || (modeJeu === "flex" ? "flex" : "ranked");
+    const alias = (await obtenirAliasChampions()).get(championId);
+    if (!alias) throw new ErreurOpgg("Champion inconnu : lance le client League.");
     let roleUtilise = role;
     if (!roleUtilise && modeUtilise !== "aram") {
       const pages = await client.lireRecommandations(dossier, championId, null).catch(() => []);
-      roleUtilise = ROLE_DEPUIS_POSITION[String((pages[0] && pages[0].position) || "").toUpperCase()] || "middle";
+      roleUtilise = ROLE_DEPUIS_POSITION[String((pages[0] && pages[0].position) || "").toUpperCase()] || null;
+      if (!roleUtilise && lecteurLolalytics.roleHabituel) roleUtilise = await lecteurLolalytics.roleHabituel({ alias }).catch(() => null);
+      roleUtilise = roleUtilise || "middle";
     }
-    const alias = (await obtenirAliasChampions()).get(championId);
-    if (!alias) throw new ErreurOpgg("Champion inconnu : lance le client League.");
     return { alias, role: roleUtilise, mode: modeUtilise, modeJeu };
   }
 

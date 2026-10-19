@@ -722,3 +722,34 @@ test("Arena : étape « Objet prismatique » juste après le départ, avec ses 3
   assert.strictEqual(etapes[1].autres.length, 2);
   assert.ok(!B.composerParEmplacement(LOLA).some((e) => e.cle === "prismatique"), "pas d'étape prismatique hors Arena");
 });
+
+test("ARAM : pas de départ de jungle ou de support (introuvable dans la boutique) ; la Faille garde son départ", () => {
+  const depart = (ids, selection) => ({ ids, parties: 1000, victoires: 500, selection, noms: ids.map(String) });
+  const objet = { cle: "objet1", titre: "Objet 1", option: depart([3179], 0.6), autres: [] };
+  const bebe = { cle: "depart", titre: "Départ", option: depart([1102, 2003], 0.3), autres: [depart([1101, 2003], 0.3), depart([1036, 2031], 0.05)] };
+  assert.deepStrictEqual(B.etapesPourCarte([bebe, objet], 12)[0].option.ids, [1036, 2031], "premier départ achetable en ARAM");
+  assert.deepStrictEqual(B.etapesPourCarte([bebe, objet], 12)[0].autres, []);
+  assert.deepStrictEqual(B.etapesPourCarte([{ ...bebe, autres: [depart([1103], 0.1), depart([3865], 0.1)] }, objet], 12).map((e) => e.cle), ["objet1"], "aucun : pas de bloc Départ");
+  assert.strictEqual(B.etapesPourCarte([bebe, objet], 11)[0], bebe, "Faille : inchangé");
+  const set = B.setObjets({ etapes: [bebe, objet], championId: 121, nomChampion: "Kha'Zix", role: "jungle", carte: 12 });
+  assert.deepStrictEqual(set.blocks[0].items.map((i) => i.id), ["1036", "2031"]);
+});
+
+test("familles : si une famille perd des objets (Viego « À l'impact », 19/10/2026), un seul set, celui du build général", () => {
+  const etapes = B.composerParEmplacement(LOLA);
+  const commun = { etapes, championId: AHRI, nomChampion: "Ahri", role: "middle", carte: 11, troisParBloc: true };
+  const tousLesObjets = [...new Set(etapes.flatMap((e) => [e.option, ...e.autres, ...(e.candidats || [])].flatMap((o) => o.ids)))];
+  const affamee = { ...FAMILLES[1], exclus: tousLesObjets.filter((id) => ![3068, 3075, 3157].includes(id)) };
+  const sets = B.setsObjets({ ...commun, familles: [FAMILLES[0], affamee] });
+  assert.deepStrictEqual(sets.map((s) => s.title), ["LoL Companion - Ahri (Milieu) · Recommandé"]);
+});
+
+test("champion changé PENDANT le calcul du build (échange en ARAM) : le nouveau champion a quand même son build", async () => {
+  const { journal, auto } = logique();
+  const premier = auto.surSession(session({ gameId: 5 }));
+  auto.surSession(session({ gameId: 5, champion: 234 })); // arrive pendant le build d'Ahri
+  await premier;
+  await attendre(20);
+  assert.deepStrictEqual(journal.analyses.map((a) => a.championId), [AHRI, 234]);
+  assert.strictEqual(journal.resultats.length, 2);
+});

@@ -105,7 +105,24 @@ function extraireDonnees(html) {
   for (const cle of ["n", "avgWr", "boots", "startSet", "item1", "item2", "item3", "item4", "item5", "enemy", "itemSets"]) {
     donnees[cle] = etat.resoudre(page[cle]);
   }
+  donnees.voieHabituelle = voieHabituelle(etat);
   return donnees;
+}
+
+// Voies de Lolalytics -> rôles du client (l'inverse de VOIES).
+const ROLES_DEPUIS_VOIE = Object.fromEntries(Object.entries(VOIES).map(([role, voie]) => [voie, role]));
+
+/**
+ * Rôle principal du champion d'après Lolalytics (« jungle » pour Kha'Zix), ou null.
+ * Vu le 19/10/2026 : l'en-tête de la page d'un champion porte { cid, lane, defaultLane: "jungle", ... } ; sans voie
+ * demandée, la page montre cette voie-là. Riot ne la donne plus : ses recommandations de runes renvoient « NONE »
+ * pour tous les champions, et l'appli prenait alors le Milieu pour tout le monde (Kha'Zix Milieu : 318 parties,
+ * un build presque au hasard).
+ */
+function voieHabituelle(etat) {
+  const entete = etat.objs.find((o) => o && typeof o === "object" && !Array.isArray(o) && "defaultLane" in o && "cid" in o);
+  const voie = entete ? etat.resoudre(entete.defaultLane) : null;
+  return ROLES_DEPUIS_VOIE[voie] || null;
 }
 
 // --- Conseiller de draft : tier list, matchups, synergies (vérifié le 04/10/2026) ---------------------------
@@ -376,7 +393,12 @@ function creerLecteurLolalytics({ appeler = (...a) => fetch(...a), maintenant = 
     return analyse;
   }
 
-  return { analyser, tierlist, matchups, synergies, arena, analyserArena };
+  /** Rôle principal du champion (« jungle »...), lu sur sa page sans voie (la même que pour ses matchups), ou null. */
+  async function roleHabituel({ alias }) {
+    return (await donneesChampion({ alias, role: null, mode: "ranked" })).voieHabituelle;
+  }
+
+  return { analyser, tierlist, matchups, synergies, arena, analyserArena, roleHabituel };
 }
 
 module.exports = {

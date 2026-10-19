@@ -428,6 +428,7 @@ function demarrerSelection() {
       const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
       return (partie && partie.map && partie.map.id) || 11;
     },
+    journal: (...morceaux) => noter("Build :", ...morceaux), // runes, sets, sorts et erreurs, gardés dans journal.txt
     resultat: async (info) => {
       const noms = await obtenirNomsChampions();
       envoyerALaPage("build:evenement", { ...info, nom: noms.get(info.championId) || null });
