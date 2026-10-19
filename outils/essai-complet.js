@@ -170,6 +170,13 @@ require(path.join(PROJET, "main.js"));
     if (details.level === "error" || details.level === 3) problemes.push(`page : ${details.message}`);
   });
   fenetre.setSize(900, 950);
+  // Page vraiment prête (scripts chargés, compte affiché) : une attente fixe ne suffisait pas toujours sur un PC chargé
+  // (« Script failed to execute » une fois sur cinq, 19/10/2026).
+  for (let essai = 0; essai < 60; essai++) {
+    const prete = await fenetre.webContents.executeJavaScript(`typeof $ === "function" && Boolean($("assistant")) && !$("accueilCartes").hidden`).catch(() => false);
+    if (prete) break;
+    await attendre(500);
+  }
   // Première ouverture : l'assistant pose ses 3 questions et règle les cases ; il ne revient plus ensuite.
   const page = (code) => fenetre.webContents.executeJavaScript(code);
   const config = () => JSON.parse(fs.readFileSync(path.join(app.getPath("userData"), "config.json"), "utf8"));
