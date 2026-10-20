@@ -1,6 +1,6 @@
 {
   "name": "lol-level-calculator",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "LoL Companion : appli de bureau qui lit le client League of Legends (sans clé API) pour suivre ton niveau, ta progression et plus encore.",
   "main": "main.js",
   "scripts": {

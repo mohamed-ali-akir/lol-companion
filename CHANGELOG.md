@@ -3,7 +3,7 @@
 Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le détail technique de chaque choix est dans
 le [README](README.md) et dans l'historique Git.
 
-## Prochaine version (pas encore publiée)
+## 1.4.1 (20/10/2026)
 - **Runes** : une seule page de l'appli à la fois. La page de la partie d'avant (Hwei) est retrouvée par son nom
   **ou par son identifiant** (même renommée) et remplacée par celle du nouveau champion (Akshan). Tes pages ne sont
   jamais touchées.
