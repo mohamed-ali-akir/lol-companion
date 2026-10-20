@@ -95,11 +95,16 @@ async function lireRecommandations(dossierJeu, championId, role) {
 /**
  * Remplace la page de l'appli (et seulement elle) par la nouvelle, et la sélectionne.
  * noms : noms à essayer dans l'ordre (voir nomsPage) ; renvoie le nom finalement gardé par le client.
+ * idPrecedent : identifiant de la page créée la fois d'avant (gardé par main.js). Elle est remplacée même si son nom
+ * ne finit plus par « LoL Companion » (20/10/2026 : la page de Hwei n'était plus reconnue, et celle d'Akshan était
+ * refusée faute de place). surCreee(id) : appelée avec l'identifiant de la nouvelle page, pour la fois suivante.
+ * Les pages du joueur ne sont jamais touchées.
  */
-async function appliquerPage(dossierJeu, page, { noms = [page.name || NOM_PAGE] } = {}) {
+async function appliquerPage(dossierJeu, page, { noms = [page.name || NOM_PAGE], idPrecedent = null, surCreee = () => {} } = {}) {
   const connexion = lireLockfile(dossierJeu);
   const pages = await lireJsonOuNull(connexion, "/lol-perks/v1/pages");
-  const anciennes = Array.isArray(pages) ? pages.filter((p) => p && estPageAppli(p.name) && p.isEditable !== false) : [];
+  const deLappli = (p) => estPageAppli(p.name) || (Number.isInteger(idPrecedent) && p.id === idPrecedent);
+  const anciennes = Array.isArray(pages) ? pages.filter((p) => p && deLappli(p) && p.isEditable !== false && p.isDeletable !== false) : [];
   if (anciennes.length > 0) {
     for (const ancienne of anciennes) {
       const { status } = await appelerClient(connexion, `/lol-perks/v1/pages/${ancienne.id}`, { methode: "DELETE" });
@@ -127,6 +132,7 @@ async function appliquerPage(dossierJeu, page, { noms = [page.name || NOM_PAGE] 
       await appelerClient(connexion, `/lol-perks/v1/pages/${creee.id}`, { methode: "DELETE" });
       continue;
     }
+    if (creee && Number.isInteger(creee.id)) surCreee(creee.id);
     return nom;
   }
   throw new ErreurClient(`Le client a refusé la page de runes (code ${dernierStatut}).`);

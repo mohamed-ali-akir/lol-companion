@@ -435,7 +435,9 @@ function demarrerSelection() {
     analyserEmplacements: ({ championId, role }) => analyserLolalytics({ championId, role }),
     analyserRank1: ({ championId, role }) => analyserRank1({ championId, role }), // case « rank1 » (désactivée par défaut)
     runesRiot: ({ championId, role }) => lireRecommandations(stockage.dossierJeu(), championId, role),
-    appliquerRunes: (page, noms) => appliquerPage(stockage.dossierJeu(), page, { noms }),
+    // La page créée la fois d'avant est retrouvée par son identifiant (même renommée) et remplacée.
+    appliquerRunes: (page, noms) =>
+      appliquerPage(stockage.dossierJeu(), page, { noms, idPrecedent: stockage.pageRunes(), surCreee: (id) => stockage.enregistrerPageRunes(id) }),
     appliquerSorts: (ids) => appliquerSorts(stockage.dossierJeu(), ids),
     // Seuls nos sets restent dans le client (19/10/2026) : les tiens sont d'abord copiés dans sets-sauvegarde.json.
     appliquerObjets: (set) => appliquerSet(stockage.dossierJeu(), set, { sauvegarder: (compte, sets) => sauvegardeSets().ajouter(compte, sets) }),

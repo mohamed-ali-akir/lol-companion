@@ -145,13 +145,23 @@ emplacement) et d'**OP.GG** (runes, sorts) pour ce champion et ton rôle, **touj
 ARAM (choix du 17/10/2026 ; en ARAM, le rôle est le rôle principal du champion, et seuls les sorts d'invocateur
 viennent des stats ARAM, puisque Téléportation ou Châtiment n'y existent pas). **En Arena** (19/10/2026), les objets
 de la Faille n'existent pas (l'Arena a ses propres versions) : le build vient de la page **Arena** de Lolalytics, avec
-**Départ (les bottes), Objet prismatique, Objets 1 à 5** ; OP.GG n'a pas l'Arena, donc ni runes ni sorts de sa part.
+**Départ (les bottes), Objet prismatique, Objets 1 à 5** ; OP.GG n'a pas l'Arena, donc ni runes ni sorts de sa part
+(et l'appli ne le signale plus comme une erreur depuis le 20/10/2026 : ni page de runes, ni sorts, ni set Rank 1 en
+Arena, et aucun message). **Si Lolalytics n'a pas de build Arena pour ce champion**, l'appli prend le build de la
+**Faille** (à son rôle principal) et le convertit : chaque objet de la Faille existe en Arena sous le numéro
+**220000 + son numéro** (Dent de Nashor 3115 → 223115, vérifié dans la liste des objets du client) ; les objets sans
+version Arena (départ de la Faille, bottes de base) sont retirés. L'onglet Build l'indique (« build de la Faille
+converti pour l'Arena »).
 « Objet de mage légendaire » ou « Objet prismatique » dans le build sont les enclumes de la boutique Arena (on les
 achète, puis on choisit l'objet). L'onglet Build peut aussi afficher le build Arena de n'importe quel champion. Puis :
 - compose le build comme Lolalytics : **Départ, Objet 1, Bottes, Objets 2 à 5**, chacun avec **3 choix** (le
   recommandé + 2 pour t'adapter), avec taux de victoire, part des achats, nombre de parties et minute d'achat
   (« ⚠ peu de données » sous 200 parties). Si Lolalytics ne répond pas, le build d'OP.GG prend le relais ;
-- crée la **page de runes** « Hwei · Mid · LoL Companion » (runes d'OP.GG, ou celles recommandées par Riot en secours) ;
+- crée la **page de runes** « Hwei · Mid · LoL Companion » (runes d'OP.GG, ou celles recommandées par Riot en secours) :
+  **une seule** page de l'appli à la fois. La page de la partie d'avant (Hwei) est remplacée par celle du nouveau
+  champion (Akshan), retrouvée par son nom **ou par son identifiant**, gardé dans `config.json` (`pageRunes`), même
+  si son nom a changé (20/10/2026). Tes propres pages ne sont jamais touchées : s'il n'y a plus de place et aucune page
+  de l'appli, elle le dit ;
 - crée le **set d'objets** « LoL Companion - Champion (Rôle) », visible et sélectionné d'office dans la boutique en
   jeu ; un champion qui se joue de plusieurs façons (Vi combattant ou létalité, Kayn rouge ou bleu...) a un set par
   façon (`familles.js`). Le meilleur set (le build général, ou la façon la plus jouée) finit par **« · Recommandé »**.

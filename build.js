@@ -91,6 +91,9 @@ function ordreSorts(recommandes, actuels) {
 
 // --- Classement et composition (fonctions pures, testées) ----------------------------------
 
+/** Erreur « pas pour ce mode » (stats-build.js : en Arena, pas de runes, d'OP.GG ni de set Rank 1) : pas affichée. */
+const pasPourCeMode = (erreur) => Boolean(erreur && erreur.pasPourCeMode);
+
 /** Taux de victoire prudent : borne basse de l'intervalle de Wilson à 95 %. 0 sans parties. */
 function scorePrudent(victoires, parties) {
   if (!(parties > 0)) return 0;
@@ -448,7 +451,8 @@ function assemblerBuild({ opgg = null, emplacements = null }) {
     analyse: opgg,
     etapes,
     stats: parEmplacement ? emplacements.stats : opgg.stats,
-    source: parEmplacement ? "Lolalytics" : "OP.GG",
+    // Arena sans build Arena sur Lolalytics : build de la Faille converti (stats-build.js) ; la page le dit.
+    source: parEmplacement ? (emplacements.depuisFaille ? "Lolalytics, build de la Faille converti pour l'Arena" : "Lolalytics") : "OP.GG",
     familles: parEmplacement ? emplacements.familles : [],
   });
   return { etapes, troisParBloc: parEmplacement, resume };
@@ -530,6 +534,7 @@ function creerBuildAuto({
     let analyse = null; // OP.GG : runes, sorts, et objets en secours
     let emplacements = null; // Lolalytics : objets emplacement par emplacement
     let rank1 = null; // set « Rank 1 » : build des meilleurs joueurs du champion (Lolalytics)
+    let sansRunesNiSorts = false; // mode sans runes ni sorts d'invocateur (Arena) : rien à faire, et rien à signaler
     if (r.stats) {
       const [opgg, lolalytics, meilleur] = await Promise.allSettled([
         analyser({ championId, role }),
@@ -537,8 +542,9 @@ function creerBuildAuto({
         r.objets && r.rank1 && analyserRank1 ? analyserRank1({ championId, role }) : Promise.resolve(null),
       ]);
       if (meilleur.status === "fulfilled") rank1 = meilleur.value;
-      else erreurs.rank1 = meilleur.reason.message;
+      else if (!pasPourCeMode(meilleur.reason)) erreurs.rank1 = meilleur.reason.message;
       if (opgg.status === "fulfilled") analyse = opgg.value;
+      else if (pasPourCeMode(opgg.reason)) sansRunesNiSorts = true; // Arena : ni runes ni sorts d'invocateur
       else erreurs.stats = opgg.reason.message;
       if (lolalytics.status === "fulfilled") emplacements = lolalytics.value;
       else erreurs.emplacements = lolalytics.reason.message;
@@ -546,7 +552,7 @@ function creerBuildAuto({
     const { etapes, troisParBloc, resume } = assemblerBuild({ opgg: analyse, emplacements });
 
     let runes = null;
-    if (r.runes) {
+    if (r.runes && !sansRunesNiSorts) {
       try {
         let page = analyse ? pageDepuisOpgg(analyse.runes) : null;
         let source = "OP.GG";
@@ -594,7 +600,7 @@ function creerBuildAuto({
     }
 
     let sortsChoisis = null; // noms des 2 sorts mis, ou null
-    if (r.sortsAuto && appliquerSorts) {
+    if (r.sortsAuto && appliquerSorts && !sansRunesNiSorts) {
       try {
         const ids = analyse && analyse.sorts ? ordreSorts(analyse.sorts.ids, sortsActuels) : null;
         if (!ids) throw new ErreurClient("Pas de sorts d'invocateur dans les stats d'OP.GG pour ce champion.");

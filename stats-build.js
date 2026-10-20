@@ -31,6 +31,39 @@ const TIERS_RANK1 = [
 ];
 const PARTIES_MIN_RANK1 = 300;
 
+// Arena : chaque objet de la Faille existe en version Arena sous le numéro 220000 + son numéro (vérifié le
+// 20/10/2026 dans items.json du client : Dent de Nashor 3115 -> 223115, Jambières du berserker 3006 -> 223006...).
+// Les objets de départ de la Faille (Anneau de Doran, potions, bottes de base) n'existent pas en Arena.
+const DECALAGE_ARENA = 220000;
+
+/**
+ * Erreur « pas pour ce mode » : rien n'est cassé, la donnée n'existe simplement pas (Arena : ni runes, ni stats
+ * d'OP.GG, ni set Rank 1). build.js ne l'affiche pas (avant le 20/10/2026, elle s'affichait comme une erreur).
+ */
+const pasPourCeMode = (Erreur, message) => Object.assign(new Erreur(message), { pasPourCeMode: true });
+
+/**
+ * Build de la Faille (analyse de lolalytics.js) -> build Arena : chaque objet remplacé par sa version Arena
+ * (numéro + 220000) quand elle existe dans le client (existe(id)), les autres options retirées. Le départ de la Faille
+ * n'a pas d'équivalent en Arena (on y commence par des bottes) : retiré. Pas de familles (sets à part) ici.
+ */
+function enObjetsArena(analyse, existe, nomObjet = (id) => `Objet ${id}`) {
+  const versArena = (id) => (id >= DECALAGE_ARENA ? id : existe(DECALAGE_ARENA + id) ? DECALAGE_ARENA + id : null);
+  const convertir = (options) =>
+    (Array.isArray(options) ? options : [])
+      .map((o) => ({ ...o, ids: o.ids.map(versArena) }))
+      .filter((o) => o.ids.length > 0 && o.ids.every((id) => id !== null))
+      .map((o) => ({ ...o, noms: o.ids.map(nomObjet) }));
+  return {
+    ...analyse,
+    depart: [],
+    bottes: convertir(analyse.bottes),
+    emplacements: analyse.emplacements.map(convertir),
+    familles: [],
+    depuisFaille: true, // l'onglet Build le dit
+  };
+}
+
 /** Lectures du client par défaut (remplacées par des fausses dans les tests). */
 function lecturesClient() {
   const { lireNomsChampions } = require("./champions.js");
@@ -91,6 +124,14 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
    * Sans rôle (partie sans rôles, ARAM), on prend le rôle principal du champion : celui des recommandations de Riot,
    * sinon celui de Lolalytics (19/10/2026 : Riot répond « NONE » pour tous les champions), sinon le Milieu.
    */
+  /** Rôle principal d'un champion : recommandations de Riot, sinon Lolalytics, sinon le Milieu. */
+  async function rolePrincipal(dossier, championId, alias) {
+    const pages = await client.lireRecommandations(dossier, championId, null).catch(() => []);
+    let role = ROLE_DEPUIS_POSITION[String((pages[0] && pages[0].position) || "").toUpperCase()] || null;
+    if (!role && lecteurLolalytics.roleHabituel) role = await lecteurLolalytics.roleHabituel({ alias }).catch(() => null);
+    return role || "middle";
+  }
+
   async function contexteBuild({ championId, role, mode }) {
     const dossier = dossierJeu();
     const partie = mode ? null : await client.lirePartie(dossier).catch(() => null);
@@ -105,12 +146,7 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
     const alias = (await obtenirAliasChampions()).get(championId);
     if (!alias) throw new ErreurOpgg("Champion inconnu : lance le client League.");
     let roleUtilise = role;
-    if (!roleUtilise && modeUtilise !== "aram") {
-      const pages = await client.lireRecommandations(dossier, championId, null).catch(() => []);
-      roleUtilise = ROLE_DEPUIS_POSITION[String((pages[0] && pages[0].position) || "").toUpperCase()] || null;
-      if (!roleUtilise && lecteurLolalytics.roleHabituel) roleUtilise = await lecteurLolalytics.roleHabituel({ alias }).catch(() => null);
-      roleUtilise = roleUtilise || "middle";
-    }
+    if (!roleUtilise && modeUtilise !== "aram") roleUtilise = await rolePrincipal(dossier, championId, alias);
     return { alias, role: roleUtilise, mode: modeUtilise, modeJeu };
   }
 
@@ -120,7 +156,7 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
    */
   async function analyserOpgg(demande) {
     const { alias, role, mode, modeJeu } = await contexteBuild(demande);
-    if (mode === "arena") throw new ErreurOpgg("Arena : OP.GG n'a pas de stats pour ce mode (objets de Lolalytics seulement).");
+    if (mode === "arena") throw pasPourCeMode(ErreurOpgg, "Arena : OP.GG n'a pas de stats pour ce mode (ni runes ni sorts en Arena).");
     const analyse = await lecteurOpgg.analyser({ alias, position: positionOpgg(role, mode), mode });
     if (modeJeu === "aram" || modeJeu === "urf") {
       const duMode = await lecteurOpgg.analyser({ alias, position: positionOpgg(null, modeJeu), mode: modeJeu }).catch(() => null);
@@ -138,10 +174,22 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
     };
   }
 
-  /** Objets emplacement par emplacement (Lolalytics), avec les noms des objets du client. */
+  /**
+   * Objets emplacement par emplacement (Lolalytics), avec les noms des objets du client.
+   * Arena : la page Arena de Lolalytics ; si elle n'a rien d'utilisable pour ce champion, le build de la Faille
+   * (à son rôle principal), converti en objets Arena (choix du propriétaire, 20/10/2026).
+   */
   async function analyserLolalytics(demande) {
     const { alias, role, mode } = await contexteBuild(demande);
-    if (mode === "arena") return lecteurLolalytics.analyserArena({ alias, ...(await objetsPourLolalytics()) });
+    if (mode === "arena") {
+      const objets = await objetsPourLolalytics();
+      const arena = await lecteurLolalytics.analyserArena({ alias, ...objets }).catch(() => null);
+      if (arena && Array.isArray(arena.emplacements) && arena.emplacements.some((e) => e.length > 0)) return arena;
+      const roleFaille = await rolePrincipal(dossierJeu(), demande.championId, alias);
+      const faille = await lecteurLolalytics.analyser({ alias, role: roleFaille, mode: "ranked", ...objets });
+      const { noms } = await obtenirObjets();
+      return enObjetsArena(faille, (id) => noms.has(id), objets.nomObjet);
+    }
     return lecteurLolalytics.analyser({ alias, role, mode: mode === "flex" ? "ranked" : mode, ...(await objetsPourLolalytics()) });
   }
 
@@ -152,7 +200,7 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
    */
   async function analyserRank1(demande) {
     const { alias, role, mode } = await contexteBuild(demande);
-    if (mode === "arena") throw new ErreurLolalytics("Pas de set Rank 1 en Arena.");
+    if (mode === "arena") throw pasPourCeMode(ErreurLolalytics, "Pas de set Rank 1 en Arena.");
     const objets = await objetsPourLolalytics();
     let derniere = null;
     for (const { tier, libelle } of TIERS_RANK1) {
@@ -170,4 +218,4 @@ function creerStatsBuild({ dossierJeu, lecteurOpgg, lecteurLolalytics, client = 
   return { obtenirNomsChampions, obtenirAliasChampions, obtenirObjets, contexteBuild, analyserOpgg, analyserLolalytics, analyserRank1 };
 }
 
-module.exports = { creerStatsBuild, ROLE_DEPUIS_POSITION, TIERS_RANK1, PARTIES_MIN_RANK1 };
+module.exports = { creerStatsBuild, enObjetsArena, DECALAGE_ARENA, ROLE_DEPUIS_POSITION, TIERS_RANK1, PARTIES_MIN_RANK1 };

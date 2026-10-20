@@ -1,7 +1,7 @@
 // Tests des stats de build (stats-build.js) avec un faux client et de faux lecteurs OP.GG / Lolalytics : sans Internet.
 const test = require("node:test");
 const assert = require("node:assert");
-const { creerStatsBuild, TIERS_RANK1 } = require("../stats-build.js");
+const { creerStatsBuild, enObjetsArena, DECALAGE_ARENA, TIERS_RANK1 } = require("../stats-build.js");
 
 const KAYLE = 10;
 const partieAram = { map: { id: 12, gameMode: "ARAM" }, gameData: { queue: { id: 450, gameMode: "ARAM", mapId: 12 } } };
@@ -9,7 +9,7 @@ const partieArena = { map: { id: 30, gameMode: "CHERRY" }, gameData: { queue: { 
 const partieFaille = { map: { id: 11, gameMode: "CLASSIC" }, gameData: { queue: { id: 420, gameMode: "CLASSIC", mapId: 11 } } };
 
 /** Faux client (lectures comptées) et faux lecteurs qui notent ce qu'on leur demande. */
-function monter({ partie = partieFaille, recommandations = [{ position: "TOP" }], parties = { "1trick": 2774, master_plus: 6708 } } = {}) {
+function monter({ arenaVide = false, partie = partieFaille, recommandations = [{ position: "TOP" }], parties = { "1trick": 2774, master_plus: 6708 } } = {}) {
   const appels = { opgg: [], lolalytics: [], alias: 0 };
   const client = {
     lireNomsChampions: async () => new Map([[KAYLE, "Kayle"]]),
@@ -17,7 +17,7 @@ function monter({ partie = partieFaille, recommandations = [{ position: "TOP" }]
       appels.alias++;
       return new Map([[KAYLE, "Kayle"]]);
     },
-    lireObjets: async () => ({ noms: new Map([[3115, "Dent de Nashor"]]), categories: new Map([[3115, ["SpellDamage"]]]), details: new Map() }),
+    lireObjets: async () => ({ noms: new Map([[3115, "Dent de Nashor"], [223115, "Dent de Nashor"], [223020, "Chaussures de sorcier"], [223089, "Coiffe de Rabadon"]]), categories: new Map([[3115, ["SpellDamage"]]]), details: new Map() }),
     lirePartie: async () => partie,
     lireRecommandations: async () => recommandations,
   };
@@ -30,13 +30,23 @@ function monter({ partie = partieFaille, recommandations = [{ position: "TOP" }]
   const lecteurLolalytics = {
     analyserArena: async (demande) => {
       appels.lolalytics.push({ ...demande, arena: true });
-      return { stats: { parties: 17606 }, prismatique: [], nom: demande.nomObjet(3115) };
+      if (arenaVide) return { stats: { parties: 12 }, prismatique: [], emplacements: [[], [], [], [], []] };
+      return { stats: { parties: 17606 }, prismatique: [], emplacements: [[{ ids: [223115] }]], nom: demande.nomObjet(3115) };
     },
     analyser: async (demande) => {
       appels.lolalytics.push(demande);
       const n = demande.tier ? parties[demande.tier] : 45000;
       if (n === undefined) throw new Error("page introuvable");
-      return { stats: { parties: n }, emplacements: [], nom: demande.nomObjet(3115), categories: demande.categoriesObjet(3115) };
+      const option = (id, parties) => ({ ids: [id], parties, victoires: parties / 2, selection: 0.5, noms: [`Objet ${id}`] });
+      return {
+        stats: { parties: n },
+        depart: [option(1056, 900)],
+        bottes: [option(3020, 800), option(1001, 100)], // 1001 (bottes de base) : pas d'équivalent en Arena
+        emplacements: [[option(3115, 700)], [option(3089, 600), option(9999, 50)]],
+        familles: [{ nom: "AP" }],
+        nom: demande.nomObjet(3115),
+        categories: demande.categoriesObjet(3115),
+      };
     },
   };
   const s = creerStatsBuild({ dossierJeu: () => "C:\\Riot Games\\League of Legends", lecteurOpgg, lecteurLolalytics, client });
@@ -106,6 +116,26 @@ test("Arena : stats de l'Arena (pas de la Faille), sans rôle ; ni OP.GG ni set 
   // Consultation de l'onglet Build : mode Arena choisi, même sur la Faille.
   const faille = monter({ partie: partieFaille }).s;
   assert.strictEqual((await faille.contexteBuild({ championId: KAYLE, role: "top", mode: "arena" })).mode, "arena");
+});
+
+test("Arena sans build sur Lolalytics : build de la Faille (rôle principal), converti en objets Arena", async () => {
+  const { s, appels } = monter({ partie: partieArena, arenaVide: true });
+  const a = await s.analyserLolalytics({ championId: KAYLE, role: null });
+  assert.strictEqual(a.depuisFaille, true);
+  assert.deepStrictEqual(appels.lolalytics.map((d) => (d.arena ? "arena" : `${d.mode} ${d.role}`)), ["arena", "ranked top"]);
+  assert.deepStrictEqual(a.depart, [], "pas de départ de la Faille en Arena (Anneau de Doran...)");
+  assert.deepStrictEqual(a.bottes.map((o) => o.ids), [[223020]]);
+  assert.deepStrictEqual(a.emplacements.map((e) => e.map((o) => o.ids[0])), [[223115], [223089]], "objet sans version Arena retiré");
+  assert.deepStrictEqual(a.familles, []);
+});
+
+test("enObjetsArena : numéro + 220000 si la version Arena existe ; noms du client", () => {
+  const existe = (id) => [223115, 223006].includes(id);
+  const faille = { stats: { parties: 1 }, depart: [{ ids: [1056, 2003] }], bottes: [{ ids: [3006] }, { ids: [1001] }], emplacements: [[{ ids: [3115] }, { ids: [223115] }]], familles: [{}] };
+  const a = enObjetsArena(faille, existe, (id) => `n°${id}`);
+  assert.deepStrictEqual(a.bottes, [{ ids: [223006], noms: ["n°223006"] }]);
+  assert.deepStrictEqual(a.emplacements[0].map((o) => o.ids), [[223115], [223115]], "un numéro déjà Arena est gardé");
+  assert.strictEqual(DECALAGE_ARENA, 220000);
 });
 
 test("rôle principal : Riot répond « NONE » (19/10/2026) -> voie habituelle de Lolalytics ; Lolalytics muet -> Milieu", async () => {

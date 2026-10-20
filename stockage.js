@@ -206,6 +206,16 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     modifier({ prevenuReduction: true });
   }
 
+  /** Identifiant de la dernière page de runes créée par l'appli (runes.js : remplacée la fois suivante), ou null. */
+  function pageRunes() {
+    const id = lire().pageRunes;
+    return Number.isInteger(id) ? id : null;
+  }
+
+  function enregistrerPageRunes(id) {
+    if (Number.isInteger(id)) modifier({ pageRunes: id });
+  }
+
   /** L'assistant de première ouverture a-t-il déjà été vu (fini ou passé) ? */
   function assistantVu() {
     return lire().assistantVu === true;
@@ -231,6 +241,8 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     dejaPrevenuReduction,
     noterPrevenuReduction,
     assistantVu,
+    pageRunes,
+    enregistrerPageRunes,
     noterAssistantVu,
     positionSorts,
     enregistrerPositionSorts,

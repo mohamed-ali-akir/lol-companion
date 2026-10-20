@@ -124,6 +124,29 @@ test("faux client : page LoL Companion existante -> remplacée (seulement elle)"
   }
 });
 
+test("faux client : la page de la partie d'avant (Hwei) est retrouvée par son identifiant, même renommée, et remplacée", async () => {
+  // 20/10/2026 : 3 pages sur 3, celle de l'appli plus reconnue par son nom -> « Plus de place » pour Akshan.
+  const pages = [{ id: 5, name: "Ma page" }, { id: 41, name: "Hwei", isEditable: true, isDeletable: true }, { id: 6, name: "Nasus" }];
+  const client = await fauxClient({ pages, place: false, longueurMax: 100 });
+  const creees = [];
+  try {
+    const nom = await R.appliquerPage(client.dossier, PAGE, { noms: ["Akshan · Mid · LoL Companion"], idPrecedent: 41, surCreee: (id) => creees.push(id) });
+    assert.strictEqual(nom, "Akshan · Mid · LoL Companion");
+    assert.deepStrictEqual(client.ecritures().map((e) => `${e.methode} ${e.url}`), ["DELETE /lol-perks/v1/pages/41", "POST /lol-perks/v1/pages"]);
+    assert.deepStrictEqual(creees, [99], "nouvel identifiant gardé pour la fois suivante");
+  } finally {
+    await client.fermer();
+  }
+  // Identifiant inconnu (page déjà supprimée par le joueur) : aucune page du joueur n'est touchée
+  const autre = await fauxClient({ pages: [{ id: 5, name: "Ma page" }], place: false });
+  try {
+    await assert.rejects(R.appliquerPage(autre.dossier, PAGE, { idPrecedent: 41 }), /Plus de place/);
+    assert.deepStrictEqual(autre.ecritures(), []);
+  } finally {
+    await autre.fermer();
+  }
+});
+
 test("faux client : plus de place -> erreur claire, rien de supprimé", async () => {
   const client = await fauxClient({ pages: [{ id: 5, name: "Ma page" }], place: false });
   try {

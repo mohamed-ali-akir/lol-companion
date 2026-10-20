@@ -281,7 +281,7 @@ function logique({ reglages = { stats: true, runes: true, objets: true }, analys
     reglages: () => reglages,
     analyser: async (demande) => {
       journal.analyses.push(demande);
-      if (echecs.stats) throw new O.ErreurOpgg(echecs.stats);
+      if (echecs.stats) throw echecs.stats instanceof Error ? echecs.stats : new O.ErreurOpgg(echecs.stats);
       return analyse;
     },
     analyserEmplacements:
@@ -752,4 +752,21 @@ test("champion changé PENDANT le calcul du build (échange en ARAM) : le nouvea
   await attendre(20);
   assert.deepStrictEqual(journal.analyses.map((a) => a.championId), [AHRI, 234]);
   assert.strictEqual(journal.resultats.length, 2);
+});
+
+test("Arena (« pas pour ce mode ») : ni runes ni sorts touchés, et aucun message inutile ; le set d'objets est créé", async () => {
+  const pasPourCeMode = Object.assign(new O.ErreurOpgg("Arena : OP.GG n'a pas de stats pour ce mode."), { pasPourCeMode: true });
+  const rien = Object.assign(new Error("Pas de set Rank 1 en Arena."), { pasPourCeMode: true });
+  const { journal, auto } = logique({
+    reglages: { stats: true, runes: true, objets: true, sortsAuto: true, rank1: true },
+    emplacements: LOLA,
+    echecs: { stats: pasPourCeMode },
+    rank1: rien,
+  });
+  auto.surSession(session());
+  await attendre(20);
+  assert.deepStrictEqual(journal.runes, [], "pas de page de runes en Arena (pas de runes dans ce mode)");
+  assert.deepStrictEqual(journal.sorts, []);
+  assert.strictEqual(journal.sets.length > 0, true, "le set d'objets est bien créé");
+  assert.deepStrictEqual(journal.resultats[0].erreurs, {}, "aucun message « OP.GG », « runes », « sorts » ou « Rank 1 »");
 });
