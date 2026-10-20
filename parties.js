@@ -4,7 +4,8 @@
  * Le client League ne garde que tes parties récentes (20 à 50). Pour que tes stats s'enrichissent
  * avec le temps, l'appli garde chaque partie lue dans <userData>/parties.json :
  *   { riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }
- * + depuis le 17/10/2026, quand le client les donne : cs, or, degats, vision (résumé d'après-partie).
+ * + depuis le 17/10/2026, quand le client les donne : cs, or, degats, vision (résumé d'après-partie) ;
+ * + depuis le 20/10/2026 : place (classement en Arena, 1 à 8 ; onglet Challenge).
  * Une partie n'est jamais enregistrée deux fois (même compte + même identifiant de partie).
  * Au maximum MAX_PARTIES_PAR_COMPTE parties par compte : au-delà, les plus anciennes sont oubliées.
  * Les fonctions pures (sans fichier) sont exportées pour être testées.
@@ -17,14 +18,17 @@ const MAX_PARTIES_PAR_COMPTE = 25000;
 
 const entierPositif = (n) => Number.isInteger(n) && n >= 0;
 
-// Détails facultatifs (résumé d'après-partie, depuis le 17/10/2026) : absents des parties plus anciennes.
-const DETAILS = ["cs", "or", "degats", "vision"];
+// Détails facultatifs (résumé d'après-partie depuis le 17/10/2026, place en Arena depuis le 20/10/2026) :
+// absents des parties plus anciennes.
+const DETAILS = ["cs", "or", "degats", "vision", "place"];
 const sansDetails = (p) => DETAILS.every((cle) => !(cle in p));
+// Un détail est un nombre positif ; la place est un entier à partir de 1.
+const detailValide = (cle, n) => (cle === "place" ? Number.isInteger(n) && n >= 1 : Number.isFinite(n) && n >= 0);
 
 /** Copie de la partie sans les détails abîmés (un détail illisible est oublié, la partie est gardée). */
 function nettoyerDetails(p) {
   const propre = { ...p };
-  for (const cle of DETAILS) if (cle in propre && !(Number.isFinite(propre[cle]) && propre[cle] >= 0)) delete propre[cle];
+  for (const cle of DETAILS) if (cle in propre && !detailValide(cle, propre[cle])) delete propre[cle];
   return propre;
 }
 
@@ -47,9 +51,9 @@ function partiesValides(donnees) {
 }
 
 /**
- * Parties déjà enregistrées SANS détails (versions d'avant le 17/10/2026) que le client relit AVEC :
- * on leur ajoute les détails, pour que le résumé d'après-partie ait tout de suite une moyenne.
- * Renvoie { parties, completees } (sans modifier la liste reçue).
+ * Parties déjà enregistrées avec des détails MANQUANTS que le client relit AVEC : on leur ajoute ces détails
+ * (versions d'avant le 17/10/2026 : aucun détail ; d'avant le 20/10/2026 : pas de place en Arena).
+ * Un détail déjà enregistré n'est jamais remplacé. Renvoie { parties, completees } (sans modifier la liste reçue).
  */
 function completerDetails(existantes, riotId, nouvelles) {
   const details = new Map();
@@ -58,10 +62,12 @@ function completerDetails(existantes, riotId, nouvelles) {
   }
   let completees = 0;
   const parties = existantes.map((p) => {
-    const lue = p.riotId === riotId && sansDetails(p) ? details.get(p.id) : null;
+    const lue = p.riotId === riotId ? details.get(p.id) : null;
     if (!lue) return p;
+    const manquants = DETAILS.filter((cle) => cle in lue && !(cle in p));
+    const ajout = nettoyerDetails(Object.fromEntries(manquants.map((cle) => [cle, lue[cle]])));
+    if (Object.keys(ajout).length === 0) return p;
     completees++;
-    const ajout = nettoyerDetails(Object.fromEntries(DETAILS.filter((cle) => cle in lue).map((cle) => [cle, lue[cle]])));
     return { ...p, ...ajout };
   });
   return { parties: completees ? parties : existantes, completees };

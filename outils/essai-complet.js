@@ -63,6 +63,15 @@ for (let i = 0; i < 50; i++) {
     participantIdentities: [{ participantId: 1, player: { puuid: "puuid-demo" } }],
   });
 }
+// Deux Arenas anciennes (onglet Challenge) : Ahri 2e (top 3, fait), Annie 5e (pas fait) -> prochain champion : Annie.
+for (const [i, championId, place] of [[0, 103, 2], [1, 1, 5]]) {
+  parties.push({
+    gameId: 7100000 + i, queueId: 1700, gameDuration: 1200, gameCreation: maintenant - (30 + i) * JOUR,
+    participants: [{ participantId: 1, championId, stats: { win: place <= 4, kills: 4, deaths: 3, assists: 5, subteamPlacement: place, playerSubteamId: 1,
+      totalMinionsKilled: 0, neutralMinionsKilled: 0, goldEarned: 9000, totalDamageDealtToChampions: 20000, visionScore: 0 } }],
+    participantIdentities: [{ participantId: 1, player: { puuid: "puuid-demo" } }],
+  });
+}
 const maitrise = (championId, niveau, points, avant, apres, grades) => ({
   championId, championLevel: niveau, championPoints: points, championPointsSinceLastLevel: avant, championPointsUntilNextLevel: apres,
   markRequiredForNextLevel: niveau >= 4 ? 1 : 0, tokensEarned: 0, championSeasonMilestone: 0, milestoneGrades: grades,
@@ -151,6 +160,7 @@ const ATTENDU = {
   maitrise: ["Ahri"],
   selection: ["Conseiller de draft"],
   build: ["Consulter un build"],
+  challenge: ["PROCHAIN CHAMPION", "Annie", "Faits (1)", "Ashe", "Pick automatique du challenge"], // titre en majuscules (CSS)
   parametres: ["Accepter automatiquement", "Dossier du jeu"],
 };
 
@@ -224,6 +234,17 @@ require(path.join(PROJET, "main.js"));
       await fenetre.webContents.executeJavaScript(`$("buildChampion").value = "Ahri"; $("buildRole").value = "middle"; $("formConsulterBuild").requestSubmit(); true`);
       await attendre(15000);
       if (!(await texteDuPanneau("build")).includes("Objet 1")) problemes.push("onglet build : le build consulté d'Ahri ne s'affiche pas");
+    }
+    if (onglet === "challenge") {
+      // Case du pick automatique : décochée par défaut, enregistrée quand on la coche, puis remise comme avant.
+      const pickChallenge = () => (config().challenge || {}).pickActif;
+      if (await page(`$("challengePick").checked`)) problemes.push("onglet challenge : pick automatique coché par défaut");
+      await page(`$("challengePick").click(); true`);
+      await attendre(400);
+      if (pickChallenge() !== true) problemes.push("onglet challenge : case du pick automatique pas enregistrée");
+      await page(`$("challengePick").click(); true`);
+      await attendre(400);
+      if (pickChallenge() !== false) problemes.push("onglet challenge : case du pick automatique pas décochée");
     }
     await photographier(fenetre, onglet);
     console.log(`onglet ${onglet} : vu`);

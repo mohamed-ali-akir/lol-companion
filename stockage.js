@@ -20,6 +20,7 @@ const path = require("path");
 const { lireJson, ecrireJson } = require("./fichiers.js"); // écriture sûre (copie .bak)
 const { normaliserReglages } = require("./acceptation.js");
 const { normaliserReglagesSelection } = require("./selection.js");
+const { normaliserReglagesChallenge } = require("./challenge.js");
 const { normaliserReglagesBuild } = require("./build.js");
 const { imposerReglagesArrierePlan } = require("./arriere-plan.js");
 const { normaliserPositionSorts } = require("./sorts.js");
@@ -148,6 +149,17 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     return propres;
   }
 
+  /** Réglages du challenge Arena (onglet Challenge) : pick automatique du prochain champion, désactivé par défaut. */
+  function reglagesChallenge() {
+    return normaliserReglagesChallenge(lire().challenge);
+  }
+
+  function enregistrerReglagesChallenge(reglages) {
+    const propres = normaliserReglagesChallenge(reglages);
+    modifier({ challenge: propres });
+    return propres;
+  }
+
   /**
    * Build automatique (onglet Build) : stats OP.GG, page de runes, set d'objets ; tout désactivé par défaut.
    * L'ancien réglage "runesAuto" (runes seules) est repris puis effacé au premier enregistrement.
@@ -210,6 +222,8 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     enregistrerReglagesAcceptation,
     reglagesSelection,
     enregistrerReglagesSelection,
+    reglagesChallenge,
+    enregistrerReglagesChallenge,
     reglagesBuild,
     enregistrerReglagesBuild,
     reglagesArrierePlan,

@@ -30,6 +30,7 @@ const { creerStatsBuild } = require("./stats-build.js");
 const { creerLecteurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
+const { creerChallenge } = require("./challenge.js"); // onglet Challenge : top 3 en Arena avec tous les champions
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { surProbleme } = require("./fichiers.js"); // écriture sûre des fichiers de données
 const { migrerDonnees } = require("./migrations.js"); // version du format des fichiers de données
@@ -132,6 +133,7 @@ function brancherMessagesAppli() {
     lireCompte,
     lireMaitrise,
     importerHistorique,
+    lireChallenge: () => challenge.lire(),
     obtenirNomsChampions: () => obtenirNomsChampions(),
     analyserOpgg: (contexte) => analyserOpgg(contexte),
     analyserLolalytics: (contexte) => analyserLolalytics(contexte),
@@ -158,6 +160,17 @@ const { obtenirNomsChampions, obtenirAliasChampions, analyserOpgg, analyserLolal
   dossierJeu: () => stockage.dossierJeu(),
   lecteurOpgg,
   lecteurLolalytics,
+});
+
+// Challenge Arena (challenge.js) : progression lue dans parties.json, et liste du pick automatique en Arena.
+const challenge = creerChallenge({
+  reglages: () => stockage.reglagesChallenge(),
+  nomsChampions: () => obtenirNomsChampions(),
+  parties: () => {
+    const compte = stockage.dernierCompte();
+    return compte ? historiqueParties.partiesDu(riotIdDe(compte)) : [];
+  },
+  lirePartie: () => lirePartie(stockage.dossierJeu()),
 });
 
 // Ce qui s'affiche par-dessus le jeu (en-jeu.js) : stats des augments (ARAM Mayhem et Arena) et chronos des sorts (Faille).
@@ -381,6 +394,9 @@ function demarrerSelection() {
     reglages: () => stockage.reglagesSelection(),
     champsAutorises: (type) => lireChampionsAutorises(stockage.dossierJeu(), type),
     agir: (actionId, championId) => effectuerAction(stockage.dossierJeu(), actionId, championId),
+    // En Arena, case du challenge cochée : le prochain champion du challenge (puis les suivants) au lieu des listes.
+    pickPrioritaire: () => challenge.pickPrioritaire(),
+    journal: (...morceaux) => noter("Sélection :", ...morceaux),
     resultat: async (info) => {
       // On ajoute le nom du champion pour l'afficher dans l'appli.
       const noms = info.championId ? await obtenirNomsChampions() : new Map();
@@ -444,8 +460,19 @@ function demarrerSelection() {
  * Sélection des champions (connexion en direct OU sondage) : pick/ban, build, et ton champion pour les augments.
  * Chacun dans sa bulle : si le pick/ban plante, le build continue (et inversement).
  */
+let fileSelection = Promise.resolve(); // sessions traitées une par une, dans l'ordre d'arrivée
+let derniereSession = null;
+
 function surSelection(session) {
-  proteger("pick et ban automatiques", () => selectionAuto.surSession(session));
+  // Avant le pick automatique : est-ce une Arena, et quels champions du challenge restent (une lecture par sélection) ?
+  // Une session dépassée par une plus récente pendant cette lecture est sautée : seule la dernière compte.
+  derniereSession = session;
+  fileSelection = fileSelection
+    .then(async () => {
+      await challenge.preparer(session);
+      if (session === derniereSession) selectionAuto.surSession(session);
+    })
+    .catch((erreur) => signalerErreur("pick et ban automatiques", erreur)); // la file continue après une erreur
   proteger("build automatique", () => buildAuto.surSession(session));
   proteger("conseiller de draft", () => conseillerDraft.surSession(session));
   proteger("augments en jeu", () => {

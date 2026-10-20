@@ -35,6 +35,7 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 | **Stats** | Taux de victoire et KDA par champion et par mode, meilleurs champions, moments où tu gagnes le plus (30 jours ou tout), import de tout ton historique, temps passé sur LoL depuis la création du compte |
 | **Maîtrise** | Les champions les plus proches du niveau suivant (points et marques manquants, ≈ parties restantes), tes plus joués, la liste complète |
 | **Sélection** | Conseiller de draft (les 5 meilleurs champions pour la draft en cours, avec la raison) et pick/ban automatiques par rôle |
+| **Challenge** | Challenge Arena : faire un top 3 avec tous les champions, dans l'ordre alphabétique. Faits, restants, barre de progression, prochain champion, et pick automatique du prochain champion en Arena |
 | **Build** | Build de ton champion (Lolalytics + OP.GG) : page de runes, set d'objets et sorts créés pour toi, set « Champion Rank 1 », chronos des sorts adverses, consultation du build de n'importe quel champion |
 | **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu, relancer l'assistant de démarrage |
 
@@ -55,6 +56,9 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 
 ### Build
 ![Onglet Build](docs/captures/build.png)
+
+### Challenge
+![Onglet Challenge](docs/captures/challenge.png)
 
 ### Augments en jeu (ARAM Mayhem, Arena)
 ![Stats des augments sous chaque carte, en jeu](docs/captures/apercu-augments.png)
@@ -114,6 +118,25 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
   réglables. 3 choix dans l'ordre (si le 1er est banni ou déjà pris, le 2e, puis le 3e), une liste par rôle (Haut,
   Jungle, Milieu, Bas, Support) **pour les picks comme pour les bans**, plus une liste « Par défaut ». Jamais un
   champion banni, déjà pris, survolé ou déclaré par un coéquipier ; rien si tu choisis toi-même pendant le délai.
+
+### Challenge Arena (onglet Challenge)
+- **Le challenge** (20/10/2026) : finir une Arena dans les **3 premiers** avec **chaque champion du jeu**, dans l'ordre
+  alphabétique (noms lus dans le client, tri à la française : accents et majuscules ignorés). L'onglet affiche le nombre
+  de champions faits, restants et le total, une barre de progression, le **prochain champion** (icône + nom) et les deux
+  listes (restants dans l'ordre ; faits, avec la meilleure place et sa date).
+- **Ce qui compte** : une partie d'Arena (files 1700, 1710, et 1750 « Arena 3x6 ») finie à la place 1, 2 ou 3. **Un top 3
+  avec un champion joué hors ordre compte quand même** (tu l'as fait, c'est honnête) ; le prochain champion reste
+  toujours le **premier de la liste pas encore fait**. La place vient de l'historique du client : les Arenas enregistrées
+  avant le 20/10/2026 la reçoivent dès que le client les relit (pour les plus anciennes, « Importer » dans l'onglet Stats).
+  Rien n'est enregistré à part : la progression est recalculée depuis `parties.json`.
+- **Pick automatique du prochain champion** (case de l'onglet, **désactivée par défaut**, ⚠ contraire aux règles de
+  Riot comme le pick de l'onglet Sélection) : en sélection d'une **Arena seulement**, l'appli verrouille le prochain
+  champion du challenge après un délai (10 s, réglable). S'il est banni, déjà pris, survolé ou déclaré par ton
+  coéquipier, ou que tu ne l'as pas, elle prend le suivant dans l'ordre. Mêmes garde-fous que l'onglet Sélection :
+  seulement ton action, rien si tu survoles ou choisis toi-même pendant le délai.
+- **Avec l'onglet Sélection** : en Arena, quand la case du challenge est cochée, la liste du challenge **remplace** les
+  listes de picks de l'onglet Sélection (et son délai). Hors Arena, ou quand tous les champions sont faits, l'onglet
+  Sélection marche comme avant. Les bans ne changent pas.
 
 ### Build automatique (onglet Build)
 Chaque option est désactivée par défaut ; c'est autorisé par Riot, comme Blitz ou Porofessor. Quand ton champion est
@@ -396,6 +419,14 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   marqué « en cours » mais le client ignore un ban envoyé à ce moment-là, donc l'appli attend la phase `BAN_PICK`.
   Le client a aussi répondu « OK » à un verrouillage sans verrouiller : l'appli relit donc la session pour vérifier,
   essaie l'autre méthode si besoin, et sinon affiche une erreur au lieu d'un faux « OK ».
+- **Challenge Arena** (`challenge.js`) : vérifié sur le vrai client le 20/10/2026, la place est dans l'historique
+  (`participants[].stats.subteamPlacement`, 1 à 8 en Arena 2 contre 2, 1 à 6 en « Arena 3x6 », file 1750 ; 0 ou absent
+  ailleurs). `lcu.js` ne la garde que si c'est un entier plausible ; `parties.js` complète champ par champ les parties
+  déjà enregistrées (un détail déjà gardé n'est jamais remplacé). Pour le pick, `main.js` lit une seule fois par
+  sélection la session du « gameflow » (`/lol-gameflow/v1/session`, `gameData.queue` : file Arena ou mode `CHERRY`) et
+  la liste des champions restants, **avant** de passer la session à `selection.js` (sessions traitées une par une, dans
+  l'ordre). `selection.js` reçoit alors un « pick prioritaire » qui remplace seulement la liste essayée et le délai :
+  tout le reste (ton action, délai, revérification juste avant d'agir, champions indisponibles) est le même code.
 - **Conseiller de draft** (`draft.js`) : pour chaque champion C que tu peux choisir (`pickable-champion-ids` :
   possédés + rotation gratuite), score = taux de victoire de C à ton poste + Σ effets des champions **verrouillés**
   (un survol ne compte pas, il peut changer) + confort. L'effet d'un duo est le « delta 2 » de Lolalytics : l'écart
@@ -606,7 +637,8 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
 - **Pick et ban automatiques** : les règles de Riot interdisent aussi de choisir ou bannir à la place du joueur. Le
   propriétaire du projet a choisi de l'ajouter quand même (02/10/2026), en connaissance du risque pour son compte
   (faible mais pas nul). Garde-fous : désactivé par défaut, délai avant d'agir, seulement ton action, et rien si tu
-  choisis toi-même.
+  choisis toi-même. Le pick automatique du **challenge Arena** (20/10/2026) utilise le même code et les mêmes
+  garde-fous, avec sa propre case (désactivée par défaut), seulement en Arena.
 
 ## Données enregistrées sur ton PC
 
@@ -615,9 +647,9 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | Fichier | Contenu |
 |---|---|
 | `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, builds, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
-| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`), assistant de première ouverture déjà vu (`assistantVu`) |
+| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du pick automatique du challenge Arena (`challenge` : case, délai), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`), assistant de première ouverture déjà vu (`assistantVu`) |
 | `sets-sauvegarde.json` | Tes sets d'objets retirés du client quand l'appli crée les siens (`{ "summonerId": [sets] }`), pour le bouton « Remettre mes anciens sets » |
-| `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, plus `cs`, `or`, `degats`, `vision` quand le client les donne (résumé d'après-partie), sans doublons, 25 000 au maximum par compte |
+| `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, plus `cs`, `or`, `degats`, `vision` quand le client les donne (résumé d'après-partie) et `place` en Arena (onglet Challenge, dont la progression est recalculée depuis ce fichier), sans doublons, 25 000 au maximum par compte |
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
 | `maitrise.json` | Dernière lecture des points de maîtrise de chaque champion et échantillons « N points en M parties » (30 au maximum par champion) |
 
@@ -659,6 +691,7 @@ lol-level-calculator/
 ├── maitrise.js        # Maîtrise : lecture tolérante, mesure des points par partie (maitrise.json)
 ├── acceptation.js     # Acceptation automatique + détection du premier plan
 ├── selection.js       # Pick et ban automatiques (rôle, listes, champions disponibles, délais)
+├── challenge.js       # Challenge Arena : top 3 avec tous les champions (progression, prochain champion, liste du pick)
 ├── draft.js           # Conseiller de draft : picks verrouillés, score (matchups, synergies, confort), suivi
 ├── build.js           # Build : classement des objets, page de runes, set d'objets, logique automatique
 ├── stats-build.js     # Stats de build d'un champion : mode (la Faille, sauf en Arena), rôle, OP.GG, Lolalytics, set Rank 1 (testé)
@@ -694,7 +727,8 @@ lol-level-calculator/
 │   ├── calculs.js     # Calculs purs (XP, modes, stats, maîtrise, session, dernière partie) : page, main.js et tests
 │   ├── commun.js      # État partagé, petits outils, mettreAJour() qui redessine tous les onglets
 │   ├── onglets/       # Un fichier par onglet (+ compte.js : carte du compte, session.js : session,
-│   │                  #   derniere-partie.js : résumé d'après-partie, assistant.js : assistant de première ouverture)
+│   │                  #   derniere-partie.js : résumé d'après-partie, assistant.js : assistant de première ouverture,
+│   │                  #   challenge.js : onglet Challenge)
 │   └── app.js         # Démarrage : branche tout (explique l'ordre de chargement)
 └── test/              # Un fichier de tests par module, faux client dans chaque test réseau, certificat de test
 ```

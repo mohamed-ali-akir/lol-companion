@@ -9,7 +9,8 @@
  *   4. onglets/compte.js    : la carte "Ton compte" (lecture du client)
  *   5. onglets/accueil.js, niveau.js, stats.js, maitrise.js, session.js (bilan de session),
  *      derniere-partie.js (résumé d'après-partie), parametres.js, selection.js (pick et ban automatiques),
- *      build.js (objets et runes) : un fichier par onglet ou par carte de l'Accueil
+ *      build.js (objets et runes), challenge.js (top 3 en Arena avec tous les champions) : un fichier par onglet
+ *      ou par carte de l'Accueil
  *      assistant.js : les 3 questions de la première ouverture
  *   6. app.js (ce fichier)  : branche tout et démarre
  *
@@ -38,7 +39,7 @@ async function initialiser() {
   if (!window.appli) {
     activerOnglet(ONGLET_PAR_DEFAUT, { memoriser: false });
     ["boutonImport", "remettreSets"].forEach((id) => ($(id).disabled = true));
-    for (const id of ["formAcceptation", "formMaj", "formSelection", "formBuild", "formConsulterBuild"]) {
+    for (const id of ["formAcceptation", "formMaj", "formSelection", "formBuild", "formConsulterBuild", "formChallenge"]) {
       for (const element of $(id).elements) element.disabled = true;
     }
     afficherEtat("etatClient", "Lance l'appli avec npm start : le niveau est lu dans le client League.", "info");
@@ -49,6 +50,7 @@ async function initialiser() {
   brancherParametres();
   brancherSelection();
   brancherBuild();
+  brancherChallenge();
   brancherAssistant();
 
   // Surveillance en direct : main.js prévient la page après chaque partie.
@@ -70,6 +72,7 @@ async function initialiser() {
   }
 
   await recupererDepuisClient(true); // si le client est ouvert, tout se remplit tout seul
+  chargerChallenge(); // les parties lues à l'instant peuvent compter pour le challenge
 }
 
 document.addEventListener("DOMContentLoaded", initialiser);

@@ -40,6 +40,7 @@
       "maitrise.js",
       "arriere-plan.js",
       "selection.js",
+      "challenge.js",
       "runes.js",
       "build.js",
       "stats-build.js",

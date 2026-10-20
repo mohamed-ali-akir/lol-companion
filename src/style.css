@@ -1382,3 +1382,78 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
   background: none;
   color: var(--text);
 }
+
+/* Onglet Challenge (onglets/challenge.js) */
+.challenge-progression {
+  margin-top: 18px;
+}
+
+.challenge-prochain {
+  align-items: center;
+  display: flex;
+  gap: 14px;
+  margin-top: 18px;
+}
+
+.challenge-prochain .icone-champion {
+  border: 2px solid var(--gold);
+  border-radius: 10px;
+}
+
+.challenge-prochain-titre {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.8rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.challenge-prochain strong {
+  color: var(--gold);
+  font-family: var(--font-titre);
+  font-size: 1.4rem;
+}
+
+.challenge-liste {
+  display: grid;
+  gap: 6px 12px;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  list-style: none;
+  margin: 8px 0 16px;
+  padding: 0;
+}
+
+.challenge-liste li {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  min-width: 0;
+}
+
+.challenge-liste .challenge-nom {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.challenge-liste small {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  margin-left: auto;
+  white-space: nowrap;
+}
+
+.challenge-liste .challenge-fait .challenge-nom {
+  color: var(--text-muted);
+}
+
+/* Liste des faits : la place et la date prennent de la place */
+.challenge-details .challenge-liste {
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+}
+
+.challenge-details summary {
+  cursor: pointer;
+  font-weight: 600;
+  margin: 8px 0;
+}

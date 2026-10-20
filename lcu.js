@@ -322,14 +322,17 @@ function extraireParties(historique, joueur) {
 }
 
 /**
- * Détails pour le résumé d'après-partie (Accueil) : { cs, or, degats, vision }.
+ * Détails pour le résumé d'après-partie (Accueil) : { cs, or, degats, vision }, et la place en Arena (onglet Challenge).
  * Seuls les champs que le client donne vraiment sont gardés : un champ absent ou abîmé est simplement oublié
  * (et les parties des anciennes versions de l'appli n'en ont pas).
  * cs = sbires + monstres neutres (comme le compteur du jeu).
+ * place : classement de ton équipe en Arena (1 = gagnante). Vu sur le vrai client le 20/10/2026 : stats.subteamPlacement
+ * (1 à 8 en Arena 2 contre 2, 1 à 6 en « Arena 3x6 ») ; absent (ou 0) dans les autres modes.
  */
 function detailsDePartie(s) {
   const valide = (n) => Number.isFinite(n) && n >= 0;
   const details = {};
+  if (Number.isInteger(s.subteamPlacement) && s.subteamPlacement >= 1 && s.subteamPlacement <= 16) details.place = s.subteamPlacement;
   if (valide(s.totalMinionsKilled) || valide(s.neutralMinionsKilled)) {
     details.cs = (valide(s.totalMinionsKilled) ? s.totalMinionsKilled : 0) + (valide(s.neutralMinionsKilled) ? s.neutralMinionsKilled : 0);
   }

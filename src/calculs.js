@@ -405,7 +405,7 @@ function resumeObjectif(calculs) {
 const NOMS_FILES = {
   400: "Draft", 420: "Classée Solo/Duo", 430: "Blind", 440: "Classée Flex", 450: "ARAM", 480: "Swiftplay",
   490: "Quickplay", 700: "Clash", 830: "Coop vs IA", 840: "Coop vs IA", 850: "Coop vs IA", 900: "URF",
-  1700: "Arena", 1710: "Arena", 1900: "URF", 2400: "ARAM du Chaos",
+  1700: "Arena", 1710: "Arena", 1750: "Arena 3x6", 1900: "URF", 2400: "ARAM du Chaos",
 };
 const MIN_PARTIES_CHAMPION = 3; // pour les "meilleurs champions"
 const MIN_PARTIES_CRENEAUX = 10; // pour afficher les stats par tranche horaire et par jour
@@ -831,7 +831,7 @@ const PARTIES_COMPARAISON = 20;
 const MIN_PARTIES_COMPARAISON = 3; // en dessous, pas de moyenne : « joue encore quelques parties »
 const MARGE_TENDANCE = 0.05; // à moins de 5 % de ta moyenne : « comme d'habitude »
 const FILES_ARAM = new Set([100, 450, 720, 2400]); // Abîme hurlant (ARAM, ARAM du Chaos...)
-const FILES_ARENA = new Set([1700, 1710]);
+const FILES_ARENA = new Set([1700, 1710, 1750]); // 1750 : « Arena 3x6 » (vu dans le client le 20/10/2026)
 
 /** "faille", "aram" ou "arena" (une file inconnue compte comme la Faille). */
 function genreDePartie(file) {

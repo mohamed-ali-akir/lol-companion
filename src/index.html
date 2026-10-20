@@ -54,6 +54,7 @@
       <button type="button" role="tab" id="onglet-maitrise" data-onglet="maitrise" aria-controls="panneau-maitrise" aria-selected="false" tabindex="-1">Maîtrise</button>
       <button type="button" role="tab" id="onglet-selection" data-onglet="selection" aria-controls="panneau-selection" aria-selected="false" tabindex="-1">Sélection</button>
       <button type="button" role="tab" id="onglet-build" data-onglet="build" aria-controls="panneau-build" aria-selected="false" tabindex="-1">Build</button>
+      <button type="button" role="tab" id="onglet-challenge" data-onglet="challenge" aria-controls="panneau-challenge" aria-selected="false" tabindex="-1">Challenge</button>
       <button type="button" role="tab" id="onglet-parametres" data-onglet="parametres" aria-controls="panneau-parametres" aria-selected="false" tabindex="-1">Paramètres</button>
     </nav>
 
@@ -535,6 +536,68 @@
         </div>
       </section>
 
+      <!-- Onglet Challenge : top 3 en Arena avec tous les champions, dans l'ordre alphabétique (onglets/challenge.js) -->
+      <section class="panneau" id="panneau-challenge" role="tabpanel" aria-labelledby="onglet-challenge" tabindex="0" hidden>
+        <div class="card">
+          <h2>Challenge Arena : top 3 avec tous les champions</h2>
+          <p class="aide">
+            Le but : finir une Arena dans les 3 premiers avec chaque champion du jeu, dans l'ordre alphabétique.
+            Un top 3 compte même avec un champion joué hors ordre ; le prochain champion est toujours le premier de la
+            liste pas encore fait. La place vient de l'historique du client : pour compter tes anciennes Arenas,
+            importe ton historique dans l'onglet Stats.
+          </p>
+          <div class="stats">
+            <div class="stat"><span class="stat-value" id="challengeFaits">–</span><span class="stat-label">Faits</span></div>
+            <div class="stat"><span class="stat-value" id="challengeRestants">–</span><span class="stat-label">Restants</span></div>
+            <div class="stat"><span class="stat-value" id="challengeTotal">–</span><span class="stat-label">Champions</span></div>
+          </div>
+          <div class="challenge-progression">
+            <div class="progress-labels"><span>Progression</span><span id="challengePourcentage">0 %</span></div>
+            <div class="progress-bar" role="progressbar" id="challengeBarre" aria-label="Progression du challenge" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+              <div class="progress-fill" id="challengeRemplissage"></div>
+            </div>
+          </div>
+          <div class="challenge-prochain" id="challengeProchain" aria-live="polite"></div>
+          <p id="etatChallenge" class="etat" hidden></p>
+        </div>
+
+        <div class="card parametres">
+          <h2>Pick automatique du challenge</h2>
+          <p class="aide">
+            En sélection d'une Arena, l'appli choisit pour toi le prochain champion du challenge après un délai.
+            S'il est banni, déjà pris, survolé par ton coéquipier ou que tu ne l'as pas, elle prend le suivant dans
+            l'ordre. Si tu survoles ou verrouilles un champion toi-même pendant le délai, elle ne fait rien.
+            En Arena, cette case remplace les listes de picks de l'onglet Sélection ; ailleurs, rien ne change.
+          </p>
+          <p class="aide selection-risque">
+            ⚠ Les règles de Riot interdisent aux applis de choisir à la place du joueur.
+            Le risque de sanction est faible, mais pas nul : à activer en connaissance de cause.
+          </p>
+          <form id="formChallenge" class="reglages-acceptation">
+            <div class="ligne-reglage">
+              <label class="check">
+                <input type="checkbox" id="challengePick">
+                <span>Choisir automatiquement le prochain champion du challenge après</span>
+              </label>
+              <input type="number" id="challengeDelai" min="0" max="25" step="1" value="10" aria-label="Délai avant de choisir (secondes)">
+              <span>s</span>
+            </div>
+          </form>
+          <p id="etatPickChallenge" class="etat" hidden></p>
+          <p id="evenementChallenge" class="etat etat-info" hidden></p>
+        </div>
+
+        <div class="card">
+          <h2>Champions</h2>
+          <h3>Restants <small>(dans l'ordre)</small></h3>
+          <ol class="challenge-liste" id="challengeListeRestants"></ol>
+          <details class="challenge-details">
+            <summary id="challengeResumeFaits">Faits</summary>
+            <ol class="challenge-liste" id="challengeListeFaits"></ol>
+          </details>
+        </div>
+      </section>
+
       <!-- Onglet Paramètres (onglets/parametres.js) -->
       <section class="panneau" id="panneau-parametres" role="tabpanel" aria-labelledby="onglet-parametres" tabindex="0" hidden>
         <div class="card parametres">
@@ -618,6 +681,7 @@
   <script src="onglets/parametres.js"></script>
   <script src="onglets/selection.js"></script>
   <script src="onglets/build.js"></script>
+  <script src="onglets/challenge.js"></script>
   <script src="onglets/assistant.js"></script>
   <script src="app.js"></script>
 </body>

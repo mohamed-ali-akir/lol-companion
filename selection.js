@@ -25,6 +25,8 @@
  *  - un délai (10 s pour le pick, 5 s pour le ban par défaut) pour te laisser faire toi-même ;
  *  - si tu survoles ou verrouilles un champion toi-même, l'appli ne touche à rien ;
  *  - jamais un champion banni, déjà pris, ou survolé/déclaré par un coéquipier.
+ * Challenge Arena (challenge.js, 20/10/2026) : en Arena, si sa case est cochée, la liste du challenge (champions pas
+ * encore faits, dans l'ordre alphabétique) remplace les listes de picks ci-dessous ; mêmes garde-fous.
  */
 const { lireLockfile, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
 
@@ -187,14 +189,29 @@ function delaiEffectif(delaiSecondes, session) {
  *                               | { type, fait: false, annule: "fini" | "repondu" | "desactive" }
  *                               | { type, fait: false, raison: "liste-vide" | "indisponibles" }
  *                               | { type, fait: false, erreur } ;
- *  - journal(...)             : (facultatif) écrit les décisions dans le terminal, pour le diagnostic.
+ *  - journal(...)             : (facultatif) écrit les décisions dans le terminal, pour le diagnostic ;
+ *  - pickPrioritaire()        : (facultatif) { liste, delaiSecondes, source } pour remplacer les listes de picks et le
+ *                               délai de l'onglet Sélection, ou null. Sert au challenge Arena (challenge.js, 20/10/2026) :
+ *                               mêmes garde-fous, seule la liste essayée change. Les résultats portent alors "source".
  * Renvoie { surSession(session), arreter() }.
  */
-function creerSelectionAuto({ reglages, champsAutorises = async () => null, agir, resultat = () => {}, journal = () => {} }) {
+function creerSelectionAuto({ reglages, champsAutorises = async () => null, agir, resultat = () => {}, journal = () => {}, pickPrioritaire = () => null }) {
   let derniere = null; // dernière session reçue
   let partie; // gameId de la sélection en cours
   const traitees = new Set(); // actions déjà prises en charge (une seule fois chacune)
-  const prevues = new Map(); // actionId -> { minuterie, type }
+  const prevues = new Map(); // actionId -> { minuterie, type, source }
+
+  /** Pick du challenge (ou autre remplaçant) valable maintenant, ou null. Une erreur ne bloque jamais le pick normal. */
+  const prioritaire = (type) => {
+    if (type !== "pick") return null;
+    try {
+      const p = pickPrioritaire();
+      return p && Array.isArray(p.liste) && p.liste.length > 0 ? p : null;
+    } catch {
+      return null;
+    }
+  };
+  const avecSource = (info, p) => (p && p.source ? { ...info, source: p.source } : info);
 
   /** Ton action n° id du type donné, si elle est toujours en cours. */
   const actionToujoursEnCours = (id, type) => {
@@ -208,14 +225,14 @@ function creerSelectionAuto({ reglages, champsAutorises = async () => null, agir
     clearTimeout(prevue.minuterie);
     prevues.delete(id);
     journal(`${prevue.type} n°${id} annulé :`, raison);
-    resultat({ type: prevue.type, fait: false, annule: raison });
+    resultat(avecSource({ type: prevue.type, fait: false, annule: raison }, prevue));
   }
 
   async function executer(id, type) {
     prevues.delete(id);
     const actifMaintenant = () => {
       const r = normaliserReglagesSelection(reglages());
-      return type === "pick" ? r.pickActif : r.banActif;
+      return Boolean(prioritaire(type)) || (type === "pick" ? r.pickActif : r.banActif);
     };
     const verifier = () => {
       const a = actionToujoursEnCours(id, type);
@@ -228,12 +245,15 @@ function creerSelectionAuto({ reglages, champsAutorises = async () => null, agir
     let probleme = verifier();
     if (probleme) {
       journal(`${type} n°${id} abandonné au dernier moment :`, probleme);
-      return resultat({ type, fait: false, annule: probleme });
+      return resultat(avecSource({ type, fait: false, annule: probleme }, prioritaire(type)));
     }
 
+    // Réglages relus au moment d'agir : liste du challenge si elle s'applique, sinon celle du rôle puis "Par défaut".
+    const p = prioritaire(type);
+    const fin = (info) => resultat(avecSource(info, p));
     const r = normaliserReglagesSelection(reglages());
-    const liste = listePourAction(r, type, monRole(derniere)); // liste du rôle, puis "Par défaut"
-    if (liste.length === 0) return resultat({ type, fait: false, raison: "liste-vide" });
+    const liste = p ? p.liste : listePourAction(r, type, monRole(derniere));
+    if (liste.length === 0) return fin({ type, fait: false, raison: "liste-vide" });
 
     let autorises = null;
     try {
@@ -246,22 +266,22 @@ function creerSelectionAuto({ reglages, champsAutorises = async () => null, agir
     probleme = verifier(); // l'état a pu changer pendant la lecture
     if (probleme) {
       journal(`${type} n°${id} abandonné au dernier moment :`, probleme);
-      return resultat({ type, fait: false, annule: probleme });
+      return fin({ type, fait: false, annule: probleme });
     }
 
     const championId = choisirChampion(liste, championsIndisponibles(derniere), autorises);
     if (!championId) {
-      journal(`${type} n°${id} : aucun champion disponible dans la liste`, liste);
-      return resultat({ type, fait: false, raison: "indisponibles" });
+      journal(`${type} n°${id} : aucun champion disponible dans la liste`, p ? `(${p.source}, ${liste.length} champions)` : liste);
+      return fin({ type, fait: false, raison: "indisponibles" });
     }
-    journal(`${type} n°${id} : envoi du champion ${championId}...`);
+    journal(`${type} n°${id} : envoi du champion ${championId}${p ? ` (${p.source})` : ""}...`);
     try {
       await agir(id, championId);
       journal(`${type} n°${id} OK`);
-      resultat({ type, fait: true, championId });
+      fin({ type, fait: true, championId });
     } catch (erreur) {
       journal(`${type} n°${id} en ERREUR :`, erreur.message);
-      resultat({ type, fait: false, erreur: erreur.message });
+      fin({ type, fait: false, erreur: erreur.message });
     }
   }
 
@@ -290,18 +310,19 @@ function creerSelectionAuto({ reglages, champsAutorises = async () => null, agir
       traitees.add(action.id);
 
       const r = normaliserReglagesSelection(reglages());
-      if (!(type === "pick" ? r.pickActif : r.banActif)) continue;
+      const p = prioritaire(type); // challenge Arena : sa liste et son délai remplacent ceux de l'onglet Sélection
+      if (!p && !(type === "pick" ? r.pickActif : r.banActif)) continue;
       if (action.championId > 0) {
         journal(`${type} n°${action.id} : tu as déjà survolé un champion, l'appli ne fait rien`);
-        resultat({ type, fait: false, annule: "repondu" });
+        resultat(avecSource({ type, fait: false, annule: "repondu" }, p));
         continue;
       }
-      const delai = delaiEffectif(type === "pick" ? r.delaiPickSecondes : r.delaiBanSecondes, derniere);
+      const delai = delaiEffectif(p ? p.delaiSecondes : type === "pick" ? r.delaiPickSecondes : r.delaiBanSecondes, derniere);
       const role = monRole(derniere);
-      journal(`TON TOUR (${type} n°${action.id}), rôle ${role || "aucun"} : action prévue dans ${delai} s`);
-      resultat({ type, prevu: true, delaiSecondes: delai, role });
+      journal(`TON TOUR (${type} n°${action.id}), rôle ${role || "aucun"}${p ? `, ${p.source}` : ""} : action prévue dans ${delai} s`);
+      resultat(avecSource({ type, prevu: true, delaiSecondes: delai, role }, p));
       const id = action.id;
-      prevues.set(id, { type, minuterie: setTimeout(() => executer(id, type), delai * 1000) });
+      prevues.set(id, { type, source: p ? p.source : null, minuterie: setTimeout(() => executer(id, type), delai * 1000) });
     }
   }
 
@@ -357,6 +378,7 @@ module.exports = {
   LISTES_PICKS,
   NB_CHOIX,
   DELAI_MAX_SECONDES,
+  delaiBorne,
   normaliserReglagesSelection,
   monRole,
   monActionEnCours,

@@ -38,6 +38,7 @@ function fauxServices(changements = {}) {
     enregistrerReglagesAcceptation: (r) => ({ actif: r.actif === true }),
     reglagesSelection: () => ({}),
     enregistrerReglagesSelection: (r) => r,
+    enregistrerReglagesChallenge: (r) => ({ pickActif: r.pickActif === true, delaiSecondes: 10 }),
     reglagesBuild: () => ({ stats: false }),
     enregistrerReglagesBuild: (r) => r,
     reglagesArrierePlan: () => ({}),
@@ -57,6 +58,7 @@ function fauxServices(changements = {}) {
     lireCompte: async () => ({ ok: true }),
     lireMaitrise: async () => ({ ok: true }),
     importerHistorique: async () => ({ ok: true, nouvelles: 0 }),
+    lireChallenge: async () => ({ ok: true, faits: 1, restants: 2 }),
     obtenirNomsChampions: async () => new Map([[103, "Ahri"], [1, "Annie"], [-1, "Aucun"], [266, "Aatrox"]]),
     analyserOpgg: async () => {
       throw new Error("OP.GG en panne");
@@ -153,6 +155,13 @@ test("réglages : enregistrés -> { ok, reglages } ; refusés -> { ok: false, er
   assert.deepStrictEqual(await ipc.demander("acceptation:enregistrer", PAGE, { actif: true }), { ok: true, reglages: { actif: true } });
   assert.deepStrictEqual(await ipc.demander("arrierePlan:enregistrer", PAGE, { reduire: true }), { ok: true, reglages: { reduire: true, propre: true } });
   assert.deepStrictEqual(journal.appels, [["menu"], ["demarrage", { reduire: true, propre: true }]]);
+});
+
+test("challenge : progression demandée à challenge.js, case enregistrée (désactivée si la valeur est bizarre)", async () => {
+  const { ipc } = brancher();
+  assert.deepStrictEqual(await ipc.demander("challenge:lire"), { ok: true, faits: 1, restants: 2 });
+  assert.deepStrictEqual(await ipc.demander("challenge:enregistrer", PAGE, { pickActif: "oui" }), { ok: true, reglages: { pickActif: false, delaiSecondes: 10 } });
+  await assert.rejects(ipc.demander("challenge:lire", ETRANGER), /refusé/);
 });
 
 test("config:lire : réglages du disque et de l'appli réunis", async () => {

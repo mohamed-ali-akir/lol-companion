@@ -29,7 +29,7 @@ const { lireLockfile, lireJsonOuNull } = require("./lcu.js");
 const { simplifierNom } = require("./src/calculs.js");
 
 const FILE_MAYHEM = 2400; // "ARAM: Mayhem" (même numéro que dans lcu.js)
-const FILES_ARENA = [1700, 1710]; // Arena (mêmes numéros que dans src/calculs.js)
+const FILES_ARENA = [1700, 1710, 1750]; // Arena, dont « Arena 3x6 » (mêmes numéros que dans src/calculs.js)
 // Bande de capture, en proportion de la hauteur de l'écran (titres à 581 / 1440 = 40 %).
 const BANDE_HAUT = 0.36;
 const BANDE_BAS = 0.47;
@@ -45,7 +45,7 @@ function estMayhem(partie) {
   return file.id === FILE_MAYHEM || String(file.gameMode || "").toUpperCase() === "KIWI";
 }
 
-/** La partie en cours est-elle une Arena ? (file 1700 / 1710, ou mode CHERRY) */
+/** La partie en cours est-elle une Arena ? (file 1700 / 1710 / 1750, ou mode CHERRY) */
 function estArena(partie) {
   const file = partie && partie.gameData && partie.gameData.queue ? partie.gameData.queue : {};
   return FILES_ARENA.includes(file.id) || String(file.gameMode || "").toUpperCase() === "CHERRY";
