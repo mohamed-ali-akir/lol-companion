@@ -1,0 +1,58 @@
+# Journal des versions
+
+Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le détail technique de chaque choix est dans
+le [README](README.md) et dans l'historique Git.
+
+## Prochaine version (pas encore publiée)
+- **Runes** : une seule page de l'appli à la fois. La page de la partie d'avant (Hwei) est retrouvée par son nom
+  **ou par son identifiant** (même renommée) et remplacée par celle du nouveau champion (Akshan). Tes pages ne sont
+  jamais touchées.
+- **Arena** : si Lolalytics n'a pas de build Arena pour un champion, l'appli prend le build de la **Faille** et le
+  convertit en objets Arena. Plus de faux messages d'erreur en Arena (pas de runes, d'OP.GG ni de set Rank 1 dans ce
+  mode : ce n'est pas une erreur).
+- Données du jeu (files, recharges des sorts, objets Arena) regroupées dans `donnees-jeu.js`.
+- `npm run build:local` : les installateurs de test portent un numéro à part (`1.4.1-local.N`).
+
+## 1.4.0 (20/10/2026)
+- **Onglet Challenge** : faire un top 3 en Arena avec tous les champions, pick automatique du prochain.
+- **Arena** : build de la page Arena de Lolalytics (avec l'objet prismatique), taux de victoire des augments et des
+  objets prismatiques sous chaque carte.
+- Assistant de première ouverture et résumé d'après-partie.
+- Build : vrai rôle du champion en ARAM ; seuls les sets de LoL Companion restent dans le client.
+- Licence MIT. Robustesse : messages de la page et affichage en jeu sortis de `main.js` et testés, version du format
+  des fichiers de données, version de Node fixée, Dependabot.
+
+## 1.3.3 (17/10/2026)
+- **Electron 44** (la 38 n'était plus maintenue et avait des failles graves connues).
+- **Fichiers de données écrits de façon sûre** : plus d'historique perdu si le PC s'éteint pendant une écriture
+  (copie `.bak` relue, fichier abîmé gardé à part et signalé dans le journal).
+- `--quitter` : fermeture propre de l'appli depuis l'extérieur (une mise à jour prête s'installe).
+- Sonde quotidienne des sites lus (Lolalytics, OP.GG, arammayhem) ; tests et essai de bout en bout à chaque envoi.
+
+## 1.3.2 (17/10/2026)
+- **Mise à jour installée au lancement**, avant d'ouvrir l'appli.
+- **Set Rank 1** : build des meilleurs joueurs du champion (Lolalytics), rangé comme le build classique.
+- **Build** : objet recommandé = le plus acheté (comme Lolalytics) ; toujours le build de la Faille, même en ARAM ;
+  « · Recommandé » à la fin du meilleur set ; sets par famille complétés.
+- Augments : classement et taux de choix d'arammayhem.com (le site ne publie plus les taux de victoire).
+
+## 1.3.1 (17/10/2026)
+- Le bouton « Vérifier maintenant » devient « Redémarrer l'appli » quand une mise à jour est prête.
+
+## 1.3.0 (17/10/2026)
+- Paramètres et onglet Build allégés ; démarrage avec Windows imposé.
+- Onglets Classée, Missions et Butin retirés.
+- Chronos des sorts : panneau déplaçable, lancement automatique par les pings du chat.
+- Set d'objets « Champion Rank 1 » ; set principal sélectionné d'office dans la boutique.
+
+## 1.2.0 (16/10/2026)
+- **Version Mac (bêta)**.
+- Temps passé sur LoL (onglet Stats et Accueil).
+- Plusieurs sets d'objets pour les champions qui se jouent de plusieurs façons.
+
+## 1.1.1 (14/10/2026)
+- Correction du set d'objets refusé par le client (trop gros) ; optimisations.
+
+## 1.1.0 (11/10/2026)
+- **Mise à jour automatique** depuis les Releases GitHub.
+- Conseiller de draft, bans par rôle, chronos des sorts adverses, page de runes et sorts d'invocateur automatiques.

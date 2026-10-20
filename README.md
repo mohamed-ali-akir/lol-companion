@@ -5,7 +5,7 @@ lancé sur ton PC, sans clé API ni compte à créer : niveau et progression, se
 maîtrise, conseiller de draft, build automatique (runes, set d'objets, sorts) et aides en jeu.
 
 **[⬇ Télécharger la dernière version](https://github.com/mohamed-ali-akir/lol-companion/releases/latest)**
-(`LoL-Companion-Setup-x.y.z.exe`) · les versions suivantes s'installent toutes seules.
+(`LoL-Companion-Setup-x.y.z.exe`) · les versions suivantes s'installent toutes seules. · [Nouveautés de chaque version](CHANGELOG.md)
 
 ![Accueil : bilan de session et résumé](docs/captures/accueil.png)
 
