@@ -253,6 +253,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | `npm start` | Lance l'appli |
 | `npm test` | Lance les tests (413, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
+| `npm run build:local` | Installateur **de test** pour ce PC : numéro `version suivante-local.N` (ex. `1.4.1-local.2`), jamais celui d'une version publiée ; la mise à jour automatique ne l'écrase pas, la vraie version suivante le remplacera |
 | `npm run essai` | Essai de bout en bout : la vraie appli sur un faux client League (compte fictif), chaque onglet ouvert, aucune erreur tolérée. `CAPTURES=docs/captures npm run essai` refait aussi les captures du README |
 | `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
 

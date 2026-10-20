@@ -73,3 +73,10 @@ test("Dependabot : configuration valide, npm et actions GitHub surveillés chaqu
   const tests = yaml.load(fs.readFileSync(path.join(DOSSIER, "tests.yml"), "utf8"));
   assert.ok("pull_request" in tests.on, "tests.yml doit tourner sur les pull requests");
 });
+
+test("build local : version suivante + « -local.N » (jamais le numéro d'une version publiée)", () => {
+  const { versionSuivante } = require("../outils/build-local.js"); // chargé sans rien fabriquer
+  assert.strictEqual(versionSuivante("1.4.0"), "1.4.1");
+  assert.strictEqual(versionSuivante("1.4.9"), "1.4.10");
+  assert.strictEqual(versionSuivante("2.0.0-local.3"), "2.0.1");
+});
