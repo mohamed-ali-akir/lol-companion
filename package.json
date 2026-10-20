@@ -51,6 +51,7 @@
       "familles.js",
       "draft.js",
       "jeu.js",
+      "donnees-jeu.js",
       "sorts.js",
       "pings.js",
       "image.js",

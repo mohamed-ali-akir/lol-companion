@@ -30,21 +30,11 @@ const { NOMS_SORTS, pingDepuisLigne, creerCompteurPings } = require("./pings.js"
  * Perspicacité cosmique (rune) +18 mais invisible pour l'adversaire, donc pas comptée.
  * Temps réel = base / (1 + accélération / 100).
  */
-const SORTS = {
-  Flash: { nom: "Flash", rechargeS: 300 },
-  Dot: { nom: "Ignite", rechargeS: 180 },
-  Teleport: { nom: "TP", rechargeS: 300 },
-  Heal: { nom: "Heal", rechargeS: 240 },
-  Barrier: { nom: "Barrière", rechargeS: 180 },
-  Exhaust: { nom: "Exhaust", rechargeS: 240 },
-  Haste: { nom: "Ghost", rechargeS: 240 },
-  Boost: { nom: "Cleanse", rechargeS: 240 },
-  Smite: { nom: "Smite", rechargeS: 90 },
-};
-const TP_DECHAINEE_DES_S = 10 * 60;
-const BOTTES_IONIENNES = 3158;
-const HATE_IONIENNES = 10;
-const HATE_LUCIDITE_POURPRE = 20;
+// Recharges et accélération : donnees-jeu.js (une seule source, datée, à revérifier à chaque gros patch).
+const { RECHARGES_SORTS: SORTS, TP_DECHAINEE_DES_S, HATE_SORTS } = require("./donnees-jeu.js");
+const BOTTES_IONIENNES = HATE_SORTS.bottesIoniennes;
+const HATE_IONIENNES = HATE_SORTS.hateIoniennes;
+const HATE_LUCIDITE_POURPRE = HATE_SORTS.hateLuciditePourpre;
 const ORDRE_POSTES = ["TOP", "JUNGLE", "MIDDLE", "BOTTOM", "UTILITY"];
 
 // --- Fonctions pures (testées) ---------------------------------------------------------------

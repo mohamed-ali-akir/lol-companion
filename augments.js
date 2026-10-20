@@ -28,8 +28,9 @@
 const { lireLockfile, lireJsonOuNull } = require("./lcu.js");
 const { simplifierNom } = require("./src/calculs.js");
 
-const FILE_MAYHEM = 2400; // "ARAM: Mayhem" (même numéro que dans lcu.js)
-const FILES_ARENA = [1700, 1710, 1750]; // Arena, dont « Arena 3x6 » (mêmes numéros que dans src/calculs.js)
+const { FILES } = require("./donnees-jeu.js"); // numéros des files : une seule source
+const FILE_MAYHEM = FILES.mayhem; // "ARAM: Mayhem"
+const FILES_ARENA = FILES.arena; // Arena, dont « Arena 3x6 »
 // Bande de capture, en proportion de la hauteur de l'écran (titres à 581 / 1440 = 40 %).
 const BANDE_HAUT = 0.36;
 const BANDE_BAS = 0.47;

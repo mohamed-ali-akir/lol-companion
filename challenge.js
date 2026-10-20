@@ -21,7 +21,7 @@
 const { estArena } = require("./augments.js");
 const { delaiBorne } = require("./selection.js");
 
-const FILES_ARENA = new Set([1700, 1710, 1750]); // 1750 : « Arena 3x6 » (6 équipes de 3), vu dans le client le 20/10/2026
+const FILES_ARENA = new Set(require("./donnees-jeu.js").FILES.arena); // 1750 : « Arena 3x6 » (6 équipes de 3), vu dans le client le 20/10/2026
 const PLACE_MAX = 3; // top 3
 const DELAI_PAR_DEFAUT_S = 10; // comme le pick automatique de l'onglet Sélection
 

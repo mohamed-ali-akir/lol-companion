@@ -34,7 +34,7 @@ const PARTIES_MIN_RANK1 = 300;
 // Arena : chaque objet de la Faille existe en version Arena sous le numéro 220000 + son numéro (vérifié le
 // 20/10/2026 dans items.json du client : Dent de Nashor 3115 -> 223115, Jambières du berserker 3006 -> 223006...).
 // Les objets de départ de la Faille (Anneau de Doran, potions, bottes de base) n'existent pas en Arena.
-const DECALAGE_ARENA = 220000;
+const { DECALAGE_ARENA } = require("./donnees-jeu.js");
 
 /**
  * Erreur « pas pour ce mode » : rien n'est cassé, la donnée n'existe simplement pas (Arena : ni runes, ni stats

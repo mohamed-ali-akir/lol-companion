@@ -710,6 +710,7 @@ lol-level-calculator/
 ├── opgg.js            # Statistiques d'OP.GG (Internet) : runes, sorts, objets en secours ; lecture du format, cache
 ├── familles.js        # Familles de builds d'un champion (combattant, létalité...) : un set d'objets chacune ; Kayn rouge / bleu
 ├── lolalytics.js      # Lolalytics (Internet) : objets emplacement par emplacement, tier list, matchups, synergies, augments Arena ; cache
+├── donnees-jeu.js     # Données du jeu qui changent avec les patchs (files, recharges des sorts, objets Arena) : une seule source datée
 ├── sorts.js           # Chronos des sorts d'invocateur adverses : recharges, accélération, clics du panneau en jeu
 ├── pings.js           # Pings des sorts lus dans le chat : capture, OCR, reconnaissance « ChampionEnnemi Sort »
 ├── image.js           # Images PNG (lecture, écriture) et nettoyage de la zone du chat avant l'OCR

@@ -27,7 +27,7 @@ const PRUDENCE_BASE = 5000;
 const CONFORT_MAX = 0.02; // ± 2 points au plus pour tes propres résultats
 const NB_PROPOSITIONS = 5;
 const NB_RAISONS = 3;
-const FILES_FAILLE = new Set([400, 420, 430, 440, 480, 490]); // parties normales et classées de la Faille
+const FILES_FAILLE = new Set(require("./donnees-jeu.js").FILES.faille); // parties normales et classées de la Faille
 
 // --- Lecture de la session (fonctions pures, testées) --------------------------------------------
 
