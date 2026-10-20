@@ -33,13 +33,21 @@ function normaliserReglagesChallenge(brut) {
   return { pickActif: r.pickActif === true, delaiSecondes: delaiBorne(r.delaiSecondes, DELAI_PAR_DEFAUT_S) };
 }
 
-/** Noms des champions (Map id -> nom) -> [{ id, nom }] dans l'ordre alphabétique (français : accents et majuscules ignorés). */
+/**
+ * Noms des champions (Map id -> nom) -> [{ id, nom }] dans l'ordre alphabétique (français : accents et majuscules ignorés).
+ * Un nom en double n'est gardé qu'une fois, avec le plus petit numéro (20/10/2026 : le client liste aussi 77 copies des
+ * champions, numéros 60001 et plus, nom interne « Jade_Annie »..., avec le même nom que le vrai champion).
+ */
 function championsDansLOrdre(noms) {
   const liste = noms instanceof Map ? [...noms] : [];
-  return liste
-    .filter(([id, nom]) => Number.isInteger(id) && id > 0 && typeof nom === "string" && nom.trim() !== "")
-    .map(([id, nom]) => ({ id, nom }))
-    .sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }) || a.id - b.id);
+  const parNom = new Map(); // nom (sans majuscules) -> champion au plus petit numéro
+  for (const [id, nom] of liste) {
+    if (!Number.isInteger(id) || id <= 0 || typeof nom !== "string" || nom.trim() === "") continue;
+    const cle = nom.trim().toLocaleLowerCase("fr");
+    const avant = parNom.get(cle);
+    if (!avant || id < avant.id) parNom.set(cle, { id, nom });
+  }
+  return [...parNom.values()].sort((a, b) => a.nom.localeCompare(b.nom, "fr", { sensitivity: "base" }) || a.id - b.id);
 }
 
 /** Cette partie est-elle un top 3 en Arena ? (place absente ou abîmée : non) */

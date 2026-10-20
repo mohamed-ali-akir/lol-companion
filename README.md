@@ -124,6 +124,9 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
   alphabétique (noms lus dans le client, tri à la française : accents et majuscules ignorés). L'onglet affiche le nombre
   de champions faits, restants et le total, une barre de progression, le **prochain champion** (icône + nom) et les deux
   listes (restants dans l'ordre ; faits, avec la meilleure place et sa date).
+- **Pas de champions en double** (20/10/2026) : le client liste aussi 77 copies des champions (numéros 60001 et plus,
+  nom interne « Jade_Annie »...) avec le même nom que le vrai. Chaque nom n'est gardé qu'une fois, avec son numéro
+  d'origine (173 champions au lieu de 250).
 - **Compteur de parties** (20/10/2026) : pour chaque champion, le nombre de parties d'Arena jouées avec lui
   **avant de réussir** : « top 2 le 18/10 · en 3 parties » pour un champion fait (jusqu'au premier top 3 compris),
   « 2 parties sans top 3 » pour un champion pas encore fait, rappelé sous le prochain champion ; et la moyenne

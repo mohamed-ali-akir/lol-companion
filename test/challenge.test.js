@@ -38,6 +38,12 @@ test("ordre alphabétique français : accents et majuscules ignorés, données a
   assert.deepStrictEqual(C.championsDansLOrdre([[1, "Annie"]]), [], "pas une Map");
 });
 
+test("champions en double dans le client (copies « Jade_ », numéros 60001 et plus) : une seule fois, le vrai numéro", () => {
+  const noms = new Map([[60001, "Annie"], [1, "Annie"], [2, "Olaf"], [60002, "olaf"], [3, "Galio"]]);
+  assert.deepStrictEqual(C.championsDansLOrdre(noms), [{ id: 1, nom: "Annie" }, { id: 3, nom: "Galio" }, { id: 2, nom: "Olaf" }]);
+  assert.strictEqual(C.progressionChallenge(noms, []).total, 3);
+});
+
 test("progression : top 3 en Arena = fait ; prochain = premier pas fait dans l'ordre", () => {
   const parties = [
     partie({ championId: AATROX, place: 1 }),
