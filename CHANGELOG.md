@@ -10,6 +10,8 @@ le [README](README.md) et dans l'historique Git.
 - **Arena** : si Lolalytics n'a pas de build Arena pour un champion, l'appli prend le build de la **Faille** et le
   convertit en objets Arena. Plus de faux messages d'erreur en Arena (pas de runes, d'OP.GG ni de set Rank 1 dans ce
   mode : ce n'est pas une erreur).
+- **Challenge Arena** : compteur de parties pour chaque champion avant de réussir (« en 3 parties », « 2 parties
+  sans top 3 »), et la moyenne de parties par réussite.
 - Données du jeu (files, recharges des sorts, objets Arena) regroupées dans `donnees-jeu.js`.
 - `npm run build:local` : les installateurs de test portent un numéro à part (`1.4.1-local.N`).
 

@@ -47,7 +47,7 @@ test("progression : top 3 en Arena = fait ; prochain = premier pas fait dans l'o
   ];
   const p = C.progressionChallenge(NOMS, parties);
   assert.deepStrictEqual([p.total, p.faits, p.restants], [7, 3, 4]);
-  assert.deepStrictEqual(p.prochain, { id: AHRI, nom: "Ahri" });
+  assert.deepStrictEqual(p.prochain, { id: AHRI, nom: "Ahri", essais: 1 }, "1 partie d'Arena déjà tentée avec Ahri");
   assert.deepStrictEqual(p.champions.filter((c) => c.fait).map((c) => c.id), [AATROX, AKALI, ELISE]);
   assert.deepStrictEqual(C.ordreDesPicks(p), [AHRI, EVELYNN, KAISA, ZED]);
 });
@@ -55,8 +55,30 @@ test("progression : top 3 en Arena = fait ; prochain = premier pas fait dans l'o
 test("progression : un top 3 hors ordre compte quand même, le prochain reste le premier non fait", () => {
   const p = C.progressionChallenge(NOMS, [partie({ championId: ZED, place: 2 })]);
   assert.strictEqual(p.faits, 1);
-  assert.deepStrictEqual(p.prochain, { id: AATROX, nom: "Aatrox" });
+  assert.deepStrictEqual(p.prochain, { id: AATROX, nom: "Aatrox", essais: 0 });
   assert.strictEqual(p.champions.at(-1).fait, true);
+});
+
+test("parties avant de réussir : jusqu'au premier top 3 compris ; essais ratés pour un champion pas fait ; moyenne", () => {
+  const parties = [
+    partie({ championId: AHRI, place: 6, date: 1 }),
+    partie({ championId: AHRI, place: 5, date: 2 }),
+    partie({ championId: AHRI, place: 2, date: 3 }), // réussi à la 3e partie
+    partie({ championId: AHRI, place: 1, date: 4 }), // après la réussite : ne compte plus
+    partie({ championId: ZED, place: 1, date: 9 }), // réussi du premier coup
+    partie({ championId: AKALI, place: 7, date: 5 }),
+    partie({ championId: AKALI, place: 4, date: 6 }), // 2 essais ratés
+    partie({ championId: AKALI, place: 1, date: 7, file: 2400 }), // ARAM Mayhem : pas une partie du challenge
+  ];
+  const e = C.essaisParChampion(parties);
+  assert.deepStrictEqual([e.get(AHRI), e.get(ZED), e.get(AKALI), e.get(AATROX)], [3, 1, 2, undefined]);
+  const p = C.progressionChallenge(NOMS, parties);
+  const champion = (id) => p.champions.find((c) => c.id === id);
+  assert.deepStrictEqual([champion(AHRI).fait, champion(AHRI).essais], [true, 3]);
+  assert.deepStrictEqual([champion(AKALI).fait, champion(AKALI).essais], [false, 2]);
+  assert.strictEqual(champion(AATROX).essais, 0);
+  assert.strictEqual(p.moyenneEssais, 2, "(3 + 1) / 2 champions réussis");
+  assert.strictEqual(C.progressionChallenge(NOMS, []).moyenneEssais, null);
 });
 
 test("progression : seulement l'Arena, et une place lisible entre 1 et 3", () => {

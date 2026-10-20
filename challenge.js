@@ -62,25 +62,54 @@ function championsFaits(parties) {
 }
 
 /**
- * Progression du challenge : { total, faits, restants, prochain, champions }.
- *  - champions : [{ id, nom, fait, place, date }] dans l'ordre alphabétique (place et date : null si pas fait) ;
+ * Parties d'Arena jouées avec chaque champion AVANT de réussir le challenge (demandé le 20/10/2026) :
+ * Map championId -> nombre. Champion fait : les parties jusqu'à son PREMIER top 3 compris (combien d'essais il a
+ * fallu) ; pas encore fait : toutes ses parties d'Arena (les essais ratés). Une partie sans date compte comme jouée
+ * avant (on ne sait pas la ranger).
+ */
+function essaisParChampion(parties) {
+  const arenas = (Array.isArray(parties) ? parties : []).filter((p) => p && FILES_ARENA.has(p.file) && Number.isInteger(p.championId));
+  const premierTop3 = new Map(); // championId -> date du premier top 3 (-Infinity si sans date)
+  for (const p of arenas) {
+    if (!estTop3Arena(p)) continue;
+    const date = Number.isFinite(p.date) ? p.date : -Infinity;
+    if (!premierTop3.has(p.championId) || date < premierTop3.get(p.championId)) premierTop3.set(p.championId, date);
+  }
+  const essais = new Map();
+  for (const p of arenas) {
+    const limite = premierTop3.has(p.championId) ? premierTop3.get(p.championId) : Infinity;
+    const date = Number.isFinite(p.date) ? p.date : -Infinity;
+    if (date <= limite) essais.set(p.championId, (essais.get(p.championId) || 0) + 1);
+  }
+  return essais;
+}
+
+/**
+ * Progression du challenge : { total, faits, restants, prochain, champions, moyenneEssais }.
+ *  - champions : [{ id, nom, fait, place, date, essais }] dans l'ordre alphabétique (place et date : null si pas fait ;
+ *    essais : parties d'Arena jouées avec lui avant de réussir, voir essaisParChampion) ;
+ *  - moyenneEssais : parties par champion réussi, en moyenne (null tant qu'aucun n'est fait) ;
  *  - prochain : { id, nom } (premier pas fait), ou null quand tout est fait (ou liste vide).
  * Un top 3 avec un champion inconnu de la liste (retiré du jeu, liste pas à jour) n'est pas compté.
  */
 function progressionChallenge(noms, parties) {
   const faits = championsFaits(parties);
+  const essais = essaisParChampion(parties);
   const champions = championsDansLOrdre(noms).map((c) => {
     const f = faits.get(c.id);
-    return { ...c, fait: Boolean(f), place: f ? f.place : null, date: f ? f.date : null };
+    return { ...c, fait: Boolean(f), place: f ? f.place : null, date: f ? f.date : null, essais: essais.get(c.id) || 0 };
   });
-  const nbFaits = champions.filter((c) => c.fait).length;
+  const reussis = champions.filter((c) => c.fait);
+  const nbFaits = reussis.length;
   const prochain = champions.find((c) => !c.fait);
+  const moyenneEssais = nbFaits > 0 ? reussis.reduce((s, c) => s + Math.max(1, c.essais), 0) / nbFaits : null;
   return {
     total: champions.length,
     faits: nbFaits,
     restants: champions.length - nbFaits,
-    prochain: prochain ? { id: prochain.id, nom: prochain.nom } : null,
+    prochain: prochain ? { id: prochain.id, nom: prochain.nom, essais: prochain.essais } : null,
     champions,
+    moyenneEssais,
   };
 }
 
@@ -142,6 +171,7 @@ function creerChallenge({ reglages, nomsChampions, parties, lirePartie }) {
 }
 
 module.exports = {
+  essaisParChampion,
   FILES_ARENA,
   PLACE_MAX,
   normaliserReglagesChallenge,

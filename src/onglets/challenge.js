@@ -10,14 +10,23 @@
 
 let progressionChallengeAffichee = null; // dernière réponse de main.js (pour ne pas tout redessiner pour rien)
 
-/** Une ligne de liste : icône + nom (+ place et date pour un champion fait). */
+/** « 1 partie », « 3 parties ». */
+const texteParties = (n) => `${formatNombre(n)} partie${n > 1 ? "s" : ""}`;
+
+/**
+ * Une ligne de liste : icône + nom, + place, date et nombre de parties qu'il a fallu pour un champion fait,
+ * ou nombre de parties déjà tentées pour un champion pas encore fait (rien s'il n'a jamais été joué en Arena).
+ */
 function ligneChallenge(c) {
   const ligne = element("li", c.fait ? "challenge-fait" : "");
   const nom = element("span", "challenge-nom", c.nom);
   ligne.append(iconeChampion(c.id), nom);
+  const essais = Number.isInteger(c.essais) ? c.essais : 0;
   if (c.fait) {
     const date = Number.isFinite(c.date) ? ` le ${new Date(c.date).toLocaleDateString("fr-FR")}` : "";
-    ligne.append(element("small", "", `top ${c.place}${date}`));
+    ligne.append(element("small", "", `top ${c.place}${date} · en ${texteParties(Math.max(1, essais))}`));
+  } else if (essais > 0) {
+    ligne.append(element("small", "", `${texteParties(essais)} sans top 3`));
   }
   return ligne;
 }
@@ -35,6 +44,8 @@ function afficherChallenge(reponse) {
   $("challengeFaits").textContent = formatNombre(reponse.faits);
   $("challengeRestants").textContent = formatNombre(reponse.restants);
   $("challengeTotal").textContent = formatNombre(reponse.total);
+  // Parties par champion réussi, en moyenne (1 chiffre après la virgule) ; « – » tant qu'aucun n'est fait.
+  $("challengeMoyenne").textContent = Number.isFinite(reponse.moyenneEssais) ? formatNombre(Math.round(reponse.moyenneEssais * 10) / 10) : "–";
   const pourcentage = reponse.total > 0 ? Math.floor((reponse.faits / reponse.total) * 100) : 0;
   $("challengePourcentage").textContent = `${pourcentage} %`;
   $("challengeRemplissage").style.width = `${reponse.total > 0 ? (reponse.faits / reponse.total) * 100 : 0}%`;
@@ -48,6 +59,8 @@ function afficherChallenge(reponse) {
     icone.loading = "eager";
     const texte = element("div");
     texte.append(element("span", "challenge-prochain-titre", "Prochain champion"), element("strong", "", reponse.prochain.nom));
+    const essais = reponse.prochain.essais || 0;
+    texte.append(element("span", "challenge-prochain-essais", essais > 0 ? `Déjà ${texteParties(essais)} sans top 3` : "Jamais joué en Arena"));
     prochain.replaceChildren(icone, texte);
   } else {
     prochain.replaceChildren(element("strong", "", reponse.total > 0 ? "Challenge terminé : top 3 avec tous les champions ! 🎉" : ""));

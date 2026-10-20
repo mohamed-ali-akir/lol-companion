@@ -171,6 +171,17 @@ select:focus {
   text-align: center;
 }
 
+/* 4 cases sur une ligne (onglet Challenge) ; 2 par ligne sur une petite fenêtre */
+.stats.stats-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 600px) {
+  .stats.stats-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 .stat {
   display: flex;
   flex-direction: column;
@@ -1398,6 +1409,13 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
 .challenge-prochain .icone-champion {
   border: 2px solid var(--gold);
   border-radius: 10px;
+}
+
+.challenge-prochain-essais {
+  color: var(--text-muted);
+  display: block;
+  font-size: 0.85rem;
+  margin-top: 2px;
 }
 
 .challenge-prochain-titre {
