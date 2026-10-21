@@ -31,6 +31,7 @@ const { creerLecteurLolalytics } = require("./lolalytics.js");
 const { creerHistoriqueParties } = require("./parties.js");
 const { creerConseillerDraft } = require("./draft.js");
 const { creerChallenge } = require("./challenge.js"); // onglet Challenge : top 3 en Arena avec tous les champions
+const { creerRelectureApresPartie } = require("./apres-partie.js"); // relit l'historique jusqu'à y trouver la partie finie
 const { recupererMaitrise, creerSuiviMaitrise, mettreAJourSuivi, moyennesParChampion } = require("./maitrise.js");
 const { surProbleme } = require("./fichiers.js"); // écriture sûre des fichiers de données
 const { migrerDonnees } = require("./migrations.js"); // version du format des fichiers de données
@@ -133,7 +134,11 @@ function brancherMessagesAppli() {
     lireCompte,
     lireMaitrise,
     importerHistorique,
-    lireChallenge: () => challenge.lire(),
+    // relireClient (clic sur l'onglet Challenge) : on relit d'abord l'historique du client, pas seulement parties.json.
+    lireChallenge: async (options) => {
+      if (options && options.relireClient === true) await relireEtPrevenir("relecture", false);
+      return challenge.lire();
+    },
     obtenirNomsChampions: () => obtenirNomsChampions(),
     analyserOpgg: (contexte) => analyserOpgg(contexte),
     analyserLolalytics: (contexte) => analyserLolalytics(contexte),
@@ -173,6 +178,27 @@ const challenge = creerChallenge({
   lirePartie: () => lirePartie(stockage.dossierJeu()),
 });
 
+/**
+ * Relit le compte et prévient la page (Accueil, Stats, Challenge...) ; renvoie le nombre de parties nouvelles.
+ * prevenirSiRien : prévenir la page même si aucune partie n'est arrivée (lancement du client, 1re relecture après partie).
+ */
+async function relireEtPrevenir(raison, prevenirSiRien) {
+  const reponse = await lireCompte();
+  const nouvelles = reponse.ok ? reponse.nouvelles : 0;
+  if (!prevenirSiRien && nouvelles === 0) return 0;
+  if (reponse.ok) envoyerALaPage("client:miseAJour", { ...reponse, raison });
+  const maitrise = await lireMaitrise(); // après lireCompte : les nouvelles parties sont déjà enregistrées
+  if (maitrise.ok) envoyerALaPage("maitrise:miseAJour", maitrise);
+  return nouvelles;
+}
+
+// Après une partie : relectures (4 s, 10 s, 20 s, puis toutes les 30 s) jusqu'à ce que la partie soit dans
+// l'historique du client (apres-partie.js). Démarrée par la connexion en direct ET par le sondage.
+const relectureApresPartie = creerRelectureApresPartie({
+  relire: (essai) => relireEtPrevenir("fin-de-partie", essai === 0),
+  aErreur: (nom, erreur) => signalerErreur(nom, erreur),
+});
+
 // Ce qui s'affiche par-dessus le jeu (en-jeu.js) : stats des augments (ARAM Mayhem et Arena) et chronos des sorts (Faille).
 const enJeu = creerEnJeu({
   electron: { BrowserWindow, screen, systemPreferences },
@@ -193,14 +219,15 @@ const enJeu = creerEnJeu({
 async function lireCompte() {
   try {
     const { parties, ...compte } = await recupererCompteClient(stockage.dossierJeu());
+    let nouvelles = 0; // parties pas encore dans parties.json (relecture après partie : la partie est-elle arrivée ?)
     try {
       stockage.enregistrerDernierCompte(compte);
       progression.ajouter(creerPoint(compte, xpDuCompte(compte))); // un point de plus sur la courbe
-      historiqueParties.ajouter(riotIdDe(compte), parties, await obtenirNomsChampions());
+      nouvelles = historiqueParties.ajouter(riotIdDe(compte), parties, await obtenirNomsChampions());
     } catch (erreur) {
       console.error("Impossible d'enregistrer le compte :", erreur); // pas grave : on affiche quand même
     }
-    return { ok: true, ...compte };
+    return { ok: true, ...compte, nouvelles };
   } catch (erreur) {
     return reponseErreur(erreur);
   }
@@ -540,16 +567,13 @@ function demarrerSurveillance() {
     aPhase: (phase) => {
       phaseDirecte = phase;
       enJeu.surPhase(phase);
+      if (phase === "EndOfGame") relectureApresPartie.demarrer(); // partie finie : relire jusqu'à la trouver
     },
     aSelection: surSelection,
     aRafraichir: async (raison) => {
-      // Après une partie ou au lancement du client.
-      const reponse = await lireCompte();
-      if (reponse.ok) {
-        envoyerALaPage("client:miseAJour", { ...reponse, raison });
-      }
-      const maitrise = await lireMaitrise(); // après lireCompte : les nouvelles parties sont déjà enregistrées
-      if (maitrise.ok) envoyerALaPage("maitrise:miseAJour", maitrise);
+      // Après une partie : relectures jusqu'à trouver la partie (un seul cycle, même si le sondage l'a déjà lancé).
+      if (raison === "fin-de-partie") return void relectureApresPartie.demarrer();
+      await relireEtPrevenir(raison, true); // lancement du client
     },
   });
 
@@ -561,7 +585,10 @@ function demarrerSurveillance() {
       noter("Client :", etat.clientRepond ? `répond (phase ${etat.phase})` : etat.clientLance ? "lancé, ne répond pas encore" : "fermé");
       publierEtatAppli();
     },
-    aPhase: (phase) => enJeu.surPhase(phase),
+    aPhase: (phase) => {
+      enJeu.surPhase(phase);
+      if (phase === "EndOfGame") relectureApresPartie.demarrer(); // même si la connexion en direct est en retard
+    },
     aReadyCheck: (etat) => acceptation.surReadyCheck(etat),
     aSelection: surSelection,
     aErreur: signalerErreur,
@@ -791,6 +818,7 @@ app.on("before-quit", () => {
   quitteEnCours = true;
   if (surveillance) surveillance.arreter();
   if (sondage) sondage.arreter();
+  relectureApresPartie.arreter();
   clearInterval(chienDeGarde);
   if (acceptation) acceptation.arreter();
   if (selectionAuto) selectionAuto.arreter();

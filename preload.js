@@ -24,7 +24,7 @@ contextBridge.exposeInMainWorld("appli", {
   enregistrerSelection: (reglages) => ipcRenderer.invoke("selection:enregistrer", reglages),
   lireChampionsSelection: () => ipcRenderer.invoke("selection:champions"),
   lireConseilDraft: () => ipcRenderer.invoke("draft:lire"),
-  lireChallenge: () => ipcRenderer.invoke("challenge:lire"),
+  lireChallenge: (options) => ipcRenderer.invoke("challenge:lire", options),
   enregistrerChallenge: (reglages) => ipcRenderer.invoke("challenge:enregistrer", reglages),
   lireBuild: () => ipcRenderer.invoke("build:lire"),
   enregistrerBuild: (reglages) => ipcRenderer.invoke("build:enregistrer", reglages),

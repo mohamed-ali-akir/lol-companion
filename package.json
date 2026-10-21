@@ -42,6 +42,7 @@
       "arriere-plan.js",
       "selection.js",
       "challenge.js",
+      "apres-partie.js",
       "runes.js",
       "build.js",
       "stats-build.js",

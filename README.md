@@ -131,6 +131,10 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
   **avant de réussir** : « top 2 le 18/10 · en 3 parties » pour un champion fait (jusqu'au premier top 3 compris),
   « 2 parties sans top 3 » pour un champion pas encore fait, rappelé sous le prochain champion ; et la moyenne
   « Parties par réussite » (`essaisParChampion` dans `challenge.js`).
+- **Mise à jour dès que la partie est dans l'historique** (21/10/2026) : le top 3 apparaît dès que le client a ajouté la
+  partie à son historique, en général quelques secondes après l'écran de fin. En Arena, il peut l'ajouter seulement
+  quand toutes les équipes sont éliminées. Avant, l'appli ne regardait qu'une fois, 4 s après la fin : souvent trop tôt,
+  et la partie n'apparaissait qu'après la suivante. Cliquer sur l'onglet Challenge relit aussi l'historique du client.
 - **Ce qui compte** : une partie d'Arena (files 1700, 1710, et 1750 « Arena 3x6 ») finie à la place 1, 2 ou 3. **Un top 3
   avec un champion joué hors ordre compte quand même** (tu l'as fait, c'est honnête) ; le prochain champion reste
   toujours le **premier de la liste pas encore fait**. La place vient de l'historique du client : les Arenas enregistrées
@@ -258,7 +262,7 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | Commande | Rôle |
 |---|---|
 | `npm start` | Lance l'appli |
-| `npm test` | Lance les tests (413, dont 2 seulement sur Mac) |
+| `npm test` | Lance les tests (525, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 | `npm run build:local` | Installateur **de test** pour ce PC : numéro `version suivante-local.N` (ex. `1.4.1-local.2`), jamais celui d'une version publiée ; la mise à jour automatique ne l'écrase pas, la vraie version suivante le remplacera |
 | `npm run essai` | Essai de bout en bout : la vraie appli sur un faux client League (compte fictif), chaque onglet ouvert, aucune erreur tolérée. `CAPTURES=docs/captures npm run essai` refait aussi les captures du README |
@@ -437,6 +441,12 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   marqué « en cours » mais le client ignore un ban envoyé à ce moment-là, donc l'appli attend la phase `BAN_PICK`.
   Le client a aussi répondu « OK » à un verrouillage sans verrouiller : l'appli relit donc la session pour vérifier,
   essaie l'autre méthode si besoin, et sinon affiche une erreur au lieu d'un faux « OK ».
+- **Relecture après partie** (`apres-partie.js`, 21/10/2026) : à la fin d'une partie (phase `EndOfGame`, vue par la
+  connexion en direct OU par le sondage de secours, un seul cycle à la fois), l'appli relit le compte et l'historique
+  après 4 s, 10 s, 20 s, puis toutes les 30 s, et s'arrête dès qu'une partie nouvelle est enregistrée dans
+  `parties.json` (10 minutes au plus : un remake n'est jamais ajouté). La page n'est prévenue qu'à la première
+  relecture et quand la partie arrive. Le clic sur l'onglet Challenge envoie `lireChallenge({ relireClient: true })` :
+  relecture du client avant le calcul.
 - **Challenge Arena** (`challenge.js`) : vérifié sur le vrai client le 20/10/2026, la place est dans l'historique
   (`participants[].stats.subteamPlacement`, 1 à 8 en Arena 2 contre 2, 1 à 6 en « Arena 3x6 », file 1750 ; 0 ou absent
   ailleurs). `lcu.js` ne la garde que si c'est un entier plausible ; `parties.js` complète champ par champ les parties
@@ -725,6 +735,7 @@ lol-level-calculator/
 ├── augments.js        # Augments ARAM Mayhem et Arena, objets prismatiques : reconnaissance des cartes, étiquettes, surveillance
 ├── ocr.js             # Lecture de texte à l'écran : OCR de Windows (PowerShell) ou de macOS (screencapture + Vision)
 ├── arammayhem.js      # Notes des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache
+├── apres-partie.js    # Après une partie : relit l'historique du client jusqu'à y trouver la partie (Challenge, Stats...)
 ├── sondage.js         # Deuxième canal : interroge le client toutes les secondes ; état « prête / pas prête »
 ├── fichiers.js        # Écriture sûre des fichiers de données (temporaire + renommage, copie .bak relue si abîmé)
 ├── migrations.js      # Version du format des fichiers de données, migrations au démarrage (copie de sécurité avant)

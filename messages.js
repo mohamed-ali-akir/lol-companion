@@ -70,7 +70,8 @@ function listeChampions(noms) {
  *  - remettreSets() : tes sets sauvegardés remis dans le client (renvoie leur nombre) ;
  *  - config() : { dossierJeuParDefaut, plateforme, autorisationEcran, lancement } ;
  *  - lireCompte(), lireMaitrise(), importerHistorique(), obtenirNomsChampions(), analyserOpgg(c), analyserLolalytics(c) ;
- *  - lireChallenge() : progression du challenge Arena (challenge.js) ;
+ *  - lireChallenge({ relireClient }) : progression du challenge Arena (challenge.js) ; relireClient : relire
+ *    d'abord l'historique du client (clic sur l'onglet) ;
  *  - apresReglagesAcceptation(), appliquerDemarrageWindows(reglages) ;
  *  - souris(dessus), clicSort(id) : fenêtre du jeu (panneau des sorts) ;
  *  - dernierConseil(), clientConnecte(), etatAppli() ;
@@ -143,7 +144,7 @@ function brancherMessages(ipcMain, services) {
   });
   repondre("draft:lire", () => s.dernierConseil()); // si la page s'ouvre pendant une sélection
   // Challenge Arena (onglet Challenge) : progression recalculée depuis parties.json, et sa case de pick automatique.
-  repondre("challenge:lire", () => s.lireChallenge());
+  repondre("challenge:lire", (options) => s.lireChallenge({ relireClient: Boolean(options && options.relireClient === true) }));
   repondre("challenge:enregistrer", (reglages) => essayer(() => ({ reglages: s.stockage().enregistrerReglagesChallenge(reglages) })));
   repondre("build:lire", () => s.stockage().reglagesBuild());
   repondre("build:enregistrer", (reglages) => essayer(() => ({ reglages: s.stockage().enregistrerReglagesBuild(reglages) })));

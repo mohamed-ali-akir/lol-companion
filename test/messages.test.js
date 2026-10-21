@@ -58,7 +58,7 @@ function fauxServices(changements = {}) {
     lireCompte: async () => ({ ok: true }),
     lireMaitrise: async () => ({ ok: true }),
     importerHistorique: async () => ({ ok: true, nouvelles: 0 }),
-    lireChallenge: async () => ({ ok: true, faits: 1, restants: 2 }),
+    lireChallenge: async (options) => ({ ok: true, faits: 1, restants: 2, ...(options.relireClient ? { relu: true } : {}) }),
     obtenirNomsChampions: async () => new Map([[103, "Ahri"], [1, "Annie"], [-1, "Aucun"], [266, "Aatrox"]]),
     analyserOpgg: async () => {
       throw new Error("OP.GG en panne");
@@ -160,6 +160,9 @@ test("réglages : enregistrés -> { ok, reglages } ; refusés -> { ok: false, er
 test("challenge : progression demandée à challenge.js, case enregistrée (désactivée si la valeur est bizarre)", async () => {
   const { ipc } = brancher();
   assert.deepStrictEqual(await ipc.demander("challenge:lire"), { ok: true, faits: 1, restants: 2 });
+  // Clic sur l'onglet : relire d'abord l'historique du client (seulement si la page le demande vraiment)
+  assert.deepStrictEqual(await ipc.demander("challenge:lire", PAGE, { relireClient: true }), { ok: true, faits: 1, restants: 2, relu: true });
+  assert.deepStrictEqual(await ipc.demander("challenge:lire", PAGE, { relireClient: "oui" }), { ok: true, faits: 1, restants: 2 });
   assert.deepStrictEqual(await ipc.demander("challenge:enregistrer", PAGE, { pickActif: "oui" }), { ok: true, reglages: { pickActif: false, delaiSecondes: 10 } });
   await assert.rejects(ipc.demander("challenge:lire", ETRANGER), /refusé/);
 });

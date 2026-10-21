@@ -81,9 +81,10 @@ function afficherReglagesChallenge(r) {
   $("challengeDelai").disabled = !r.pickActif;
 }
 
-async function chargerChallenge() {
+/** relireClient : relire d'abord l'historique du client (clic sur l'onglet), sinon seulement parties.json. */
+async function chargerChallenge(relireClient = false) {
   try {
-    afficherChallenge(await window.appli.lireChallenge());
+    afficherChallenge(await window.appli.lireChallenge({ relireClient: relireClient === true }));
   } catch (erreur) {
     afficherEtat("etatChallenge", `Challenge illisible : ${erreur.message}`, "erreur");
   }
@@ -120,8 +121,9 @@ function surEvenementChallenge(info) {
 
 function brancherChallenge() {
   chargerChallenge();
-  $("onglet-challenge").addEventListener("click", chargerChallenge); // parties importées depuis : on relit
-  window.appli.surMiseAJour(chargerChallenge); // après chaque partie
+  // Clic sur l'onglet : on relit l'historique du client (une partie finie à l'instant y est peut-être déjà).
+  $("onglet-challenge").addEventListener("click", () => chargerChallenge(true));
+  window.appli.surMiseAJour(() => chargerChallenge()); // après chaque partie (dès qu'elle est dans l'historique)
   window.appli.surConnexion((connecte) => {
     if (connecte) chargerChallenge(); // client lancé après l'appli : la liste des champions arrive
   });
