@@ -66,6 +66,9 @@ function noteEtRang(texte) {
  * Page d'un champion -> [{ nom, rarete, note, rang, apparition }] (ses meilleurs augments par rareté, pour CE champion).
  * Format vérifié le 17/10/2026 : « Prismatic Augments », puis pour chaque augment :
  * nom | « S · #3 » (avec ce champion) | « Overall S · #9 » | « Appearance rate: » | x%.
+ * Format vu le 26/10/2026 (la sonde échouait depuis le 25/10) : plus de note par champion, seulement les augments
+ * les plus pris avec lui (« popularity is not strength ») : nom | « Appearance rate: » | x%. note et rang : null.
+ * Les deux formats sont lus.
  */
 function augmentsDuChampion(lignes) {
   const resultat = [];
@@ -73,11 +76,16 @@ function augmentsDuChampion(lignes) {
   for (let i = 0; i < lignes.length; i++) {
     const titre = /^(Prismatic|Gold|Silver) Augments$/.exec(lignes[i]);
     if (titre) rarete = titre[1];
-    if (lignes[i] !== "Appearance rate:" || i < 3 || !/^Overall /.test(lignes[i - 1])) continue;
-    const notation = noteEtRang(lignes[i - 2]);
+    if (lignes[i] !== "Appearance rate:" || i < 1 || !rarete) continue;
     const apparition = pourcentage(lignes[i + 1]);
-    const nom = lignes[i - 3];
-    if (nom && notation && apparition !== null) resultat.push({ nom, rarete, ...notation, apparition });
+    if (apparition === null) continue;
+    if (/^Overall /.test(lignes[i - 1])) {
+      const notation = noteEtRang(lignes[i - 2]);
+      const nom = lignes[i - 3];
+      if (nom && notation) resultat.push({ nom, rarete, ...notation, apparition });
+    } else if (!/ Augments$/.test(lignes[i - 1])) {
+      resultat.push({ nom: lignes[i - 1], rarete, note: null, rang: null, apparition });
+    }
   }
   return resultat;
 }

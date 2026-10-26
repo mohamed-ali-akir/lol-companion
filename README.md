@@ -194,7 +194,9 @@ peut rien afficher par-dessus. L'onglet Build le rappelle.
 - **Augments ARAM Mayhem** (toujours actif) : quand les 3 augments sont proposés, l'appli affiche **sous chaque carte**
   son **classement** et son **taux de choix** d'arammayhem.com (« Top 3 · choisi 64 % »), avec **ton champion** si l'augment est dans
   ses meilleurs, et met en avant la meilleure carte (cadre doré), d'après la note du site (S+, S, A...). Le site ne
-  publie plus de taux de victoire par augment depuis octobre 2026 (ni sur ses pages, ni dans son serveur MCP).
+  publie plus de taux de victoire par augment depuis octobre 2026 (ni sur ses pages, ni dans son serveur MCP). Depuis
+  le 25/10/2026, il ne note plus les augments par champion : le classement est celui **tous champions**, et l'appli
+  indique en plus si l'augment fait partie des plus pris avec ton champion.
   Appli lancée en pleine partie : le champion est lu dans la partie en cours. Elle ne choisit jamais à ta place ([aperçu](docs/captures/apercu-augments.png)).
 - **Augments Arena** (toujours actif, 19/10/2026) : le même système en Arena. Sous chaque carte, le vrai **taux de
   victoire** de l'augment **avec ton champion**, d'après Lolalytics (« 63 % de victoires », puis « +4 pts » par rapport à
@@ -555,7 +557,10 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   - stats : **arammayhem.com** (`arammayhem.js`) : page de ton champion (retenu pendant la sélection ; appli lancée en
     pleine partie : lu dans l'API « Live Client Data », `monAlias` de `jeu.js`) avec ses 6 meilleurs augments par
     rareté (**note** S+ à D et rang avec lui, taux d'apparition), et page de tous les augments (notes tous champions) en
-    secours. Vu le 17/10/2026 : le site n'affiche plus de taux de victoire par augment, seulement ces notes. Mise en
+    secours. Vu le 17/10/2026 : le site n'affiche plus de taux de victoire par augment, seulement ces notes. Vu le
+    26/10/2026 (sonde en échec depuis le 25/10) : la page du champion n'a plus de note, seulement les augments les plus
+    pris avec lui ; ils gardent alors la note et le rang tous champions (`noteGlobale`, étiquette « top tous champions
+    · pris 12 % avec ton champion »), et un augment sans note tous champions n'est pas noté. Les deux formats sont lus. Mise en
     avant : meilleure note parmi les augments du top de ton champion, sinon parmi les notes tous champions ; jamais
     sous 3 % d'apparition ni si les deux meilleures ont la même note. Choix fait le
     02/10/2026 après comparaison : l'outil d'OP.GG (`lol_list_aram_augments`) ne donnait qu'une « popularité » sans taux

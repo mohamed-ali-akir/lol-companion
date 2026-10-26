@@ -134,6 +134,32 @@ test("arammayhem : page d'un champion -> ses meilleurs augments par rareté (not
   assert.deepStrictEqual(M.augmentsDuChampion(M.texteVisible("<p>page changée</p>")), []);
 });
 
+// Extrait au format réel de https://arammayhem.com/build/ahri/ (26/10/2026) : plus de note par champion, seulement
+// les augments les plus pris avec lui.
+const PAGE_CHAMPION_2 = `<p>Sorted by pick rate; popularity is not strength.</p><h3>Prismatic Augments</h3>
+<a><div title="Eureka">Eureka</div><div><span>Appearance rate: <span>12.31%</span></span></div></a>
+<a><div>Jeweled Gauntlet</div><div><span>Appearance rate: <span>10.06%</span></span></div></a>
+<h3>Gold Augments</h3><a><div>BEES!!!</div><div><span>Appearance rate: <span>12.13%</span></span></div></a>`;
+
+test("arammayhem : nouvelle page d'un champion (26/10/2026) -> augments les plus pris avec lui, sans note", () => {
+  assert.deepStrictEqual(M.augmentsDuChampion(M.texteVisible(PAGE_CHAMPION_2)), [
+    { nom: "Eureka", rarete: "Prismatic", note: null, rang: null, apparition: 0.1231 },
+    { nom: "Jeweled Gauntlet", rarete: "Prismatic", note: null, rang: null, apparition: 0.1006 },
+    { nom: "BEES!!!", rarete: "Gold", note: null, rang: null, apparition: 0.1213 },
+  ]);
+  // Note et rang tous champions gardés ; l'étiquette dit d'où vient le classement
+  const stats = A.indexStats({
+    champion: M.augmentsDuChampion(M.texteVisible(PAGE_CHAMPION_2)),
+    global: [{ nom: "Eureka", rarete: "Prismatic", note: "S", rang: 8, apparition: 0.3 }, { nom: "Hellbent", note: "B", rang: 150, apparition: 0.07 }],
+  });
+  assert.deepStrictEqual(stats.get("eureka"), { note: "S", rang: 8, apparition: 0.1231, choix: 0.3, source: "champion", noteGlobale: true });
+  assert.strictEqual(stats.has("jeweledgauntlet"), false, "sans note tous champions, rien d'inventé");
+  const [eureka] = A.etiquettes([{ nom: "Eureka", x: 0, y: 581, largeur: 10, hauteur: 20 }], stats, 1440);
+  assert.strictEqual(eureka.texte, "Top 8 · choisi 30 %");
+  assert.strictEqual(eureka.detail, "top tous champions · pris 12 % avec ton champion");
+  assert.strictEqual(eureka.meilleur, true);
+});
+
 test("arammayhem : page des augments -> tous les augments (notes tous champions)", () => {
   assert.deepStrictEqual(M.augmentsGlobaux(M.texteVisible(PAGE_GLOBALE)), [
     { nom: "Hellbent", rarete: "Prismatic", note: "B", rang: 150, apparition: 0.0673 },

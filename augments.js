@@ -130,6 +130,8 @@ const { NOTES } = require("./arammayhem.js"); // S+, S, S-... de la meilleure à
  * Stats d'arammayhem.com -> Map nom simplifié -> { note, rang, apparition, source }.
  * source "champion" : note avec TON champion (ses meilleurs augments) ; "global" : tous champions.
  * Les stats du champion passent avant les stats globales.
+ * Depuis le 26/10/2026, la page du champion ne donne plus de note (seulement les augments les plus pris avec lui) :
+ * on garde alors la note et le rang tous champions, avec noteGlobale: true (l'étiquette le dit).
  */
 function indexStats({ champion = [], global = [] } = {}) {
   const index = new Map();
@@ -138,8 +140,14 @@ function indexStats({ champion = [], global = [] } = {}) {
   for (const a of Array.isArray(global) ? global : []) if (a && a.nom && Number.isFinite(a.apparition)) choix.set(simplifierNom(a.nom), a.apparition);
   for (const [liste, source] of [[global, "global"], [champion, "champion"]]) {
     for (const a of Array.isArray(liste) ? liste : []) {
-      if (!a || !a.nom || !NOTES.includes(a.note)) continue;
+      if (!a || !a.nom) continue;
       const cle = simplifierNom(a.nom);
+      const tousChampions = source === "champion" && a.note === null ? index.get(cle) : null;
+      if (tousChampions && tousChampions.source === "global") {
+        index.set(cle, { ...tousChampions, apparition: a.apparition, source, noteGlobale: true });
+        continue;
+      }
+      if (!NOTES.includes(a.note)) continue;
       index.set(cle, { note: a.note, rang: a.rang, apparition: a.apparition, choix: choix.has(cle) ? choix.get(cle) : null, source });
     }
   }
@@ -255,7 +263,9 @@ function etiquettes(cartes, stats, hauteurEcran) {
       // qu'à choisir la carte mise en avant.
       const choisi = Number.isFinite(stat.choix) ? ` · choisi ${pourcent(stat.choix)}` : "";
       texte = Number.isFinite(stat.rang) ? `Top ${stat.rang}${choisi}` : choisi ? `Choisi ${pourcent(stat.choix)}` : "Pas de données";
-      detail = stat.source === "champion" ? `avec ton champion · pris ${pourcent(stat.apparition)}` : "tous champions";
+      if (stat.source !== "champion") detail = "tous champions";
+      else if (stat.noteGlobale) detail = `top tous champions · pris ${pourcent(stat.apparition)} avec ton champion`;
+      else detail = `avec ton champion · pris ${pourcent(stat.apparition)}`;
     }
     return {
       nom: carte.nom,
