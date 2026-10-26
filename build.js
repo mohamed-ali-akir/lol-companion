@@ -35,6 +35,8 @@
  */
 const { lireLockfile, lireJson, lireJsonOuNull, appelerClient, ErreurClient } = require("./lcu.js");
 const { monChampion, pageDepuisRecommandation, nomsPage } = require("./runes.js");
+const { picksVerrouilles } = require("./draft.js");
+const { ENNEMIS_MIN, profilEquipe, adapterEtapes } = require("./adversaires.js");
 const PREFIXE_UID_RANK1 = "1c0a9a10-0000-4000-9000-"; // identifiant du set « Champion Rank 1 » (les autres sets : ...-8000-)
 
 const PREFIXE_SET = "LoL Companion";
@@ -274,7 +276,8 @@ function etapesPourCarte(etapes, carte) {
 
 function setObjets({ etapes: etapesFaille, championId, nomChampion, role, carte = 11, troisParBloc = false, famille = null, indice = 0, recommande = false }) {
   const etapes = etapesPourCarte(etapesFaille, carte);
-  const blocs = etapes.map(({ cle, titre, option, autres }) => {
+  const blocs = etapes.map(({ cle, titre: titreEtape, option, autres, adaptation }) => {
+    const titre = adaptation ? `${titreEtape} (${adaptation})` : titreEtape; // ex. « Bottes (contre 4 magiques) »
     const compte = new Map();
     for (const id of option.ids) compte.set(id, (compte.get(id) || 0) + 1); // ex. 2 potions
     // Les autres choix d'un objet ou des bottes (pas du départ, où chaque choix est une combinaison).
@@ -420,13 +423,17 @@ function setsObjets({ etapes, familles = [], ...reste }) {
  * Ce que la page affiche : étapes avec taux, runes, sorts.
  * analyse : celle d'OP.GG (runes, sorts) ou null ; stats : statistiques générales à afficher ; source : d'où viennent les objets.
  */
-function resumeBuild({ analyse, etapes, stats = analyse ? analyse.stats : null, source = "OP.GG", familles = [] }) {
+function resumeEtapes(etapes) {
   const option = (o) => ({ noms: o.noms, parties: o.parties, tauxVictoire: tauxVictoire(o), selection: o.selection, minute: o.minute || null });
+  return etapes.map((e) => ({ titre: e.titre, ...option(e.option), fiable: e.fiable, note: e.note, autres: e.autres.map(option) }));
+}
+
+function resumeBuild({ analyse, etapes, stats = analyse ? analyse.stats : null, source = "OP.GG", familles = [] }) {
   const r = analyse && analyse.runes;
   return {
     source,
     stats,
-    etapes: etapes.map((e) => ({ titre: e.titre, ...option(e.option), fiable: e.fiable, note: e.note, autres: e.autres.map(option) })),
+    etapes: resumeEtapes(etapes),
     runes: r ? { styles: [r.nomStylePrincipal, r.nomStyleSecondaire].filter(Boolean), noms: r.noms, parties: r.parties, tauxVictoire: tauxVictoire(r) } : null,
     sorts: analyse && analyse.sorts ? { noms: analyse.sorts.ids.map((id) => SORTS[id] || `Sort n° ${id}`), tauxVictoire: tauxVictoire(analyse.sorts) } : null,
     // Familles de build (un set chacune) : nom, part des builds, et noms des choix des Objets 1 à 3.
@@ -487,6 +494,7 @@ function creerBuildAuto({
   analyserRank1 = null,
   nomChampion,
   carte,
+  profilsChampions = null,
   resultat = () => {},
   journal = () => {},
 }) {
@@ -495,11 +503,14 @@ function creerBuildAuto({
   // Session reçue PENDANT un build (19/10/2026) : avant, elle était ignorée, et un champion changé à ce moment-là
   // (échange ou relance en ARAM, set de Viego jamais créé) restait sans build. On la traite juste après.
   let enAttente = null;
+  // Dernier set créé (26/10/2026) : pour l'adapter de nouveau quand un ennemi verrouille son champion, sans tout refaire.
+  let contexte = null;
 
   async function surSession(session) {
     if (!session) {
       deja = null;
       enAttente = null;
+      contexte = null;
       return;
     }
     if (enCours) {
@@ -511,16 +522,28 @@ function creerBuildAuto({
     const r = reglages();
     if (!r.stats && !r.runes) return; // rien à faire (le set d'objets a besoin des stats)
     const cle = `${session.gameId}:${champion.championId}`;
-    if (cle === deja) return;
-    deja = cle;
-    enCours = true;
-    // Tes sorts actuels : pour garder Flash sur la même touche.
-    const moi = (Array.isArray(session.myTeam) ? session.myTeam : []).find((j) => j && j.cellId === session.localPlayerCellId);
-    const sortsActuels = moi ? [moi.spell1Id, moi.spell2Id] : [];
-    try {
-      await traiter({ ...champion, sortsActuels }, r);
-    } finally {
-      enCours = false;
+    const adversaires = picksVerrouilles(session).adversaires;
+    if (cle === deja) {
+      // Même champion : seul un nouvel ennemi verrouillé peut changer le set (adapté à l'équipe adverse).
+      if (!contexte || contexte.cle !== cle || !r.objets || [...adversaires].sort().join(",") === contexte.adversaires) return;
+      enCours = true;
+      try {
+        await readapter(adversaires);
+      } finally {
+        enCours = false;
+      }
+    } else {
+      deja = cle;
+      enCours = true;
+      // Tes sorts actuels : pour garder Flash sur la même touche.
+      const moi = (Array.isArray(session.myTeam) ? session.myTeam : []).find((j) => j && j.cellId === session.localPlayerCellId);
+      const sortsActuels = moi ? [moi.spell1Id, moi.spell2Id] : [];
+      try {
+        contexte = null;
+        await traiter({ ...champion, sortsActuels, adversaires, cle }, r);
+      } finally {
+        enCours = false;
+      }
     }
     if (enAttente) {
       const suivante = enAttente;
@@ -529,7 +552,52 @@ function creerBuildAuto({
     }
   }
 
-  async function traiter({ championId, role, sortsActuels = [] }, r) {
+  /** Équipe adverse (profilEquipe d'adversaires.js) des champions verrouillés, ou null si trop peu connue. */
+  async function equipeAdverse(adversaires) {
+    if (!profilsChampions || adversaires.length < ENNEMIS_MIN) return null;
+    try {
+      return profilEquipe(await profilsChampions(adversaires));
+    } catch (erreur) {
+      journal("build : profils des ennemis illisibles", erreur.message);
+      return null;
+    }
+  }
+
+  /** Sets du champion : ceux du build (adapté à l'équipe adverse), puis le set Rank 1 tel quel. */
+  function fabriquerSets(c, etapes) {
+    const sets = etapes.length > 0 ? setsObjets({ etapes, familles: c.familles, championId: c.championId, nomChampion: c.nom, role: c.role, carte: c.carte, troisParBloc: c.troisParBloc }) : [];
+    return c.setRank1 ? [...sets, c.setRank1] : sets;
+  }
+
+  /** Build affiché : avec les étapes adaptées et la liste des changements, s'il y en a. */
+  const buildAffiche = (resume, etapes, raisons) => (resume && raisons.length > 0 ? { ...resume, etapes: resumeEtapes(etapes), adaptation: raisons } : resume);
+
+  /**
+   * Un ennemi de plus (ou de moins) est verrouillé : le set est refait seulement si l'adaptation change
+   * (les runes, les sorts et le set Rank 1 ne bougent pas, et rien n'est redemandé à Internet).
+   */
+  async function readapter(adversaires) {
+    const c = contexte;
+    c.adversaires = [...adversaires].sort().join(",");
+    const { etapes, raisons } = adapterEtapes(c.etapes, await equipeAdverse(adversaires));
+    if (raisons.join("|") === c.signature) return;
+    const erreurs = { ...c.info.erreurs };
+    delete erreurs.objets;
+    const info = { ...c.info, erreurs };
+    try {
+      const sets = fabriquerSets(c, etapes);
+      await appliquerObjets(sets);
+      c.signature = raisons.join("|");
+      Object.assign(info, { objets: true, setsCrees: sets.filter((s) => s !== c.setRank1).map((s) => s.title), adaptation: raisons, build: buildAffiche(c.resume, etapes, raisons) });
+    } catch (erreur) {
+      erreurs.objets = erreur.message;
+    }
+    journal("build adapté", c.championId, c.role, { adversaires: c.adversaires, raisons, erreurs });
+    c.info = info;
+    resultat(info);
+  }
+
+  async function traiter({ championId, role, sortsActuels = [], adversaires = [], cle = null }, r) {
     const erreurs = {};
     let analyse = null; // OP.GG : runes, sorts, et objets en secours
     let emplacements = null; // Lolalytics : objets emplacement par emplacement
@@ -577,23 +645,25 @@ function creerBuildAuto({
     let objets = false;
     let setsCrees = []; // titres des sets créés (plusieurs pour un champion à plusieurs builds)
     let infoRank1 = null; // { titre, rang, parties } du set « Rank 1 » créé
+    let adaptees = { etapes, raisons: [] }; // build adapté à l'équipe adverse (adversaires.js), 26/10/2026
     if (r.objets && (etapes.length > 0 || rank1)) {
       try {
         const nom = await nomChampion(championId);
         const carteJeu = await carte();
-        const sets = etapes.length > 0 ? setsObjets({ etapes, familles: emplacements ? emplacements.familles : [], championId, nomChampion: nom, role, carte: carteJeu, troisParBloc }) : [];
         // Set « Rank 1 », après les autres (le set principal reste sélectionné d'office) : le build des meilleurs
         // joueurs, emplacement par emplacement comme le build classique (Départ, Objet 1, Bottes, Objets 2 à 5).
+        // Il n'est pas adapté à l'équipe adverse : c'est le build des meilleurs joueurs, tel quel.
         const etapesRank1 = rank1 ? composerParEmplacement(rank1.emplacements) : [];
         if (rank1 && etapesRank1.length === 0) erreurs.rank1 = "Pas assez de parties des meilleurs joueurs sur ce champion.";
-        if (etapesRank1.length > 0) {
-          const set = setRank1Classique({ etapes: etapesRank1, championId, nomChampion: nom, role, carte: carteJeu });
-          sets.push(set);
-          infoRank1 = { titre: set.title, rang: rank1.libelle, parties: rank1.parties };
-        }
+        const setRank1 = etapesRank1.length > 0 ? setRank1Classique({ etapes: etapesRank1, championId, nomChampion: nom, role, carte: carteJeu }) : null;
+        if (setRank1) infoRank1 = { titre: setRank1.title, rang: rank1.libelle, parties: rank1.parties };
+        const c = { cle, championId, role, nom, carte: carteJeu, etapes, troisParBloc, familles: emplacements ? emplacements.familles : [], setRank1 };
+        if (etapes.length > 0) adaptees = adapterEtapes(etapes, await equipeAdverse(adversaires));
+        const sets = fabriquerSets(c, adaptees.etapes);
         await appliquerObjets(sets);
         objets = true;
-        setsCrees = sets.filter((s) => !infoRank1 || s.title !== infoRank1.titre).map((s) => s.title); // sans le set Rank 1 (affiché à part)
+        setsCrees = sets.filter((s) => s !== setRank1).map((s) => s.title); // sans le set Rank 1 (affiché à part)
+        contexte = { ...c, adversaires: [...adversaires].sort().join(","), signature: adaptees.raisons.join("|"), resume, info: null };
       } catch (erreur) {
         erreurs.objets = erreur.message;
       }
@@ -612,7 +682,10 @@ function creerBuildAuto({
     }
 
     journal("build", championId, role, { runes: Boolean(runes), objets, rank1: Boolean(infoRank1), sorts: sortsChoisis, erreurs });
-    resultat({ championId, role, build: resume, runes, objets, setsCrees, rank1: objets ? infoRank1 : null, sortsChoisis, erreurs });
+    const adaptation = objets ? adaptees.raisons : [];
+    const info = { championId, role, build: buildAffiche(resume, adaptees.etapes, adaptation), runes, objets, setsCrees, rank1: objets ? infoRank1 : null, sortsChoisis, adaptation, erreurs };
+    if (contexte) contexte.info = info;
+    resultat(info);
   }
 
   return { surSession };

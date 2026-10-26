@@ -28,6 +28,13 @@ function dessinerBuild(conteneur, { titre, build }) {
   if (build.stats && build.stats.parties) {
     conteneur.append(element("p", "aide", `${pourcentBuild(build.stats.tauxVictoire)} de victoires sur ${formatNombre(build.stats.parties)} parties (objets : ${build.source}).`));
   }
+  // Build adapté à l'équipe adverse (adversaires.js) : chaque changement et sa raison.
+  if (Array.isArray(build.adaptation) && build.adaptation.length > 0) {
+    conteneur.append(element("h4", null, "Adapté à l'équipe adverse"));
+    const changements = element("ul", "build-adaptation");
+    for (const raison of build.adaptation) changements.append(element("li", null, raison));
+    conteneur.append(changements);
+  }
   const liste = element("ol", "build-etapes");
   for (const etape of build.etapes) {
     const ligne = element("li");
@@ -111,6 +118,10 @@ function surEvenementBuild(info) {
     bilan.push(plusieurs ? `${info.setsCrees.length} sets d'objets créés (un par façon de jouer) ✓` : "set d'objets créé ✓");
   }
   if (info.rank1) bilan.push(`set « ${info.rank1.titre} » créé (${info.rank1.rang}, ${formatNombre(info.rank1.parties)} parties) ✓`);
+  if (Array.isArray(info.adaptation) && info.adaptation.length > 0) {
+    const n = info.adaptation.length;
+    bilan.push(`adapté à l'équipe adverse (${n} changement${n > 1 ? "s" : ""}) ✓`);
+  }
   for (const [quoi, message] of Object.entries(info.erreurs || {})) {
     bilan.push(`${{ stats: "OP.GG", emplacements: "Lolalytics", runes: "runes", objets: "set d'objets", rank1: "set Rank 1", sortsAuto: "sorts" }[quoi]} : ${message}`);
   }

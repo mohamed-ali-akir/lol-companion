@@ -176,6 +176,17 @@ achète, puis on choisit l'objet). L'onglet Build peut aussi afficher le build A
   sont d'abord copiés sur ton PC (`sets-sauvegarde.json`), puis retirés, pour que la boutique ne propose que les
   nôtres. Le bouton **« Remettre mes anciens sets »** de l'onglet Build les renvoie au client (ils sont de nouveau
   rangés au prochain set créé) ;
+- **adapte le set à l'équipe adverse** (26/10/2026, idée reprise du « Build Picker » de Mino, its-mino.com) dès que
+  3 ennemis ont verrouillé leur champion, et le refait quand un autre verrouille (seulement si ça change quelque chose ;
+  ni les runes, ni les sorts, ni le set Rank 1 ne bougent). Le profil de chaque ennemi vient du client, sans Internet
+  (`/lol-game-data/assets/v1/champions/<id>.json` : résistance et contrôles de 1 à 3, type de dégâts) :
+  3 ennemis magiques ou plus, ou 3 gros contrôles ou plus → **Sandales de Mercure** ; 3 physiques ou plus (et au plus
+  1 magique) → **Coques en acier** ; 2 tanks ou plus → un **objet anti-tank** (Dominik, Couperet noir, Bâton du vide,
+  Liandry...) remonte en objet 3, 4 ou 5 (deux avec 3 tanks), sauf si le build en a déjà. Seulement des objets que les
+  joueurs du champion achètent vraiment à cet emplacement (200 parties au moins). Chaque changement est expliqué dans
+  l'onglet Build (« Bottes : Sandales de Mercure, contre 3 ennemis à dégâts magiques (Malphite, Ornn, Ahri) ») et
+  dans le titre du bloc de la boutique (« Bottes (contre 3 magiques) ») ; l'ancien choix reste proposé dans le bloc
+  (`adversaires.js`, numéros des objets dans `donnees-jeu.js`) ;
 - choisit tes **sorts d'invocateur** (sa case) : les plus joués d'après OP.GG, chaque sort gardé sur ta touche
   habituelle (si Flash est sur F, il y reste) ;
 - ajoute le **set « Champion Rank 1 »** (sa case) : le build des **meilleurs joueurs** du champion, rangé comme le
@@ -363,6 +374,7 @@ temporaire dans le fichier `lockfile` de son dossier d'installation. L'appli lit
 | `GET /lol-summoner/v1/current-summoner` | Riot ID, niveau, progression |
 | `GET /lol-match-history/v1/products/lol/current-summoner/matches?begIndex&endIndex` | Parties : durée, victoire, mode, champion, K/D/A (pages de 50 pour l'import) |
 | `GET /lol-game-data/assets/v1/champion-summary.json` | Noms des champions |
+| `GET /lol-game-data/assets/v1/champions/<id>.json` | Fiche d'un champion ennemi (résistance, contrôles, type de dégâts) : set d'objets adapté à l'équipe adverse |
 | `GET /lol-game-data/assets/v1/champion-icons/<id>.png` | Icônes des champions |
 | `GET /lol-champion-mastery/v1/local-player/champion-mastery` (secours : `/lol-champion-mastery/v1/<puuid>/champion-mastery`) | Maîtrise |
 | `POST /lol-matchmaking/v1/ready-check/accept` | Accepter la partie (modifie le client, désactivé par défaut) |
@@ -727,6 +739,7 @@ lol-level-calculator/
 ├── pings.js           # Pings des sorts lus dans le chat : capture, OCR, reconnaissance « ChampionEnnemi Sort »
 ├── image.js           # Images PNG (lecture, écriture) et nettoyage de la zone du chat avant l'OCR
 ├── jeu.js             # Lecture de la partie en cours (API locale « Live Client Data ») : temps de jeu, joueurs
+├── adversaires.js     # Build adapté à l'équipe adverse : profils des ennemis (client), bottes et objets anti-tank (testé)
 ├── augments.js        # Augments ARAM Mayhem et Arena, objets prismatiques : reconnaissance des cartes, étiquettes, surveillance
 ├── ocr.js             # Lecture de texte à l'écran : OCR de Windows (PowerShell) ou de macOS (screencapture + Vision)
 ├── arammayhem.js      # Notes des augments ARAM Mayhem (arammayhem.com, Internet) : lecture des pages, cache

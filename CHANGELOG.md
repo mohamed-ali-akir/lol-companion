@@ -4,6 +4,9 @@ Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le déta
 le [README](README.md) et dans l'historique Git.
 
 ## Prochaine version (pas encore publiée)
+- **Build adapté à l'équipe adverse** : dès 3 ennemis verrouillés, Sandales de Mercure contre les magiques ou les
+  contrôles, Coques en acier contre les physiques, objet anti-tank contre 2 tanks ou plus. Chaque changement est
+  expliqué dans l'onglet Build et dans la boutique ; le set suit les nouveaux ennemis verrouillés.
 - **Augments ARAM Mayhem** : lecture du nouveau format d'arammayhem.com (le site ne note plus les augments par
   champion depuis le 25/10/2026) : classement tous champions, et les augments les plus pris avec ton champion.
 

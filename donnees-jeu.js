@@ -44,4 +44,16 @@ const HATE_SORTS = { bottesIoniennes: 3158, hateIoniennes: 10, hateLuciditePourp
 // 20/10/2026 dans items.json du client : Dent de Nashor 3115 -> 223115). Objets prismatiques : 44xxxx.
 const DECALAGE_ARENA = 220000;
 
-module.exports = { VERIFIE_LE, FILES, RECHARGES_SORTS, TP_DECHAINEE_DES_S, HATE_SORTS, DECALAGE_ARENA };
+// Objets pour adapter le build à l'équipe adverse (adversaires.js), vérifiés le 26/10/2026 dans items.json du client.
+const OBJETS_CONTRE = {
+  // Sandales de Mercure (résistance magique + ténacité) : contre les dégâts magiques et les contrôles.
+  bottesMagie: [3111],
+  // Coques en acier, Avancée blindée (armure, -10 % de dégâts des attaques) : contre les dégâts physiques.
+  bottesPhysique: [3047, 3174],
+  // Contre les tanks : pénétration d'armure ou magique, dégâts en % des PV, réduction d'armure.
+  // Salutations de Dominik, Rancune de Serylda, Rappel mortel, Couperet noir, Lame du roi déchu, Terminus,
+  // Bâton du vide, Fleur funeste, Tourment de Liandry, Malédiction de la sangsue.
+  antiTank: [3036, 6694, 3033, 3071, 3153, 3302, 3135, 3137, 6653, 4010],
+};
+
+module.exports = { VERIFIE_LE, FILES, RECHARGES_SORTS, TP_DECHAINEE_DES_S, HATE_SORTS, DECALAGE_ARENA, OBJETS_CONTRE };

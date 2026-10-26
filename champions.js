@@ -7,9 +7,12 @@
  *
  * Routes du client :
  *  - /lol-game-data/assets/v1/champion-summary.json : noms de TOUS les champions (id, name) ;
- *  - /lol-game-data/assets/v1/champion-icons/<id>.png : icône d'un champion.
+ *  - /lol-game-data/assets/v1/champion-icons/<id>.png : icône d'un champion ;
+ *  - /lol-game-data/assets/v1/champions/<id>.json : fiche d'un champion (résistance, contrôles, type de dégâts),
+ *    pour adapter le build à l'équipe adverse (adversaires.js, 26/10/2026).
  */
 const { lireLockfile, lireJsonOuNull, appelerClient } = require("./lcu.js");
+const { profilChampion } = require("./adversaires.js");
 
 const ROUTE_RESUME = "/lol-game-data/assets/v1/champion-summary.json";
 
@@ -21,6 +24,30 @@ async function lireNomsChampions(dossierJeu) {
     for (const c of resume) if (c && Number.isInteger(c.id) && c.id > 0 && typeof c.name === "string") noms.set(c.id, c.name);
   }
   return noms;
+}
+
+/**
+ * Profils des champions (adversaires.js) : [{ id, nom, resistance, controle, degats }], une fiche lue une seule fois
+ * (gardée en mémoire : elle ne change qu'avec un patch). Une fiche illisible est simplement absente de la liste.
+ */
+function creerLecteurProfils(lireFiche) {
+  const cache = new Map();
+  return async function profils(ids) {
+    const liste = [];
+    for (const id of Array.isArray(ids) ? ids : []) {
+      if (!cache.has(id)) {
+        const profil = profilChampion(await lireFiche(id).catch(() => null));
+        if (profil) cache.set(id, profil);
+      }
+      if (cache.has(id)) liste.push(cache.get(id));
+    }
+    return liste;
+  };
+}
+
+/** Fiche d'un champion dans les fichiers du jeu, ou null. */
+async function lireFicheChampion(dossierJeu, id) {
+  return Number.isInteger(id) && id > 0 ? lireJsonOuNull(lireLockfile(dossierJeu), `/lol-game-data/assets/v1/champions/${id}.json`) : null;
 }
 
 // --- Icônes des champions ------------------------------------------------------------
@@ -74,6 +101,8 @@ async function chargerImageClient(dossierJeu, route) {
 module.exports = {
   PROTOCOLE_ICONES,
   lireNomsChampions,
+  creerLecteurProfils,
+  lireFicheChampion,
   routeIcone,
   creerCacheIcones,
   chargerImageClient,

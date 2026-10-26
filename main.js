@@ -36,7 +36,7 @@ const { surProbleme } = require("./fichiers.js"); // écriture sûre des fichier
 const { migrerDonnees } = require("./migrations.js"); // version du format des fichiers de données
 const { creerMajAppli } = require("./maj-appli.js"); // mise à jour de l'appli (au lancement, puis en arrière-plan)
 const { brancherMessages, reponseErreur } = require("./messages.js"); // messages de la page et de la fenêtre du jeu
-const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES } = require("./champions.js");
+const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES, creerLecteurProfils, lireFicheChampion } = require("./champions.js");
 const {
   actionFermeture,
   parametresDemarrageWindows,
@@ -446,6 +446,8 @@ function demarrerSelection() {
       const partie = await lirePartie(stockage.dossierJeu()).catch(() => null);
       return (partie && partie.map && partie.map.id) || 11;
     },
+    // Profils des ennemis (fiches du client) : le set d'objets s'adapte à l'équipe adverse (adversaires.js).
+    profilsChampions: creerLecteurProfils((id) => lireFicheChampion(stockage.dossierJeu(), id)),
     journal: (...morceaux) => noter("Build :", ...morceaux), // runes, sets, sorts et erreurs, gardés dans journal.txt
     resultat: async (info) => {
       const noms = await obtenirNomsChampions();
