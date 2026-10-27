@@ -30,8 +30,7 @@ function normaliserReglagesDeadlock(brut) {
 }
 
 const MESSAGE_AUCUNE_PARTIE =
-  "deadlock-api.com ne connaît encore aucune de tes parties. Ouvre tes parties dans l'historique du jeu " +
-  "(Profil → Historique) : Steam garde leur adresse, et l'appli les envoie toute seule quand tu fermes Deadlock. Les parties jouées avec des joueurs qui utilisent l'outil du site apparaissent aussi toutes seules.";
+  "Aucune partie connue pour l'instant. Ouvre tes parties dans l'historique du jeu : l'appli les envoie quand tu fermes Deadlock.";
 
 /**
  * lecteur : creerLecteurDeadlock (deadlock-api.js) ; donnees : creerDonneesDeadlock (deadlock-donnees.js) ;

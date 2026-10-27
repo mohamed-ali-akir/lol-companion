@@ -35,10 +35,6 @@
       <div class="titre-carte">
         <h2>Ton compte</h2>
       </div>
-      <p class="aide">
-        Lu automatiquement dans le client League dès qu'il est lancé sur ce PC, puis après chaque partie : Riot ID,
-        niveau, progression et tes dernières parties. Aucune clé API.
-      </p>
       <p id="suiviDirect" class="suivi-direct" hidden></p>
       <p id="etatClient" class="etat" hidden></p>
 
@@ -82,7 +78,7 @@
                 <p class="session-depuis" id="sessionDepuis"></p>
               </div>
             </div>
-            <p id="sessionVide" class="aide"></p>
+            <p id="sessionVide" class="texte-vide"></p>
             <div id="sessionContenu" class="tuiles tuiles-session" hidden>
               <div class="tuile">
                 <span class="tuile-titre">Parties</span><span class="tuile-valeur" id="sessionParties"></span>
@@ -117,7 +113,7 @@
               </div>
             </div>
             <p id="dernierePartieChampion" class="derniere-champion"></p>
-            <p id="dernierePartiePhrase" class="aide"></p>
+            <p id="dernierePartiePhrase" class="texte-phrase"></p>
             <div id="dernierePartieMesures" class="tuiles tuiles-session"></div>
           </section>
 
@@ -182,11 +178,11 @@
         <div class="boosts">
           <label class="check">
             <input type="checkbox" id="boostDuree">
-            <span>Boost d'XP à la durée <small>(double l'XP de base)</small></span>
+            <span>Boost d'XP à la durée</span>
           </label>
           <label class="check">
             <input type="checkbox" id="boostVictoire">
-            <span>Boost d'XP par victoire <small>(+216 XP par victoire)</small></span>
+            <span>Boost d'XP par victoire</span>
           </label>
         </div>
       </section>
@@ -243,11 +239,6 @@
             <h2>Ton historique</h2>
             <button type="button" id="boutonImport">Importer tout mon historique</button>
           </div>
-          <p class="aide">
-            L'appli demande au client League tes parties page par page, en remontant le plus loin qu'il le permet
-            (idéalement jusqu'à la création du compte). Ça peut prendre une minute sur un compte très joué.
-            Les parties déjà connues ne sont jamais comptées deux fois.
-          </p>
           <p id="etatImport" class="etat" hidden></p>
         </div>
 
@@ -271,8 +262,7 @@
               <span class="tuile-detail">films de 2 h</span>
             </div>
           </div>
-          <ul class="aide liste-temps" id="tempsAmusant"></ul>
-          <p class="aide" id="tempsMethode"></p>
+          <ul class="liste-temps" id="tempsAmusant"></ul>
         </section>
 
         <div class="periodes" role="tablist" aria-label="Période des stats">
@@ -299,12 +289,10 @@
               <div class="tuile"><span class="tuile-titre">KDA moyen</span><span class="tuile-valeur" id="statsKda"></span></div>
               <div class="tuile"><span class="tuile-titre">Série en cours</span><span class="tuile-valeur" id="statsSerie"></span></div>
             </div>
-            <p class="aide" id="statsSource"></p>
           </div>
 
           <div class="card">
             <h2>Tes meilleurs champions</h2>
-            <p class="aide">Au moins 3 parties avec le champion ; classés par taux de victoire, puis par KDA.</p>
             <p id="meilleursVide" class="achetables-vide" hidden></p>
             <ol class="meilleurs" id="meilleurs"></ol>
           </div>
@@ -325,7 +313,6 @@
                 <tbody id="corpsChampions"></tbody>
               </table>
             </div>
-            <p class="aide">Clique sur un titre de colonne pour trier.</p>
           </div>
 
           <div class="card" id="carteModes">
@@ -338,8 +325,6 @@
 
           <div class="card">
             <h2>Quand tu gagnes le plus</h2>
-            <p class="aide">Taux de victoire par moment de la journée et par jour, avec le nombre de parties entre parenthèses.
-              En dessous de 3 parties, pas de pourcentage : ce ne serait pas fiable.</p>
             <p id="creneauxVide" class="achetables-vide" hidden></p>
             <div id="creneauxContenu" class="creneaux">
               <h3>Moment de la journée</h3>
@@ -363,16 +348,10 @@
               <div class="tuile"><span class="tuile-titre">Plus haut niveau</span><span class="tuile-valeur" id="maitriseNiveauMax"></span></div>
               <div class="tuile"><span class="tuile-titre">Niveau 10 et plus</span><span class="tuile-valeur" id="maitrise10"></span></div>
             </div>
-            <p class="aide">
-              Depuis 2024, il n'y a plus de niveau maximum. Aux niveaux élevés, il faut à la fois des points et des
-              <strong>marques de maîtrise</strong>, gagnées en finissant des parties avec une bonne note (A-, S-…).
-              Les marques repartent de zéro à chaque saison, pas les niveaux.
-            </p>
           </div>
 
           <div class="card">
             <h2>Les plus proches du niveau suivant</h2>
-            <p class="aide" id="maitriseEstimationAide"></p>
             <ol class="liste-maitrise" id="maitriseProches"></ol>
           </div>
 
@@ -398,7 +377,7 @@
                 </label>
               </div>
             </div>
-            <p class="aide" id="maitriseCompte" aria-live="polite"></p>
+            <p class="texte-vide" id="maitriseCompte" aria-live="polite"></p>
             <div class="table-defilante">
               <table class="table-stats table-maitrise">
                 <thead>
@@ -423,11 +402,6 @@
         <!-- Conseiller de draft (draft.js) : propose, ne choisit jamais -->
         <div class="card parametres">
           <h2>Conseiller de draft</h2>
-          <p class="aide">
-            Pendant la sélection, l'appli classe les champions que tu peux jouer à ton poste : leur taux de victoire
-            (Lolalytics, Émeraude et plus), corrigé par les champions déjà verrouillés en face (matchups) et dans ton
-            équipe (synergies), plus un petit bonus selon tes propres parties. Elle ne fait que proposer.
-          </p>
           <form id="formConseil" class="reglages-acceptation">
             <label class="check">
               <input type="checkbox" id="conseilDraft">
@@ -439,15 +413,6 @@
 
         <div class="card parametres">
           <h2>Sélection des champions</h2>
-          <p class="aide">
-            Quand c'est ton tour, l'appli peut bannir ou choisir à ta place après un délai, en suivant tes listes
-            dans l'ordre : si ton 1er choix est banni ou déjà pris, elle prend le 2e, puis le 3e.
-            Si tu survoles ou verrouilles un champion toi-même pendant le délai, elle ne fait rien.
-          </p>
-          <p class="aide selection-risque">
-            ⚠ Les règles de Riot interdisent aux applis de choisir ou bannir à la place du joueur.
-            Le risque de sanction est faible, mais pas nul : à activer en connaissance de cause.
-          </p>
           <form id="formSelection" class="reglages-acceptation">
             <div class="ligne-reglage">
               <label class="check">
@@ -466,18 +431,10 @@
               <span>s</span>
             </div>
 
-            <h3>Picks <small>(1er, 2e, 3e choix)</small></h3>
-            <p class="aide">
-              L'appli lit le rôle qui t'est attribué en sélection et prend la liste de ce rôle.
-              « Par défaut » sert pour les parties sans rôles, ou si aucun champion de la liste du rôle n'est disponible.
-            </p>
+            <h3>Picks</h3>
             <div class="listes-selection" id="listesPicks"></div>
 
-            <h3>Bans <small>(1er, 2e, 3e choix)</small></h3>
-            <p class="aide">
-              Comme pour les picks : la liste de ton rôle d'abord, puis « Par défaut ».
-              Jamais un champion déjà banni, ni un champion survolé ou déclaré par un coéquipier.
-            </p>
+            <h3>Bans</h3>
             <div class="listes-selection" id="listesBans"></div>
           </form>
           <p id="etatSelection" class="etat" hidden></p>
@@ -549,12 +506,6 @@
       <section class="panneau" id="panneau-challenge" role="tabpanel" aria-labelledby="onglet-challenge" tabindex="0" hidden>
         <div class="card">
           <h2>Challenge Arena : top 3 avec tous les champions</h2>
-          <p class="aide">
-            Le but : finir une Arena dans les 3 premiers avec chaque champion du jeu, dans l'ordre alphabétique.
-            Un top 3 compte même avec un champion joué hors ordre ; le prochain champion est toujours le premier de la
-            liste pas encore fait. La place vient de l'historique du client : pour compter tes anciennes Arenas,
-            importe ton historique dans l'onglet Stats.
-          </p>
           <div class="stats stats-4">
             <div class="stat"><span class="stat-value" id="challengeFaits">–</span><span class="stat-label">Faits</span></div>
             <div class="stat"><span class="stat-value" id="challengeRestants">–</span><span class="stat-label">Restants</span></div>
@@ -573,16 +524,6 @@
 
         <div class="card parametres">
           <h2>Pick automatique du challenge</h2>
-          <p class="aide">
-            En sélection d'une Arena, l'appli choisit pour toi le prochain champion du challenge après un délai.
-            S'il est banni, déjà pris, survolé par ton coéquipier ou que tu ne l'as pas, elle prend le suivant dans
-            l'ordre. Si tu survoles ou verrouilles un champion toi-même pendant le délai, elle ne fait rien.
-            En Arena, cette case remplace les listes de picks de l'onglet Sélection ; ailleurs, rien ne change.
-          </p>
-          <p class="aide selection-risque">
-            ⚠ Les règles de Riot interdisent aux applis de choisir à la place du joueur.
-            Le risque de sanction est faible, mais pas nul : à activer en connaissance de cause.
-          </p>
           <form id="formChallenge" class="reglages-acceptation">
             <div class="ligne-reglage">
               <label class="check">
@@ -599,7 +540,7 @@
 
         <div class="card">
           <h2>Champions</h2>
-          <h3>Restants <small>(dans l'ordre)</small></h3>
+          <h3>Restants</h3>
           <ol class="challenge-liste" id="challengeListeRestants"></ol>
           <details class="challenge-details">
             <summary id="challengeResumeFaits">Faits</summary>
@@ -615,11 +556,6 @@
             <h2>Ton compte Steam</h2>
             <button type="button" id="deadlockActualiser" class="bouton-secondaire">Actualiser</button>
           </div>
-          <p class="aide">
-            Trouvé sur ce PC (Steam). L'appli regarde seulement si Deadlock est lancé : elle ne lit rien dans le jeu et
-            ne s'affiche jamais par-dessus. Ton historique et les stats viennent de deadlock-api.com, l'API gratuite de la
-            communauté (non liée à Valve).
-          </p>
           <p id="deadlockCompte" class="profil"></p>
           <p id="deadlockJeu" class="suivi-direct"></p>
           <div class="stats">
@@ -647,25 +583,12 @@
           </div>
         </div>
 
-        <div class="card parametres">
-          <h2>Envoi de tes parties</h2>
-          <p class="aide">
-            deadlock-api.com ne connaît une partie que si quelqu'un la lui envoie. Quand tu ouvres une partie dans
-            l'historique du jeu, Steam garde son adresse sur ton PC. L'appli envoie ces adresses automatiquement (numéro
-            de la partie et sa clé, rien d'autre) quand tu fermes Deadlock et à son lancement, comme l'outil officiel du site.
-          </p>
-          <p id="etatDeadlockEnvoi" class="etat" hidden></p>
-        </div>
       </section>
 
       <!-- Mode Deadlock, onglet Héros (onglets/deadlock-heros.js) -->
       <section class="panneau" id="panneau-deadlockheros" role="tabpanel" aria-labelledby="onglet-deadlockheros" tabindex="0" hidden>
         <div class="card">
           <h2>Les meilleurs héros du moment</h2>
-          <p class="aide" id="deadlockHerosAide">
-            Tous les joueurs, sur les 2 dernières semaines. Classés au taux de victoire « prudent » : un héros peu joué est
-            tiré vers le bas, pour ne pas mettre en tête un héros à 60 % sur une poignée de parties.
-          </p>
           <div class="filtre">
             <label for="deadlockRang">Niveau des parties</label>
             <select id="deadlockRang"><option value="">Tous les niveaux</option></select>
@@ -699,12 +622,6 @@
       <section class="panneau" id="panneau-deadlockbuild" role="tabpanel" aria-labelledby="onglet-deadlockbuild" tabindex="0" hidden>
         <div class="card">
           <h2>Build d'un héros</h2>
-          <p class="aide">
-            Les objets les plus achetés sur ce héros, rangés par moment de la partie (temps d'achat moyen), avec le taux de
-            victoire de ceux qui les achètent. ★ = le plus sûr de sa période. Compare les objets d'une même période : un
-            objet de fin de partie gagne souvent plus, parce que l'équipe qui gagne a plus d'âmes pour l'acheter.
-            À consulter avant la partie ou sur un 2e écran : l'appli ne touche pas au jeu.
-          </p>
           <form id="formDeadlockBuild" class="ligne">
             <select id="deadlockHeros" aria-label="Héros"></select>
             <button type="submit">Voir le build</button>
@@ -729,15 +646,10 @@
           <p id="etatAcceptation" class="etat" hidden></p>
 
           <h3>Mises à jour</h3>
-          <p class="aide">
-            L'appli regarde sur GitHub (Releases du dépôt public) s'il existe une version plus récente, la télécharge en
-            arrière-plan et vérifie qu'elle n'a pas été abîmée. Elle s'installe quand tu cliques sur « Redémarrer et
-            mettre à jour », ou quand tu quittes l'appli. Rien de personnel n'est envoyé.
-          </p>
           <form id="formMaj" class="reglages-session">
             <label class="check">
               <input type="checkbox" id="majAuto">
-              <span>Chercher les mises à jour automatiquement <small>(au démarrage, puis toutes les 6 h)</small></span>
+              <span>Chercher les mises à jour automatiquement</span>
             </label>
             <div class="ligne-reglage">
               <span id="majVersion"></span>
@@ -746,10 +658,6 @@
           </form>
 
           <h3>Dossier du jeu</h3>
-          <p class="aide">
-            Le dossier où League of Legends est installé (celui qui contient <code>LeagueClient.exe</code>).
-            Par défaut : <code id="dossierParDefaut"></code>.
-          </p>
           <form id="formDossier" class="ligne">
             <input type="text" id="dossierJeu" spellcheck="false" autocomplete="off" aria-label="Dossier du jeu">
             <button type="submit">Enregistrer</button>
@@ -767,11 +675,6 @@
       </section>
     </div>
 
-    <footer class="footer">
-      <p class="jeu-lol">Estimations basées sur les formules d'XP publiées par le wiki League of Legends. L'XP des missions et des passes d'événement n'est pas comptée.</p>
-      <p class="jeu-lol">Projet non officiel, non affilié à Riot Games.</p>
-      <p class="jeu-deadlock">Stats de deadlock-api.com (communauté). Projet non officiel, non affilié à Valve.</p>
-    </footer>
   </main>
 
   <!-- Assistant de première ouverture (onglets/assistant.js) : 3 questions, puis les bonnes cases cochées -->
@@ -779,7 +682,7 @@
     <p id="assistantEtape" class="assistant-etape"></p>
     <h2 id="assistantTitre"></h2>
     <p id="assistantTexte" class="assistant-texte"></p>
-    <p id="assistantDetail" class="aide"></p>
+    <p id="assistantDetail" class="assistant-detail"></p>
     <div id="assistantBoutons" class="assistant-boutons"></div>
     <button type="button" id="assistantPasser" class="bouton-lien">Passer, je réglerai moi-même</button>
   </dialog>

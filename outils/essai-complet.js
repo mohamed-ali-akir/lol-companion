@@ -211,7 +211,7 @@ const ATTENDU = {
 };
 // Mode Deadlock : ce que chaque onglet doit montrer avec la fausse deadlock-api.com.
 const ATTENDU_DEADLOCK = {
-  deadlock: ["Ton compte Steam", "Joueur", "Deadlock est lancé", "Infernus", "Classée", "Street Brawl", "automatiquement"],
+  deadlock: ["Ton compte Steam", "Joueur", "Deadlock est lancé", "Infernus", "Classée", "Street Brawl"],
   deadlockheros: ["Infernus", "Seven", "Vindicta", "Tes héros"],
   deadlockbuild: ["Build Infernus", "Début de partie", "Extended Magazine", "Toxic Bullets", "Plus dur contre", "Seven"],
 };
@@ -282,6 +282,30 @@ require(path.join(PROJET, "main.js"));
       // Comme dans l'appli installée (à jour, dossier du jeu par défaut), pas le dossier temporaire de l'essai.
       await fenetre.webContents.executeJavaScript(`$("dossierJeu").value = "C:\\\\Riot Games\\\\League of Legends";
         $("majVersion").textContent = "Version ${app.getVersion()} · à jour ✓"; $("majVerifier").disabled = false; true`);
+    }
+    if (onglet === "build") {
+      // Build d'exemple (format de resumeBuild, build.js), dessiné par le vrai code de la page : l'affichage est vérifié
+      // même sans Internet (cartes, pastilles, adaptation, autres choix, familles).
+      const option = (noms, v, s, parties) => ({ noms, tauxVictoire: v, selection: s, parties, minute: null });
+      const exemple = {
+        source: "Lolalytics", stats: { parties: 103479, tauxVictoire: 0.512 }, runes: null, sorts: null,
+        adaptation: ["Bottes : Sandales de Mercure, contre 3 ennemis à dégâts magiques (Malphite, Ornn, Ahri)"],
+        etapes: [
+          { titre: "Départ", ...option(["Anneau de Doran", "Potion de soin", "Potion de soin"], 0.51, 0.98, 63197), fiable: true, note: null, autres: [] },
+          { titre: "Objet 1", ...option(["Malfaisance"], 0.52, 0.86, 54627), fiable: true, note: null, autres: [option(["Écho de Luden"], 0.5, 0.13, 8105)] },
+          { titre: "Bottes", ...option(["Sandales de Mercure"], 0.5, 0.08, 4645), fiable: true, note: "Adapté à l'équipe adverse : 3 ennemis à dégâts magiques, au lieu de Chaussures de sorcier.", autres: [option(["Chaussures de sorcier"], 0.53, 0.62, 38026), option(["Bottes de lucidité ionienne"], 0.52, 0.3, 120)] },
+          { titre: "Objet 5", ...option(["Bâton du vide"], 0.55, 0.05, 150), minute: 31, fiable: false, note: null, autres: [] },
+        ],
+        familles: [
+          { nom: "AP", part: 0.7, objets: ["Malfaisance", "Flamme-ombre", ""] },
+          { nom: "Tank", part: 0.3, objets: ["Égide solaire", "Cotte épineuse", "Masque abyssal"] },
+        ],
+      };
+      await page(`dessinerBuild($("buildResultat"), { titre: "Build Ahri · Milieu (exemple)", build: ${JSON.stringify(exemple)} }); true`);
+      const dessin = await texteDuPanneau("build");
+      for (const mot of ["Malfaisance", "Sandales de Mercure", "Adapté à l'équipe adverse", "Sinon :", "peu de données", "70 % des builds"]) {
+        if (!dessin.includes(mot)) problemes.push(`onglet build : « ${mot} » absent du build d'exemple`);
+      }
     }
     if (onglet === "build" && AVEC_INTERNET) {
       await fenetre.webContents.executeJavaScript(`$("buildChampion").value = "Ahri"; $("buildRole").value = "middle"; $("formConsulterBuild").requestSubmit(); true`);

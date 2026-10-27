@@ -255,12 +255,17 @@ chaque jeu est retenu.
   popularité ; filtre **« Niveau des parties »** (Initiate et plus... Eternus, gardé dans `config.json`). En dessous,
   **tes héros** : parties, victoires, KDA, temps joué.
 - **Build** : pour un héros (ton plus joué choisi d'office), les **objets les plus achetés**, rangés par **moment de la
-  partie** (avant 10 min, 10 à 20 min, après 20 min, d'après le temps d'achat moyen), avec leur emplacement (couleurs
-  du jeu : arme, vitalité, esprit), leur prix, la part des parties où ils sont achetés et le taux de victoire de ceux
-  qui les achètent ; ★ au plus sûr de sa période. Puis les héros contre lesquels il gagne le moins (sous 50 %) et le
-  plus (au-dessus). À lire avant la partie ou sur un 2e écran : l'appli ne met rien dans le jeu (Deadlock a son propre
-  navigateur de builds). On compare les objets d'une même période : un objet de fin de partie a souvent un meilleur
-  taux, parce que l'équipe qui gagne a plus d'âmes pour l'acheter.
+  partie** (avant 10 min, 10 à 20 min, après 20 min, d'après le temps d'achat moyen). Ce n'est pas un ordre à suivre à
+  la lettre : dans chaque période, les objets sont groupés en **« Presque toujours »** (achetés dans au moins 60 % des
+  parties du héros) et **« Selon la partie »** (objets de situation). Chaque objet est une carte colorée comme dans le
+  jeu (arme, vitalité, esprit) avec trois pastilles : vers quelle minute, dans combien de parties, son prix ;
+  ★ « le plus sûr » marque le meilleur taux de victoire prudent de sa période (le taux exact s'affiche au survol : il
+  tourne presque toujours autour de 50 %, et un objet de fin de partie gagne plus souvent parce que l'équipe qui gagne
+  a plus d'âmes pour l'acheter). Puis les héros contre lesquels il gagne le moins (sous 50 %) et le plus (au-dessus).
+  À lire avant la partie ou sur un 2e écran : l'appli ne met rien dans le jeu (Deadlock a son propre navigateur de builds).
+- **Interface sans petits textes** (27/10/2026, choix du propriétaire) : plus de paragraphes d'explication en petit gris
+  dans aucun onglet (ni de pied de page) ; les explications sont dans ce README. Les builds (LoL et Deadlock) gardent
+  leurs chiffres, en cartes et en pastilles lisibles.
 - **Les données viennent de deadlock-api.com** (`deadlock-api.js`, décision du propriétaire du 27/10/2026) : l'API
   gratuite de la communauté (code ouvert, licence MIT), sans clé, non liée à Valve. Mêmes règles que les autres sites
   (`internet.js`) : identification honnête, cache (3 h pour les stats, 5 min pour ton historique), 20 s au plus,

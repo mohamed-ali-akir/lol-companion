@@ -49,7 +49,7 @@ function ligneMesHerosDeadlock(h) {
 async function chargerHerosDeadlock({ forcer = false } = {}) {
   if (!forcer && Date.now() - herosDeadlockLu < RELECTURE_DEADLOCK_MS) return;
   herosDeadlockLu = Date.now();
-  afficherEtat("etatDeadlockHeros", "Lecture des stats des héros sur deadlock-api.com…", "info");
+  afficherEtat("etatDeadlockHeros", "Chargement…", "info");
   const r = await window.appli.lireHerosDeadlock();
   if (!r.ok) {
     herosDeadlockLu = 0;
@@ -60,14 +60,13 @@ async function chargerHerosDeadlock({ forcer = false } = {}) {
   const lignes = r.tierListe.map(ligneHerosDeadlock);
   $("corpsDeadlockHeros").replaceChildren(...lignes);
   $("tableDeadlockHeros").hidden = lignes.length === 0;
-  const total = r.tierListe.reduce((s, h) => s + h.parties, 0) / 12;
-  afficherEtat("etatDeadlockHeros", lignes.length ? `${pluriel(lignes.length, "héros", "héros")} sur environ ${formatNombre(Math.round(total))} parties des ${r.periodeJours} derniers jours.` : "Pas assez de parties à ce niveau.", "info");
+  afficherEtat("etatDeadlockHeros", lignes.length ? "" : "Pas assez de parties à ce niveau.", "info");
 
   const mes = r.mesHeros.map(ligneMesHerosDeadlock);
   $("corpsDeadlockMesHeros").replaceChildren(...mes);
   $("tableDeadlockMesHeros").hidden = mes.length === 0;
   $("deadlockMesHerosVide").hidden = mes.length > 0;
-  $("deadlockMesHerosVide").textContent = "Aucune partie connue de deadlock-api.com pour ton compte (voir « Envoi de tes parties » dans l'Accueil).";
+  $("deadlockMesHerosVide").textContent = "Aucune partie connue pour l'instant.";
 }
 
 function brancherDeadlockHeros() {

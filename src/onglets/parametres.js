@@ -9,7 +9,7 @@
 async function afficherParametres() {
   const config = await window.appli.lireConfig();
   $("dossierJeu").value = config.dossierJeu;
-  $("dossierParDefaut").textContent = config.dossierJeuParDefaut;
+  $("dossierJeu").placeholder = config.dossierJeuParDefaut; // dossier par défaut, en exemple dans le champ
   if (config.plateforme === "darwin") {
     // Mac : les augments sont lus à l'écran avec l'OCR de macOS, qui a besoin de l'autorisation
     // « Enregistrement de l'écran » : on explique où la donner tant qu'elle manque.

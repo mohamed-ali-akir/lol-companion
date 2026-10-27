@@ -2,7 +2,7 @@
  * Mode Deadlock, onglet Accueil (27/10/2026)
  * ------------------------------------------
  * Ton compte Steam (trouvé sur ce PC), ton temps de jeu (mesuré par l'appli), tes dernières parties (deadlock-api.com)
- * et l'envoi automatique de tes parties. Tout vient de main.js (deadlock.js) par window.appli : la page ne lit rien
+ (envoyées automatiquement au site par main.js). Tout vient de main.js (deadlock.js) par window.appli : la page ne lit rien
  * elle-même. Ce fichier tient aussi l'état du jeu (lancé ou fermé), dont dépend le passage automatique en mode Deadlock.
  */
 
@@ -30,9 +30,6 @@ function afficherEtatDeadlock(etat) {
   $("deadlockTempsSemaine").textContent = texteDureeMs(t.septJours);
   $("deadlockTempsTotal").textContent = texteDureeMs(t.total);
 
-  const envoi = etat.dernierEnvoi;
-  if (envoi && envoi.erreur) afficherEtat("etatDeadlockEnvoi", `Envoi des parties (${formatDateHeure(envoi.date)}) : ${envoi.erreur}`, "erreur");
-  else if (envoi) afficherEtat("etatDeadlockEnvoi", `${formatDateHeure(envoi.date)} : ${envoi.envoyees === 0 ? "aucune nouvelle partie dans le cache de Steam" : `${pluriel(envoi.envoyees, "partie envoyée", "parties envoyées")} ✓`}`, envoi.envoyees ? "ok" : "info");
 
   if (etat.lance && !avant.lance) changerDeJeu("deadlock"); // le jeu vient d'être lancé : l'appli passe en mode Deadlock
   if (!etat.lance && avant.lance) {
@@ -62,7 +59,7 @@ function lignePartieDeadlock(p) {
 async function chargerAccueilDeadlock({ forcer = false } = {}) {
   if (!forcer && Date.now() - accueilDeadlockLu < RELECTURE_DEADLOCK_MS) return;
   accueilDeadlockLu = Date.now();
-  afficherEtat("etatDeadlockAccueil", "Lecture de tes parties sur deadlock-api.com…", "info");
+  afficherEtat("etatDeadlockAccueil", "Chargement…", "info");
   const reponse = await window.appli.lireAccueilDeadlock();
   if (!reponse.ok) {
     accueilDeadlockLu = 0; // on réessaiera à la prochaine ouverture
@@ -77,8 +74,7 @@ async function chargerAccueilDeadlock({ forcer = false } = {}) {
   const lignes = r ? r.dernieres.map(lignePartieDeadlock) : [];
   $("corpsDeadlockParties").replaceChildren(...lignes);
   $("tableDeadlockParties").hidden = lignes.length === 0;
-  if (reponse.message) afficherEtat("etatDeadlockAccueil", reponse.message, "info");
-  else afficherEtat("etatDeadlockAccueil", `${pluriel(r.nombre, "partie connue", "parties connues")} · les ${lignes.length} dernières ci-dessous (lu à ${heure()}).`, "info");
+  afficherEtat("etatDeadlockAccueil", reponse.message || "", "info"); // seulement quand il n'y a encore aucune partie
 }
 
 /** Enregistre les réglages Deadlock (niveau de l'onglet Héros) -> réglages propres, ou null. */

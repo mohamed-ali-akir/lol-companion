@@ -92,6 +92,9 @@ function element(balise, classe, texte) {
   return e;
 }
 
+/** Pastille lisible (builds) : « vers 6 min », « 52 % de victoires »... classe : puce-or, puce-bon, puce-mauvais, puce-alerte. */
+const puce = (texte, classe = null) => element("span", classe ? `puce ${classe}` : "puce", texte);
+
 // --- Rendu de tous les onglets -------------------------------------------------------
 
 const fonctionsDeRendu = [];

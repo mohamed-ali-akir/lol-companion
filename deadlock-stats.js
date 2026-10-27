@@ -207,13 +207,15 @@ function tierListe(brut, heros = new Map(), { partiesMin = PARTIES_MIN_HEROS } =
 
 // Moments de la partie, d'après le temps d'achat MOYEN de l'objet (avg_buy_time_s).
 const PHASES = [
-  { cle: "debut", titre: "Début de partie (avant 10 min)", jusquA: 10 * 60 },
-  { cle: "milieu", titre: "Milieu de partie (10 à 20 min)", jusquA: 20 * 60 },
-  { cle: "fin", titre: "Fin de partie (après 20 min)", jusquA: Infinity },
+  { cle: "debut", titre: "Début de partie", quand: "avant 10 min", jusquA: 10 * 60 },
+  { cle: "milieu", titre: "Milieu de partie", quand: "10 à 20 min", jusquA: 20 * 60 },
+  { cle: "fin", titre: "Fin de partie", quand: "après 20 min", jusquA: Infinity },
 ];
 const ACHAT_MIN = 0.05; // un objet acheté dans moins de 5 % des parties du héros n'est pas proposé
 const PARTIES_MIN_OBJET = 200; // ni sur moins de 200 parties (taux de victoire trop incertain)
 const OBJETS_PAR_PHASE = 6;
+// « Presque toujours » (27/10/2026) : acheté dans au moins 60 % des parties du héros. Les autres sont « selon la partie ».
+const ACHAT_ESSENTIEL = 0.6;
 
 /**
  * Build d'un héros (/v1/analytics/item-stats?hero_id=) -> { parties, phases: [{ cle, titre, objets }] }.
@@ -221,7 +223,8 @@ const OBJETS_PAR_PHASE = 6;
  *    nombre de parties d'un objet sert d'estimation ;
  *  - chaque phase garde les OBJETS_PAR_PHASE objets LES PLUS ACHETÉS (comme le build classique de LoL : le chemin de
  *    la majorité des joueurs reste cohérent), chacun avec { id, nom, emplacement, prix, parties, achat, tauxVictoire,
- *    minute } ; « conseille » marque le meilleur au taux de victoire prudent de la phase ;
+ *    minute, essentiel } ; « conseille » marque le meilleur au taux de victoire prudent de la phase ; « essentiel » : acheté
+ *    dans au moins 60 % des parties du héros (à prendre presque toujours), sinon objet de situation ;
  *  - attention, et l'onglet le dit : un objet de fin de partie a souvent un meilleur taux, parce que les gagnants
  *    ont plus d'âmes pour l'acheter. On compare donc les objets d'une même phase, jamais entre phases.
  */
@@ -255,8 +258,13 @@ function buildDuHeros(brut, objets = new Map(), { partiesHeros = null } = {}) {
     return {
       cle: phase.cle,
       titre: phase.titre,
+      quand: phase.quand,
       // prudent ne sert qu'au classement : il n'est pas envoyé à la page
-      objets: dansPhase.sort((a, b) => a.minute - b.minute).map(({ prudent, ...o }) => ({ ...o, conseille: Boolean(meilleur) && o.id === meilleur.id })),
+      objets: dansPhase.sort((a, b) => a.minute - b.minute).map(({ prudent, ...o }) => ({
+        ...o,
+        conseille: Boolean(meilleur) && o.id === meilleur.id,
+        essentiel: Number.isFinite(o.achat) && o.achat >= ACHAT_ESSENTIEL,
+      })),
     };
   });
   return { parties, phases };
@@ -321,6 +329,7 @@ module.exports = {
   PARTIES_MIN_HEROS,
   PARTIES_MIN_OBJET,
   ACHAT_MIN,
+  ACHAT_ESSENTIEL,
   normaliserHeros,
   normaliserObjets,
   normaliserRangs,

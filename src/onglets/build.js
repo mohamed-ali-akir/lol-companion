@@ -26,31 +26,32 @@ function dessinerBuild(conteneur, { titre, build }) {
   conteneur.replaceChildren();
   conteneur.append(element("h3", null, titre));
   if (build.stats && build.stats.parties) {
-    conteneur.append(element("p", "aide", `${pourcentBuild(build.stats.tauxVictoire)} de victoires sur ${formatNombre(build.stats.parties)} parties (objets : ${build.source}).`));
+    const resume = element("div", "puces");
+    resume.append(puce(`${pourcentBuild(build.stats.tauxVictoire)} de victoires`), puce(`${formatNombre(build.stats.parties)} parties`), puce(build.source));
+    conteneur.append(resume);
   }
-  // Build adapté à l'équipe adverse (adversaires.js) : chaque changement et sa raison.
-  if (Array.isArray(build.adaptation) && build.adaptation.length > 0) {
-    conteneur.append(element("h4", null, "Adapté à l'équipe adverse"));
-    const changements = element("ul", "build-adaptation");
-    for (const raison of build.adaptation) changements.append(element("li", null, raison));
-    conteneur.append(changements);
-  }
-  const liste = element("ol", "build-etapes");
+  // Build adapté à l'équipe adverse (adversaires.js) : la raison est écrite dans la carte de chaque étape changée (note).
+  // Chaque étape : son nom, l'objet retenu, ses chiffres en pastilles, la raison d'une adaptation, les autres choix.
+  const liste = element("div", "build-cartes");
   for (const etape of build.etapes) {
-    const ligne = element("li");
-    ligne.append(element("strong", null, `${etape.titre} : `), document.createTextNode(nomsRegroupes(etape.noms)));
-    const peu = etape.fiable === false ? " · ⚠ peu de données" : "";
-    const minute = etape.minute ? ` · vers ${Math.round(etape.minute)} min` : "";
-    ligne.append(element("span", "build-taux", ` · ${pourcentBuild(etape.tauxVictoire)} V · ${pourcentBuild(etape.selection)} choix · ${formatNombre(etape.parties)} parties${minute}${peu}`));
-    if (etape.note) ligne.append(element("div", "aide", etape.note));
+    const carte = element("div", "build-carte");
+    const tete = element("div", "build-carte-tete");
+    tete.append(element("span", "build-carte-titre", etape.titre), element("strong", null, nomsRegroupes(etape.noms)));
+    const puces = element("div", "puces");
+    puces.append(puce(`${pourcentBuild(etape.tauxVictoire)} de victoires`), puce(`${pourcentBuild(etape.selection)} des achats`));
+    if (etape.minute) puces.append(puce(`vers ${Math.round(etape.minute)} min`));
+    if (etape.fiable === false) puces.append(puce("peu de données", "puce-alerte"));
+    carte.append(tete, puces);
+    if (etape.note) carte.append(element("p", "build-note", etape.note));
     if (etape.autres.length > 0) {
-      const autres = etape.autres.map((o) => {
-        const prudence = o.parties < PARTIES_FIABLES ? ", ⚠ peu de données" : "";
-        return `${nomsRegroupes(o.noms)} (${pourcentBuild(o.tauxVictoire)} V, ${formatNombre(o.parties)} parties${prudence})`;
-      });
-      ligne.append(element("div", "aide", `Pour t'adapter : ${autres.join(" · ")}`));
+      const autres = element("div", "puces build-autres");
+      autres.append(element("span", "build-autres-titre", "Sinon :"));
+      for (const o of etape.autres) {
+        autres.append(puce(`${nomsRegroupes(o.noms)} · ${pourcentBuild(o.tauxVictoire)}`, o.parties < PARTIES_FIABLES ? "puce-alerte" : null));
+      }
+      carte.append(autres);
     }
-    liste.append(ligne);
+    liste.append(carte);
   }
   conteneur.append(liste);
   if (build.runes) {
@@ -61,14 +62,17 @@ function dessinerBuild(conteneur, { titre, build }) {
   // Champion qui se joue de plusieurs façons (familles.js) : un set par façon, ses 3 premiers objets lui sont propres.
   if (Array.isArray(build.familles) && build.familles.length > 1) {
     conteneur.append(element("h4", null, "Plusieurs façons de jouer ce champion (un set d'objets chacune)"));
-    const familles = element("ul", "build-etapes");
+    const familles = element("div", "build-cartes");
     for (const f of build.familles) {
-      const ligne = element("li");
-      ligne.append(element("strong", null, `${f.nom} `), element("span", "build-taux", `(${pourcentBuild(f.part)} des builds)`));
+      const carte = element("div", "build-carte");
+      const tete = element("div", "build-carte-tete");
+      tete.append(element("strong", null, f.nom), puce(`${pourcentBuild(f.part)} des builds`));
+      const objets = element("div", "puces");
       f.objets.forEach((noms, i) => {
-        if (noms) ligne.append(element("div", "aide", `Objet ${i + 1} : ${noms}`));
+        if (noms) objets.append(puce(`Objet ${i + 1} : ${noms}`));
       });
-      familles.append(ligne);
+      carte.append(tete, objets);
+      familles.append(carte);
     }
     conteneur.append(familles);
   }

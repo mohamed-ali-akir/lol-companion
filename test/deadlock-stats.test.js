@@ -161,6 +161,9 @@ test("build : par moment de la partie, les plus achetés, ★ au plus sûr de sa
   assert.deepStrictEqual(debut.objets.map((o) => o.conseille), [true, false], "51,3 % sur 78 000 > 49 % sur 100 000");
   assert.strictEqual(debut.objets[1].achat, 100000 / 120000);
   assert.strictEqual(debut.objets[0].minute, 4);
+  assert.deepStrictEqual(debut.objets.map((o) => o.essentiel), [true, true], "65 % et 83 % des parties : presque toujours");
+  assert.strictEqual(fin.objets[0].essentiel, false, "40 % des parties : selon la partie");
+  assert.deepStrictEqual([debut.titre, debut.quand], ["Début de partie", "avant 10 min"]);
   assert.strictEqual("prudent" in debut.objets[0], false, "le score de classement n'est pas envoyé à la page");
   assert.deepStrictEqual(milieu.objets.map((o) => [o.nom, o.conseille]), [["Titanic Magazine", false]], "un seul objet : pas d'étoile");
   assert.deepStrictEqual(fin.objets.map((o) => o.nom), ["Boundless Spirit"]);

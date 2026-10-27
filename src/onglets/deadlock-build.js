@@ -6,7 +6,6 @@
  * Lecture seule : l'appli ne met rien dans le jeu (Deadlock a son propre navigateur de builds).
  */
 
-const NOMS_EMPLACEMENTS = { arme: "Arme", vitalite: "Vitalité", esprit: "Esprit" };
 let listeHerosDeadlockLue = false;
 
 /** Remplit le choix du héros (une fois) ; ton héros le plus joué est choisi d'office. */
@@ -28,56 +27,72 @@ async function remplirHerosDeadlock() {
   return true;
 }
 
-/** Un objet : nom, emplacement (couleur du jeu), minute d'achat, part des achats, taux de victoire, ★. */
-function ligneObjetDeadlock(o) {
-  const ligne = element("li", o.emplacement ? `objet-${o.emplacement}` : null);
-  ligne.append(element("strong", null, `${o.conseille ? "★ " : ""}${o.nom}`));
-  const details = [
-    NOMS_EMPLACEMENTS[o.emplacement],
-    Number.isFinite(o.prix) ? `${formatNombre(o.prix)} âmes` : null,
-    Number.isFinite(o.minute) ? `vers ${Math.round(o.minute)} min` : null,
-    Number.isFinite(o.achat) ? `acheté dans ${formatPourcent(o.achat)} des parties` : null,
-    `${formatPourcent(o.tauxVictoire)} V`,
-  ].filter(Boolean);
-  ligne.append(element("span", "build-taux", ` · ${details.join(" · ")}`));
-  return ligne;
+/**
+ * Carte d'un objet : nom (couleur de son emplacement), ★ pour le plus sûr de sa période, puis 3 chiffres : quand,
+ * dans combien de parties, et son prix. Le taux de victoire n'est plus affiché (presque toujours autour de 50 %, il
+ * n'aidait pas à choisir) : il sert à l'étoile, au survol (title) pour les curieux.
+ */
+function carteObjetDeadlock(o) {
+  const carte = element("div", `dl-objet${o.emplacement ? ` objet-${o.emplacement}` : ""}`);
+  carte.title = `${formatPourcent(o.tauxVictoire)} de victoires chez ceux qui l'achètent`;
+  const tete = element("div", "dl-objet-tete");
+  tete.append(element("strong", null, o.nom));
+  if (o.conseille) tete.append(puce("★ le plus sûr", "puce-or"));
+  const puces = element("div", "puces");
+  if (Number.isFinite(o.minute)) puces.append(puce(`${Math.round(o.minute)} min`));
+  if (Number.isFinite(o.achat)) puces.append(puce(`${Math.round(o.achat * 100)} % des parties`));
+  if (Number.isFinite(o.prix)) puces.append(puce(`${formatNombre(o.prix)} âmes`));
+  carte.append(tete, puces);
+  return carte;
 }
 
-function listeContres(titre, contres, nomHeros) {
-  const bloc = document.createDocumentFragment();
-  bloc.append(element("h4", null, titre));
-  if (contres.length === 0) {
-    bloc.append(element("p", "aide", "Pas assez de duels joués."));
+/** Un groupe d'objets d'une période (« Presque toujours » ou « Selon la partie »), ou rien s'il est vide. */
+function groupeObjets(titre, objets) {
+  if (objets.length === 0) return [];
+  const grille = element("div", "dl-objets");
+  grille.append(...objets.map(carteObjetDeadlock));
+  return [element("p", "dl-groupe", titre), grille];
+}
+
+/** Une période de la partie : titre, puis les objets à prendre presque toujours, puis ceux de situation. */
+function periodeDeadlock(phase) {
+  const bloc = element("section", "dl-phase");
+  const titre = element("h3");
+  titre.append(document.createTextNode(`${phase.titre} `), puce(phase.quand));
+  bloc.append(titre);
+  if (phase.objets.length === 0) {
+    bloc.append(element("p", "texte-vide", "Aucun objet assez acheté à ce moment-là."));
     return bloc;
   }
-  const liste = element("ul", "build-etapes");
-  for (const c of contres) {
-    const ligne = element("li");
-    ligne.append(element("strong", null, c.nom), element("span", "build-taux", ` · ${nomHeros} gagne ${formatPourcent(c.tauxVictoire)} des duels (${formatNombre(c.parties)} parties)`));
-    liste.append(ligne);
-  }
-  bloc.append(liste);
+  bloc.append(
+    ...groupeObjets("Presque toujours", phase.objets.filter((o) => o.essentiel)),
+    ...groupeObjets("Selon la partie", phase.objets.filter((o) => !o.essentiel)),
+  );
   return bloc;
+}
+
+/** Colonne des contres : chaque héros avec le taux de victoire du héros choisi contre lui. */
+function colonneContres(titre, contres, classe) {
+  const colonne = element("div", "dl-contres-colonne");
+  colonne.append(element("h3", null, titre));
+  if (contres.length === 0) {
+    colonne.append(element("p", "texte-vide", "Pas assez de duels joués."));
+    return colonne;
+  }
+  for (const c of contres) {
+    const ligne = element("div", "dl-contre");
+    ligne.append(element("strong", null, c.nom), puce(`${formatPourcent(c.tauxVictoire)} de victoires`, classe));
+    colonne.append(ligne);
+  }
+  return colonne;
 }
 
 /** Dessine le build reçu de main.js. */
 function dessinerBuildDeadlock(r) {
   const conteneur = $("deadlockBuildResultat");
-  conteneur.replaceChildren();
-  conteneur.append(element("h3", null, `Build ${r.heros.nom}`));
-  conteneur.append(element("p", "aide", `${r.heros.nom} : ${formatNombre(r.build.parties)} parties sur les ${r.periodeJours} derniers jours${Number.isInteger(r.rang) ? " (niveau choisi dans l'onglet Héros et plus)" : ""}.`));
-  for (const phase of r.build.phases) {
-    conteneur.append(element("h4", null, phase.titre));
-    if (phase.objets.length === 0) {
-      conteneur.append(element("p", "aide", "Aucun objet assez acheté à ce moment-là."));
-      continue;
-    }
-    const liste = element("ol", "build-etapes");
-    liste.append(...phase.objets.map(ligneObjetDeadlock));
-    conteneur.append(liste);
-  }
-  conteneur.append(listeContres("Plus dur contre", r.contres.difficiles, r.heros.nom));
-  conteneur.append(listeContres("Plus facile contre", r.contres.faciles, r.heros.nom));
+  const contres = element("div", "dl-contres");
+  contres.append(colonneContres("Plus dur contre", r.contres.difficiles, "puce-mauvais"), colonneContres("Plus facile contre", r.contres.faciles, "puce-bon"));
+  conteneur.replaceChildren(element("h2", null, `Build ${r.heros.nom}`), ...r.build.phases.map(periodeDeadlock), contres);
 }
 
 async function consulterBuildDeadlock() {
@@ -85,7 +100,7 @@ async function consulterBuildDeadlock() {
   if (!heroId) return;
   const bouton = $("formDeadlockBuild").querySelector("button");
   bouton.disabled = true;
-  afficherEtat("etatDeadlockBuild", "Lecture du build sur deadlock-api.com…", "info");
+  afficherEtat("etatDeadlockBuild", "Chargement…", "info");
   try {
     const r = await window.appli.consulterBuildDeadlock(heroId);
     if (!r.ok) {
@@ -94,7 +109,7 @@ async function consulterBuildDeadlock() {
     }
     dessinerBuildDeadlock(r);
     buildDeadlockAffiche = heroId;
-    afficherEtat("etatDeadlockBuild", `Lu à ${heure()} ✓`, "ok");
+    afficherEtat("etatDeadlockBuild", "");
   } finally {
     bouton.disabled = false;
   }

@@ -161,10 +161,6 @@ function renduMaitrise() {
   $("maitriseNiveauMax").textContent = formatNombre(resume.niveauMax);
   $("maitrise10").textContent = formatNombre(resume.niveau10EtPlus);
 
-  const aDesMoyennes = champions.some((c) => c.moyenneParPartie > 0);
-  $("maitriseEstimationAide").textContent = aDesMoyennes
-    ? "« ≈ N parties » : calculé avec ta moyenne de points par partie sur ce champion, mesurée par l'appli après tes parties (survole le texte pour voir la moyenne)."
-    : "L'estimation « ≈ N parties » apparaîtra quand l'appli aura mesuré tes points gagnés par partie : laisse-la ouverte pendant que tu joues.";
   $("maitriseProches").replaceChildren(...plusProchesDuNiveau(champions, 5).map(creerProche));
   $("maitriseJouesListe").replaceChildren(
     ...trierMaitrises(champions.filter((c) => c.points > 0), "points").slice(0, 5).map((c, i) => creerPlusJoue(c, i + 1))

@@ -90,13 +90,6 @@ function renduResume(resume) {
   $("statsKda").textContent = texteKda(resume.kda);
   $("statsSerie").textContent = texteSerie(resume.serie);
   $("statsSerie").classList.toggle("serie-defaites", Boolean(resume.serie && !resume.serie.victoire));
-  const pluriel = resume.parties > 1 ? "s" : "";
-  $("statsSource").textContent =
-    `Calculé sur ${formatNombre(resume.parties)} partie${pluriel} ` +
-    (periodeStats === "30"
-      ? `jouée${pluriel} ces ${JOURS_PERIODE} derniers jours (la plus ancienne le ${formatDateLongue(resume.depuis)}). `
-      : `: toutes celles que l'appli connaît, depuis le ${formatDateLongue(resume.depuis)}. `) +
-    `L'historique s'enrichit à chaque lecture du client (remakes exclus).`;
 }
 
 function renduMeilleurs(champions) {
@@ -305,13 +298,6 @@ function renduTemps() {
   if (t.champions.length > 0) lignes.push(`Tes champions : ${t.champions.map((c) => `${c.nom} ${texteHeures(c.heures)}`).join(" · ")}.`);
   if (t.compte.parties > 0) lignes.push(`Parties entre minuit et 6 h : ${pourcent(t.partiesDeNuit)}.`);
   $("tempsAmusant").replaceChildren(...lignes.map((l) => cellule("li", l)));
-
-  $("tempsMethode").textContent = t.estime
-    ? `Comment c'est calculé : l'appli compte exactement tes parties enregistrées (durée + ${ATTENTE_PAR_PARTIE_MIN} min d'attente chacune). ` +
-      `Avant ça, elle estime : l'XP totale de ton compte (niveau ${compte.niveau}) divisée par l'XP d'une partie moyenne pour toi ` +
-      `(${formatNombre(t.estime.xpParPartie)} XP). C'est un ordre de grandeur : l'XP des missions et des boosts fait monter l'estimation, ` +
-      "les parties contre des bots la font baisser."
-    : `Comment c'est calculé : tes parties enregistrées (durée + ${ATTENTE_PAR_PARTIE_MIN} min d'attente chacune). Lance League of Legends pour ajouter l'estimation depuis la création du compte.`;
 }
 
 /** Carte "Tes stats" sur l'Accueil (tous modes confondus, toutes les parties connues). */

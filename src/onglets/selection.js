@@ -197,7 +197,7 @@ function afficherConseilDraft(conseil) {
   if (conseil.etat === "pret") {
     if (conseil.propositions.length === 0 && conseil.message) {
       const vide = document.createElement("p");
-      vide.className = "aide";
+      vide.className = "texte-vide";
       vide.textContent = conseil.message;
       elements.push(vide);
     }
@@ -220,7 +220,7 @@ function afficherConseilDraft(conseil) {
     elements.push(liste);
     if (conseil.manquants && conseil.manquants.length) {
       const note = document.createElement("p");
-      note.className = "aide";
+      note.className = "texte-vide";
       note.textContent = `Pas de données pour : ${conseil.manquants.join(", ")} (non comptés).`;
       elements.push(note);
     }
