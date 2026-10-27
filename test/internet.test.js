@@ -94,7 +94,9 @@ test("telecharger : messages clairs (pas d'Internet, 404, autre code)", async ()
     [new TypeError("fetch failed"), {}, /Exemple ne répond pas/],
     [{ status: 404 }, { introuvable: "Champion inconnu de Exemple." }, /Champion inconnu/],
     [{ status: 404 }, {}, /code 404/],
-    [{ status: 503 }, {}, /code 503/],
+    [{ status: 503 }, {}, /surchargé/],
+    [{ status: 429 }, {}, /surchargé/],
+    [{ status: 500 }, {}, /code 500/],
   ];
   for (const [reponse, plus, attendu] of cas) {
     await assert.rejects(

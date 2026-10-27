@@ -129,7 +129,7 @@ test("erreurs : messages clairs (pas d'Internet, champion inconnu, code HTTP, pa
   const cas = [
     [new TypeError("fetch failed"), /ne répond pas/],
     [{ status: 404, texte: "" }, /ne connaît pas/],
-    [{ status: 503, texte: "" }, /code 503/],
+    [{ status: 500, texte: "" }, /code 500/],
     [{ status: 200, texte: "<html>nouvelle version du site</html>" }, /changé de format/],
   ];
   for (const [reponse, attendu] of cas) {
@@ -204,9 +204,9 @@ test("synergies : API build-team avec le patch et la voie de l'allié, rien de p
 });
 
 test("tier list : un échec n'est pas gardé en cache (on réessaie à la prochaine sélection)", async () => {
-  const site = fauxSite([{ status: 503, texte: "" }, { status: 200, texte: tierlistQwik([[103, LIGNE(52, 5000)]]) }]);
+  const site = fauxSite([{ status: 500, texte: "" }, { status: 200, texte: tierlistQwik([[103, LIGNE(52, 5000)]]) }]);
   const lecteur = L.creerLecteurLolalytics({ appeler: site.appeler });
-  await assert.rejects(lecteur.tierlist("middle"), /code 503/);
+  await assert.rejects(lecteur.tierlist("middle"), /code 500/);
   const tl = await lecteur.tierlist("middle");
   assert.strictEqual(site.appels[1].url, "https://lolalytics.com/lol/tierlist/?lane=middle");
   assert.strictEqual(tl.lignes.size, 1);

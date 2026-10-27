@@ -1,12 +1,14 @@
 /*
  * Règles communes des appels à Internet
  * -------------------------------------
- * Tourne dans le processus principal (Node). Utilisé par opgg.js, lolalytics.js et arammayhem.js.
+ * Tourne dans le processus principal (Node). Utilisé par opgg.js, lolalytics.js, arammayhem.js et deadlock-api.js.
  *
- * Les trois sites suivent les mêmes règles (CLAUDE.md, exceptions décidées par le propriétaire) :
+ * Tous ces sites suivent les mêmes règles (CLAUDE.md, exceptions décidées par le propriétaire) :
  *  - l'appli se présente honnêtement (User-Agent IDENTITE) ;
- *  - une même adresse est lue au plus une fois toutes les 3 heures (cache en mémoire) ;
+ *  - une même adresse est lue au plus une fois toutes les 3 heures (cache en mémoire ; 5 minutes pour l'historique
+ *    d'un joueur Deadlock, qui change après chaque partie) ;
  *  - on n'attend jamais plus de 20 secondes ;
+ *  - site surchargé (429, 503) : message clair, pas de nouvelle tentative en boucle ;
  *  - certificats vérifiés normalement (fetch de Node, aucune option de sécurité désactivée).
  * Ces règles sont écrites UNE seule fois ici, pour qu'aucun site ne les oublie.
  */
@@ -62,6 +64,8 @@ async function telecharger({ appeler, adresse, options = {}, site, Erreur, intro
     throw new Erreur(`${site} ne répond pas (pas d'Internet ?).`);
   }
   if (reponse.status === 404 && introuvable) throw new Erreur(introuvable);
+  // 429 (trop de demandes) et 503 (site surchargé ; deadlock-api.com le dit avec Retry-After) : pas une panne.
+  if (reponse.status === 429 || reponse.status === 503) throw new Erreur(`${site} est surchargé pour le moment : réessaie dans quelques minutes.`);
   if (!reponse.ok) throw new Erreur(`${site} a répondu une erreur (code ${reponse.status}).`);
   return reponse.text();
 }

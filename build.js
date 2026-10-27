@@ -37,6 +37,7 @@ const { lireLockfile, lireJson, lireJsonOuNull, appelerClient, ErreurClient } = 
 const { monChampion, pageDepuisRecommandation, nomsPage } = require("./runes.js");
 const { picksVerrouilles } = require("./draft.js");
 const { ENNEMIS_MIN, profilEquipe, adapterEtapes } = require("./adversaires.js");
+const { scorePrudent } = require("./statistiques.js"); // taux de victoire prudent (Wilson), partagé avec Deadlock
 const PREFIXE_UID_RANK1 = "1c0a9a10-0000-4000-9000-"; // identifiant du set « Champion Rank 1 » (les autres sets : ...-8000-)
 
 const PREFIXE_SET = "LoL Companion";
@@ -45,7 +46,6 @@ const PREFIXE_UID_APPLI = "1c0a9a10-0000-4000-"; // identifiants des sets de l'a
 // (Avec 5 % seulement, le 6e objet de Hwei était une Ceinture-roquette sur... 4 parties.)
 const SELECTION_MIN = 0.1;
 const PARTIES_MIN = 200;
-const Z_95 = 1.96;
 
 const LIBELLES_ROLES = { top: "Haut", jungle: "Jungle", middle: "Milieu", bottom: "Bas", utility: "Support" };
 
@@ -96,15 +96,6 @@ function ordreSorts(recommandes, actuels) {
 /** Erreur « pas pour ce mode » (stats-build.js : en Arena, pas de runes, d'OP.GG ni de set Rank 1) : pas affichée. */
 const pasPourCeMode = (erreur) => Boolean(erreur && erreur.pasPourCeMode);
 
-/** Taux de victoire prudent : borne basse de l'intervalle de Wilson à 95 %. 0 sans parties. */
-function scorePrudent(victoires, parties) {
-  if (!(parties > 0)) return 0;
-  const p = Math.min(1, Math.max(0, victoires / parties));
-  const z2 = Z_95 * Z_95;
-  const centre = p + z2 / (2 * parties);
-  const marge = Z_95 * Math.sqrt((p * (1 - p)) / parties + z2 / (4 * parties * parties));
-  return (centre - marge) / (1 + z2 / parties);
-}
 
 const tauxVictoire = (o) => (o && o.parties > 0 ? o.victoires / o.parties : 0);
 

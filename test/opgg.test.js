@@ -124,7 +124,7 @@ test("cache : un seul appel pendant quelques heures, puis on relit", async () =>
 test("erreurs : messages clairs (pas d'Internet, code HTTP, champion inconnu, réponse illisible, pas de données)", async () => {
   const cas = [
     [new TypeError("fetch failed"), /ne répond pas/],
-    [{ status: 503, texte: "" }, /code 503/],
+    [{ status: 500, texte: "" }, /code 500/],
     [{ status: 200, texte: JSON.stringify({ error: { code: -32600, message: "position invalide" } }) }, /ne connaît pas/],
     [{ status: 200, texte: "<html>" }, /illisible/],
     [reponseJson("n'importe quoi"), /inattendu/],
