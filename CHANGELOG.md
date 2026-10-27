@@ -3,7 +3,7 @@
 Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le détail technique de chaque choix est dans
 le [README](README.md) et dans l'historique Git.
 
-## Prochaine version (pas encore publiée)
+## 1.5.2 (27/10/2026)
 - **Interface plus propre** : plus aucun petit texte d'explication en gris dans les onglets (ni pied de page).
 - **Builds en cartes** (LoL et Deadlock) : chaque étape ou objet dans une carte, les chiffres en pastilles lisibles.
 - **Build Deadlock** : plus de numéros ; les objets de chaque période sont groupés en « Presque toujours » (60 % des
