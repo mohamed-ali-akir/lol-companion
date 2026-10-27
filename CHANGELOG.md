@@ -3,7 +3,7 @@
 Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le détail technique de chaque choix est dans
 le [README](README.md) et dans l'historique Git.
 
-## Prochaine version (pas encore publiée)
+## 1.5.1 (27/10/2026)
 - **Mode Deadlock** : tes parties sont envoyées automatiquement à deadlock-api.com (plus de case à cocher), au lancement
   de l'appli et quand tu fermes Deadlock.
 
