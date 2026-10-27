@@ -1475,3 +1475,60 @@ th[aria-sort="descending"] .tri::after { content: " ▼"; }
   font-weight: 600;
   margin: 8px 0;
 }
+
+/* --- Mode Deadlock (27/10/2026) : un seul jeu affiché à la fois (onglets/onglets.js) --- */
+body:not(.mode-deadlock) .jeu-deadlock,
+body.mode-deadlock .jeu-lol {
+  display: none !important;
+}
+
+/* Couleurs du mode Deadlock : crème et cuivre sur fond sombre, comme le jeu */
+body.mode-deadlock {
+  --bg: #12110d;
+  --bg-card: #1c1a15;
+  --border: #3a3426;
+  --gold: #e3d2a7;
+  --gold-light: #f4ead2;
+  --text: #ddd6c6;
+  --text-muted: #a59c88;
+  --accent: #d1883f;
+  background: radial-gradient(circle at top, #27231a 0%, var(--bg) 60%);
+  background-color: var(--bg);
+}
+
+.choix-jeu {
+  display: inline-flex;
+  gap: 4px;
+  margin-top: 14px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-card);
+}
+
+.choix-jeu button {
+  background: transparent;
+  color: var(--text-muted);
+  border: none;
+  border-radius: 999px;
+  padding: 6px 14px;
+  font-size: 0.9rem;
+}
+
+.choix-jeu button:hover {
+  color: var(--text);
+}
+
+.choix-jeu button[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--bg);
+  font-weight: 600;
+}
+
+/* Emplacements des objets de Deadlock : mêmes couleurs que dans la boutique du jeu */
+.objet-arme strong { color: #e6913c; }
+.objet-vitalite strong { color: #78c04a; }
+.objet-esprit strong { color: #b07ce6; }
+
+/* En mode Deadlock, la couleur d'accent est cuivrée : la victoire garde son vert, pour ne pas ressembler à la défaite */
+body.mode-deadlock .resultat-victoire { color: #78c04a; }

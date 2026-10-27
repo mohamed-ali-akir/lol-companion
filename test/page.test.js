@@ -148,9 +148,9 @@ const GLOBAUX_NAVIGATEUR = new Set([
   "setTimeout", "clearTimeout", "setInterval", "clearInterval", "requestAnimationFrame", "getComputedStyle",
   "Number", "String", "Boolean", "Array", "Object", "Math", "JSON", "Date", "Promise", "Map", "Set", "RegExp", "Error",
   "Symbol", "Intl", "parseInt", "parseFloat", "isNaN", "isFinite", "encodeURIComponent", "decodeURIComponent",
-  "Proxy", "Reflect", "BigInt", "structuredClone", "fetch", "alert", "confirm", "Option", "Image",
+  "Proxy", "Reflect", "BigInt", "structuredClone", "fetch", "alert", "confirm", "Option", "Image", "CustomEvent",
 ]);
-const MOTS_DU_LANGAGE = new Set(["if", "for", "while", "switch", "catch", "function", "return", "typeof", "await", "new", "super", "import", "of", "in"]);
+const MOTS_DU_LANGAGE = new Set(["if", "for", "while", "switch", "catch", "function", "return", "typeof", "async", "await", "new", "super", "import", "of", "in"]);
 
 /** Noms déclarés dans un fichier (fonctions, variables, paramètres) : ses noms à lui, pas ceux des autres fichiers. */
 function nomsDeclares(code) {

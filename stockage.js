@@ -13,7 +13,8 @@
  *  - les réglages du build automatique : stats OP.GG, runes, set d'objets (désactivés par défaut) ;
  *  - les réglages de la session (début de session, alertes de pause) ;
  *  - les réglages de l'arrière-plan (fermer = réduire, démarrage avec Windows) ;
- *  - si l'assistant de première ouverture a déjà été vu (assistantVu).
+ *  - si l'assistant de première ouverture a déjà été vu (assistantVu) ;
+ *  - les réglages du mode Deadlock (envoi des parties du cache de Steam, désactivé par défaut ; niveau des stats).
  * L'appli n'utilise plus de clé API Riot.
  */
 const path = require("path");
@@ -24,6 +25,7 @@ const { normaliserReglagesChallenge } = require("./challenge.js");
 const { normaliserReglagesBuild } = require("./build.js");
 const { imposerReglagesArrierePlan } = require("./arriere-plan.js");
 const { normaliserPositionSorts } = require("./sorts.js");
+const { normaliserReglagesDeadlock } = require("./deadlock.js");
 
 // Dossier du jeu par défaut selon le système (c'est là que le client écrit son « lockfile »).
 // Mac (16/10/2026) : le lockfile est dans l'application, sous Contents/LoL.
@@ -216,6 +218,17 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     if (Number.isInteger(id)) modifier({ pageRunes: id });
   }
 
+  /** Réglages du mode Deadlock (deadlock.js) : envoi des parties désactivé par défaut, niveau des stats. */
+  function reglagesDeadlock() {
+    return normaliserReglagesDeadlock(lire().deadlock);
+  }
+
+  function enregistrerReglagesDeadlock(reglages) {
+    const propres = normaliserReglagesDeadlock(reglages);
+    modifier({ deadlock: propres });
+    return propres;
+  }
+
   /** L'assistant de première ouverture a-t-il déjà été vu (fini ou passé) ? */
   function assistantVu() {
     return lire().assistantVu === true;
@@ -238,6 +251,8 @@ function creerStockage({ dossier, plateforme = process.platform }) {
     enregistrerReglagesBuild,
     reglagesArrierePlan,
     enregistrerReglagesArrierePlan,
+    reglagesDeadlock,
+    enregistrerReglagesDeadlock,
     dejaPrevenuReduction,
     noterPrevenuReduction,
     assistantVu,

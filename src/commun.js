@@ -27,6 +27,8 @@ let statsCompte = {};
 
 const $ = (id) => document.getElementById(id);
 const formatNombre = (n) => n.toLocaleString("fr-FR", { maximumFractionDigits: 1 });
+/** 0.5234 -> "52,3 %" ; valeur absente -> "–". */
+const formatPourcent = (x) => (Number.isFinite(x) ? `${formatNombre(Math.round(x * 1000) / 10)} %` : "–");
 const heure = () => new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
 const formatDateHeure = (date) =>
   new Date(date).toLocaleString("fr-FR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" });

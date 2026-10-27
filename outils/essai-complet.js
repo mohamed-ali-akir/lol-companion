@@ -9,7 +9,9 @@
  * qu'à la main. Cet essai lance l'appli complète avec des réglages TEMPORAIRES (jamais ceux du joueur), un faux client
  * HTTPS + WebSocket sur 127.0.0.1 (certificat de test/fixtures), ouvre chaque onglet et vérifie :
  *   - qu'il n'y a aucune erreur, ni dans la page (console) ni dans le processus principal ;
- *   - que le compte fictif est bien lu (niveau, session, stats, maîtrise).
+ *   - que le compte fictif est bien lu (niveau, session, stats, maîtrise) ;
+ *   - le mode Deadlock (27/10/2026) : un FAUX Deadlock « lancé » fait passer l'appli en mode Deadlock, avec une FAUSSE
+ *     deadlock-api.com (aucun appel à Internet, le vrai jeu n'est jamais regardé).
  * Code de sortie : 0 si tout va bien, 1 sinon. Lancé aussi sur GitHub à chaque envoi (tests.yml).
  */
 const { app, BrowserWindow } = require("electron");
@@ -152,6 +154,50 @@ async function photographier(fenetre, nom) {
   console.log("capture :", nom);
 }
 
+// --- Faux Deadlock et fausse deadlock-api.com (mode Deadlock, 27/10/2026) -------------------------------------
+// Le vrai jeu n'est jamais regardé (même s'il tourne sur ce PC) et rien n'est demandé à Internet : les fonctions de
+// deadlock-jeu.js sont remplacées (deadlock.js les appelle au moment voulu), et fetch répond pour api.deadlock-api.com.
+let deadlockLanceFaux = false;
+const deadlockJeu = require(path.join(PROJET, "deadlock-jeu.js"));
+deadlockJeu.deadlockLance = async () => deadlockLanceFaux;
+deadlockJeu.compteSteam = async () => ({ accountId: 123456, pseudo: "Joueur" });
+deadlockJeu.dossierSteam = async () => path.join(os.tmpdir(), "lol-essai-steam-absent");
+const S_ = (s) => Math.floor(maintenant / 1000) - s;
+const API_DEADLOCK = {
+  "/v1/assets/heroes": [
+    { id: 1, name: "Infernus", player_selectable: true }, { id: 2, name: "Seven", player_selectable: true },
+    { id: 3, name: "Vindicta", player_selectable: true }, { id: 99, name: "Héros en test", player_selectable: true, in_development: true },
+  ],
+  "/v1/assets/items": [
+    { id: 11, name: "Extended Magazine", type: "upgrade", item_slot_type: "weapon", item_tier: 1, cost: 800, shopable: true },
+    { id: 12, name: "Extra Spirit", type: "upgrade", item_slot_type: "spirit", item_tier: 1, cost: 800, shopable: true },
+    { id: 13, name: "Extra Regen", type: "upgrade", item_slot_type: "vitality", item_tier: 1, cost: 800, shopable: true },
+    { id: 14, name: "Toxic Bullets", type: "upgrade", item_slot_type: "weapon", item_tier: 3, cost: 3200, shopable: true },
+  ],
+  "/v1/assets/ranks": [{ tier: 0, name: "Obscurus" }, { tier: 1, name: "Initiate" }, { tier: 8, name: "Oracle" }],
+  "/v1/players/123456/match-history": [
+    { match_id: 3, hero_id: 1, start_time: S_(3600), match_duration_s: 1980, player_team: 0, match_result: 0, player_kills: 9, player_deaths: 3, player_assists: 12, net_worth: 41000, last_hits: 180, game_mode: 1, match_mode: 4 },
+    { match_id: 2, hero_id: 2, start_time: S_(90000), match_duration_s: 2100, player_team: 1, match_result: 0, player_kills: 4, player_deaths: 7, player_assists: 8, net_worth: 30000, last_hits: 150, game_mode: 1, match_mode: 1 },
+    { match_id: 1, hero_id: 1, start_time: S_(200000), match_duration_s: 1500, player_team: 0, match_result: 0, player_kills: 6, player_deaths: 2, player_assists: 10, net_worth: 28000, last_hits: 120, game_mode: 4, match_mode: 1 },
+  ],
+  "/v1/players/hero-stats": [{ hero_id: 1, matches_played: 2, wins: 2, kills: 15, deaths: 5, assists: 22, time_played: 3480 }, { hero_id: 2, matches_played: 1, wins: 0, kills: 4, deaths: 7, assists: 8, time_played: 2100 }],
+  "/v1/analytics/hero-stats": [{ hero_id: 1, wins: 6000, losses: 5000, matches: 11000 }, { hero_id: 2, wins: 5200, losses: 5300, matches: 10500 }, { hero_id: 3, wins: 4000, losses: 4800, matches: 8800 }],
+  "/v1/analytics/item-stats": [
+    { item_id: 11, wins: 5000, losses: 4800, matches: 9800, avg_buy_time_s: 330 }, { item_id: 12, wins: 4000, losses: 3900, matches: 7900, avg_buy_time_s: 280 },
+    { item_id: 13, wins: 2600, losses: 2500, matches: 5100, avg_buy_time_s: 410 }, { item_id: 14, wins: 3900, losses: 3100, matches: 7000, avg_buy_time_s: 1500 },
+  ],
+  "/v1/analytics/hero-counter-stats": [{ hero_id: 1, enemy_hero_id: 2, wins: 400, matches_played: 1000 }, { hero_id: 1, enemy_hero_id: 3, wins: 600, matches_played: 1000 }],
+};
+const appelsDeadlock = [];
+const fetchOrigine = globalThis.fetch;
+globalThis.fetch = async (adresse, options = {}) => {
+  const url = new URL(String(adresse));
+  if (url.hostname !== "api.deadlock-api.com") return fetchOrigine(adresse, options);
+  appelsDeadlock.push({ chemin: url.pathname, methode: options.method || "GET" });
+  const corps = url.pathname === "/v1/matches/salts" ? {} : API_DEADLOCK[url.pathname];
+  return new Response(JSON.stringify(corps === undefined ? { erreur: "inconnu" } : corps), { status: corps === undefined ? 404 : 200, headers: { "Content-Type": "application/json" } });
+};
+
 // Ce que chaque onglet doit montrer avec le compte fictif (texte cherché dans le panneau).
 const ATTENDU = {
   accueil: ["Niveau 27", "Ta session", "Ta dernière partie", "ta moyenne"],
@@ -163,6 +209,12 @@ const ATTENDU = {
   challenge: ["PROCHAIN CHAMPION", "Annie", "Faits (1)", "Ashe", "Pick automatique du challenge"], // titre en majuscules (CSS)
   parametres: ["Accepter automatiquement", "Dossier du jeu"],
 };
+// Mode Deadlock : ce que chaque onglet doit montrer avec la fausse deadlock-api.com.
+const ATTENDU_DEADLOCK = {
+  deadlock: ["Ton compte Steam", "Joueur", "Deadlock est lancé", "Infernus", "Classée", "Street Brawl", "Envoyer mes parties"],
+  deadlockheros: ["Infernus", "Seven", "Vindicta", "Tes héros"],
+  deadlockbuild: ["Build Infernus", "Début de partie", "Extended Magazine", "Toxic Bullets", "Plus dur contre", "Seven"],
+};
 
 app.setPath("userData", preparer());
 app.setVersion(require(path.join(PROJET, "package.json")).version); // sinon Electron lancé sur ce script donne SA version
@@ -173,7 +225,8 @@ require(path.join(PROJET, "main.js"));
   fs.writeFileSync(path.join(jeu, "lockfile"), `LeagueClient:${process.pid}:${port}:mdp:https`); // le client « démarre »
   await app.whenReady();
   await attendre(9000); // lecture du faux client, rendu
-  const fenetre = BrowserWindow.getAllWindows().find((w) => w.getTitle() === "LoL Companion" && w.isVisible());
+  // Fenêtre principale : celle de src/index.html (son titre change en mode Deadlock ; la petite fenêtre du jeu est à part).
+  const fenetre = BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().endsWith("/src/index.html"));
   if (!fenetre) throw new Error("fenêtre principale introuvable");
   fenetre.webContents.on("console-message", (...args) => {
     const details = args[1] && typeof args[1] === "object" ? args[1] : { level: args[1], message: args[2] };
@@ -249,6 +302,42 @@ require(path.join(PROJET, "main.js"));
     await photographier(fenetre, onglet);
     console.log(`onglet ${onglet} : vu`);
   }
+  // --- Mode Deadlock : le faux jeu démarre -> l'appli passe en mode Deadlock toute seule (vérification toutes les 5 s).
+  if (await page(`document.body.classList.contains("mode-deadlock")`)) problemes.push("mode Deadlock affiché alors que Deadlock n'est pas lancé");
+  deadlockLanceFaux = true;
+  let enModeDeadlock = false;
+  for (let i = 0; i < 20 && !enModeDeadlock; i++) {
+    await attendre(500);
+    enModeDeadlock = await page(`document.body.classList.contains("mode-deadlock") && !$("panneau-deadlock").hidden`);
+  }
+  if (!enModeDeadlock) problemes.push("mode Deadlock : pas affiché quand le jeu est lancé");
+  if (await page(`getComputedStyle($("onglet-stats")).display !== "none"`)) problemes.push("mode Deadlock : les onglets de LoL restent visibles");
+  for (const [onglet, mots] of Object.entries(ATTENDU_DEADLOCK)) {
+    await aller(onglet);
+    await attendre(1500);
+    const texte = await texteDuPanneau(onglet);
+    for (const mot of mots) if (!texte.includes(mot)) problemes.push(`onglet ${onglet} : « ${mot} » introuvable`);
+    if (onglet === "deadlock") {
+      // Case de l'envoi des parties : décochée par défaut, enregistrée quand on la coche, puis remise comme avant.
+      const envoi = () => (config().deadlock || {}).envoyerParties;
+      if (await page(`$("deadlockEnvoyer").checked`)) problemes.push("mode Deadlock : envoi des parties coché par défaut");
+      await page(`$("deadlockEnvoyer").click(); true`);
+      await attendre(600);
+      if (envoi() !== true) problemes.push("mode Deadlock : case de l'envoi des parties pas enregistrée");
+      await page(`$("deadlockEnvoyer").click(); true`);
+      await attendre(400);
+      if (envoi() !== false) problemes.push("mode Deadlock : case de l'envoi des parties pas décochée");
+    }
+    await photographier(fenetre, onglet);
+    console.log(`onglet ${onglet} : vu`);
+  }
+  if (appelsDeadlock.some((a) => a.methode === "POST")) problemes.push("mode Deadlock : des parties ont été envoyées (cache de Steam vide)");
+  // Retour à League of Legends avec le bouton du haut : l'onglet LoL d'avant revient.
+  await page(`document.querySelector('[data-jeu-choix="lol"]').click(); true`);
+  await attendre(400);
+  if (await page(`document.body.classList.contains("mode-deadlock")`)) problemes.push("bouton League of Legends : toujours en mode Deadlock");
+  deadlockLanceFaux = false;
+
   fenetre.setSize(420, 900); // petite fenêtre
   await aller("accueil");
   await attendre(1500);

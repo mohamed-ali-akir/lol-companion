@@ -56,4 +56,18 @@ const OBJETS_CONTRE = {
   antiTank: [3036, 6694, 3033, 3071, 3153, 3302, 3135, 3137, 6653, 4010],
 };
 
-module.exports = { VERIFIE_LE, FILES, RECHARGES_SORTS, TP_DECHAINEE_DES_S, HATE_SORTS, DECALAGE_ARENA, OBJETS_CONTRE };
+// --- Deadlock (Valve), mode Deadlock de l'appli (27/10/2026) ---------------------------------------------------------
+// Vérifié le 27/10/2026 sur un PC où le jeu est installé et dans l'API deadlock-api.com (2 700 parties d'un joueur).
+const DEADLOCK = {
+  appIdSteam: 1422450, // numéro du jeu sur Steam (dossier steamapps, adresses des parties dans le cache de Steam)
+  processus: "deadlock.exe", // steamapps/common/Deadlock/game/bin/win64/deadlock.exe
+  // Mode de jeu (game_mode de l'historique) : 1 partie normale, 4 Street Brawl.
+  modesJeu: { 1: "normale", 4: "street_brawl" },
+  // Type de partie (match_mode, ECitadelMatchMode de Valve) : 1 non classée, 2 salon privé, 3 contre des bots,
+  // 4 classée, 7 Hero Labs (les autres : tests internes, tutoriel).
+  typesPartie: { 1: "Normale", 2: "Salon privé", 3: "Contre des bots", 4: "Classée", 7: "Hero Labs" },
+  // Une victoire : match_result (équipe gagnante) === player_team (vérifié : 55,9 % calculé, 56,6 % donné par l'API
+  // pour le même joueur, l'écart vient des parties hors modes normaux).
+};
+
+module.exports = { VERIFIE_LE, FILES, RECHARGES_SORTS, TP_DECHAINEE_DES_S, HATE_SORTS, DECALAGE_ARENA, OBJETS_CONTRE, DEADLOCK };

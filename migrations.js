@@ -24,7 +24,7 @@ const path = require("path");
 const fichiers = require("./fichiers.js"); // écriture sûre (copie .bak)
 
 const VERSION_DONNEES = 1; // format actuel des fichiers (celui de toutes les versions jusqu'au 17/10/2026 compris)
-const FICHIERS_DONNEES = ["config.json", "parties.json", "progression.json", "maitrise.json"];
+const FICHIERS_DONNEES = ["config.json", "parties.json", "progression.json", "maitrise.json", "deadlock.json"]; // deadlock.json : mode Deadlock, 27/10/2026
 const CLE_VERSION = "versionDonnees";
 
 /**

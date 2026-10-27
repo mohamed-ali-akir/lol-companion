@@ -36,6 +36,9 @@ const { surProbleme } = require("./fichiers.js"); // écriture sûre des fichier
 const { migrerDonnees } = require("./migrations.js"); // version du format des fichiers de données
 const { creerMajAppli } = require("./maj-appli.js"); // mise à jour de l'appli (au lancement, puis en arrière-plan)
 const { brancherMessages, reponseErreur } = require("./messages.js"); // messages de la page et de la fenêtre du jeu
+const { creerDeadlock } = require("./deadlock.js"); // mode Deadlock : jeu lancé, historique et stats (deadlock-api.com)
+const { creerLecteurDeadlock } = require("./deadlock-api.js");
+const { creerDonneesDeadlock } = require("./deadlock-donnees.js");
 const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES, creerLecteurProfils, lireFicheChampion } = require("./champions.js");
 const {
   actionFermeture,
@@ -64,6 +67,7 @@ let selectionAuto = null; // pick et ban automatiques (selection.js)
 let conseillerDraft = null; // meilleurs champions pour la draft en cours (draft.js), désactivé par défaut
 let dernierConseil = null; // dernier conseil envoyé (pour la page qui s'ouvre en pleine sélection)
 let buildAuto = null; // build automatique : stats OP.GG, runes, set d'objets (build.js)
+let deadlock = null; // mode Deadlock (deadlock.js), créé quand l'appli est prête
 // Seules connexions à Internet de l'appli (onglet Build, désactivées par défaut) : OP.GG et Lolalytics.
 const lecteurOpgg = creerLecteurOpgg();
 const lecteurLolalytics = creerLecteurLolalytics();
@@ -134,6 +138,7 @@ function brancherMessagesAppli() {
     lireMaitrise,
     importerHistorique,
     lireChallenge: () => challenge.lire(),
+    deadlock: () => deadlock,
     obtenirNomsChampions: () => obtenirNomsChampions(),
     analyserOpgg: (contexte) => analyserOpgg(contexte),
     analyserLolalytics: (contexte) => analyserLolalytics(contexte),
@@ -457,6 +462,23 @@ function demarrerSelection() {
 }
 
 // ---------------------------------------------------------------------------
+// Mode Deadlock (deadlock.js) : l'appli regarde toutes les 5 s si Deadlock tourne et prévient la page, qui passe en
+// mode Deadlock. Rien n'est lu dans le jeu lui-même (anti-triche de Valve) ; les stats viennent de deadlock-api.com.
+// ---------------------------------------------------------------------------
+
+function demarrerDeadlock() {
+  deadlock = creerDeadlock({
+    lecteur: creerLecteurDeadlock(),
+    donnees: creerDonneesDeadlock({ dossier: app.getPath("userData") }),
+    reglages: () => stockage.reglagesDeadlock(),
+    enregistrerReglages: (reglages) => stockage.enregistrerReglagesDeadlock(reglages),
+    journal: noter,
+    surEtat: (etat) => envoyerALaPage("deadlock:etat", etat),
+  });
+  deadlock.demarrer();
+}
+
+// ---------------------------------------------------------------------------
 // Surveillance en direct : le client prévient quand une partie se termine.
 // ---------------------------------------------------------------------------
 
@@ -766,6 +788,7 @@ if (!instanceUnique || estDemandeQuitter(process.argv)) {
     stockage.nettoyerAnciensReglages(); // efface l'ancienne clé API si elle était enregistrée
     // Appli installée : nom et icône de l'appli dans les notifications Windows (même identifiant que l'installateur).
     if (process.platform === "win32" && app.isPackaged) app.setAppUserModelId("com.lolcalculator.app");
+    demarrerDeadlock(); // AVANT les messages : la page peut demander l'état de Deadlock dès son ouverture
     brancherMessagesAppli();
     brancherIcones();
     creerIcone();
@@ -797,6 +820,7 @@ app.on("before-quit", () => {
   if (acceptation) acceptation.arreter();
   if (selectionAuto) selectionAuto.arreter();
   enJeu.arreter(); // augments (et lecture d'écran), chronos des sorts, fenêtre du jeu
+  if (deadlock) deadlock.arreter();
   if (majAppli.suivi()) majAppli.suivi().arreter();
   if (icone && !icone.isDestroyed()) icone.destroy();
   icone = null;

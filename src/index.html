@@ -14,18 +14,24 @@
   <main class="container">
     <header class="header">
       <h1>LoL Companion</h1>
-      <p class="subtitle">Ton assistant League of Legends : niveau, progression et plus encore.</p>
+      <p class="subtitle jeu-lol">Ton assistant League of Legends : niveau, progression et plus encore.</p>
+      <p class="subtitle jeu-deadlock">Ton assistant Deadlock : tes parties, les meilleurs héros et leurs builds.</p>
+      <!-- Choix du jeu (onglets/onglets.js) : passe tout seul sur Deadlock quand le jeu est lancé -->
+      <div class="choix-jeu" role="group" aria-label="Jeu">
+        <button type="button" data-jeu-choix="lol" aria-pressed="true">League of Legends</button>
+        <button type="button" data-jeu-choix="deadlock" aria-pressed="false">Deadlock</button>
+      </div>
     </header>
 
     <!-- Bandeau « pas encore prête » (onglets/compte.js) : visible tant que l'appli se connecte à League -->
-    <p id="bandeauPreparation" class="bandeau-preparation" role="status" aria-live="polite" hidden></p>
+    <p id="bandeauPreparation" class="bandeau-preparation jeu-lol" role="status" aria-live="polite" hidden></p>
     <div id="bandeauMaj" class="bandeau-maj" role="status" aria-live="polite" hidden>
       <span id="bandeauMajTexte"></span>
       <button type="button" id="installerMaj">Redémarrer et mettre à jour</button>
     </div>
 
-    <!-- Carte "Ton compte" : toujours visible, au-dessus des onglets -->
-    <section class="card">
+    <!-- Carte "Ton compte" : toujours visible en mode League of Legends, au-dessus des onglets -->
+    <section class="card jeu-lol">
       <div class="titre-carte">
         <h2>Ton compte</h2>
       </div>
@@ -48,13 +54,16 @@
 
 
     <nav class="onglets" role="tablist" aria-label="Sections de l'appli">
-      <button type="button" role="tab" id="onglet-accueil" data-onglet="accueil" aria-controls="panneau-accueil" aria-selected="false" tabindex="-1">Accueil</button>
-      <button type="button" role="tab" id="onglet-niveau" data-onglet="niveau" aria-controls="panneau-niveau" aria-selected="false" tabindex="-1">Niveau</button>
-      <button type="button" role="tab" id="onglet-stats" data-onglet="stats" aria-controls="panneau-stats" aria-selected="false" tabindex="-1">Stats</button>
-      <button type="button" role="tab" id="onglet-maitrise" data-onglet="maitrise" aria-controls="panneau-maitrise" aria-selected="false" tabindex="-1">Maîtrise</button>
-      <button type="button" role="tab" id="onglet-selection" data-onglet="selection" aria-controls="panneau-selection" aria-selected="false" tabindex="-1">Sélection</button>
-      <button type="button" role="tab" id="onglet-build" data-onglet="build" aria-controls="panneau-build" aria-selected="false" tabindex="-1">Build</button>
-      <button type="button" role="tab" id="onglet-challenge" data-onglet="challenge" aria-controls="panneau-challenge" aria-selected="false" tabindex="-1">Challenge</button>
+      <button type="button" role="tab" id="onglet-accueil" data-onglet="accueil" class="jeu-lol" aria-controls="panneau-accueil" aria-selected="false" tabindex="-1">Accueil</button>
+      <button type="button" role="tab" id="onglet-niveau" data-onglet="niveau" class="jeu-lol" aria-controls="panneau-niveau" aria-selected="false" tabindex="-1">Niveau</button>
+      <button type="button" role="tab" id="onglet-stats" data-onglet="stats" class="jeu-lol" aria-controls="panneau-stats" aria-selected="false" tabindex="-1">Stats</button>
+      <button type="button" role="tab" id="onglet-maitrise" data-onglet="maitrise" class="jeu-lol" aria-controls="panneau-maitrise" aria-selected="false" tabindex="-1">Maîtrise</button>
+      <button type="button" role="tab" id="onglet-selection" data-onglet="selection" class="jeu-lol" aria-controls="panneau-selection" aria-selected="false" tabindex="-1">Sélection</button>
+      <button type="button" role="tab" id="onglet-build" data-onglet="build" class="jeu-lol" aria-controls="panneau-build" aria-selected="false" tabindex="-1">Build</button>
+      <button type="button" role="tab" id="onglet-challenge" data-onglet="challenge" class="jeu-lol" aria-controls="panneau-challenge" aria-selected="false" tabindex="-1">Challenge</button>
+      <button type="button" role="tab" id="onglet-deadlock" data-onglet="deadlock" class="jeu-deadlock" aria-controls="panneau-deadlock" aria-selected="false" tabindex="-1">Accueil</button>
+      <button type="button" role="tab" id="onglet-deadlockheros" data-onglet="deadlockheros" class="jeu-deadlock" aria-controls="panneau-deadlockheros" aria-selected="false" tabindex="-1">Héros</button>
+      <button type="button" role="tab" id="onglet-deadlockbuild" data-onglet="deadlockbuild" class="jeu-deadlock" aria-controls="panneau-deadlockbuild" aria-selected="false" tabindex="-1">Build</button>
       <button type="button" role="tab" id="onglet-parametres" data-onglet="parametres" aria-controls="panneau-parametres" aria-selected="false" tabindex="-1">Paramètres</button>
     </nav>
 
@@ -599,6 +608,118 @@
         </div>
       </section>
 
+      <!-- Mode Deadlock, onglet Accueil (onglets/deadlock-accueil.js) -->
+      <section class="panneau" id="panneau-deadlock" role="tabpanel" aria-labelledby="onglet-deadlock" tabindex="0" hidden>
+        <div class="card">
+          <div class="titre-carte">
+            <h2>Ton compte Steam</h2>
+            <button type="button" id="deadlockActualiser" class="bouton-secondaire">Actualiser</button>
+          </div>
+          <p class="aide">
+            Trouvé sur ce PC (Steam). L'appli regarde seulement si Deadlock est lancé : elle ne lit rien dans le jeu et
+            ne s'affiche jamais par-dessus. Ton historique et les stats viennent de deadlock-api.com, l'API gratuite de la
+            communauté (non liée à Valve).
+          </p>
+          <p id="deadlockCompte" class="profil"></p>
+          <p id="deadlockJeu" class="suivi-direct"></p>
+          <div class="stats">
+            <div class="stat"><span class="stat-value" id="deadlockTempsJour">–</span><span class="stat-label">Aujourd'hui</span></div>
+            <div class="stat"><span class="stat-value" id="deadlockTempsSemaine">–</span><span class="stat-label">7 derniers jours</span></div>
+            <div class="stat"><span class="stat-value" id="deadlockTempsTotal">–</span><span class="stat-label">Mesuré par l'appli</span></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Tes parties</h2>
+          <div class="stats">
+            <div class="stat"><span class="stat-value" id="deadlockParties">–</span><span class="stat-label">Parties connues</span></div>
+            <div class="stat"><span class="stat-value" id="deadlockVictoires">–</span><span class="stat-label">Victoires</span></div>
+            <div class="stat"><span class="stat-value" id="deadlockKda">–</span><span class="stat-label">KDA</span></div>
+          </div>
+          <p id="etatDeadlockAccueil" class="etat" hidden></p>
+          <div class="table-defilante">
+            <table class="table-stats" id="tableDeadlockParties" hidden>
+              <thead>
+                <tr><th scope="col">Héros</th><th scope="col">Résultat</th><th scope="col">K / D / A</th><th scope="col">Âmes</th><th scope="col">Durée</th><th scope="col">Type</th><th scope="col">Date</th></tr>
+              </thead>
+              <tbody id="corpsDeadlockParties"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card parametres">
+          <h2>Envoi de tes parties</h2>
+          <p class="aide">
+            deadlock-api.com ne connaît une partie que si quelqu'un la lui envoie. Quand tu ouvres une partie dans
+            l'historique du jeu, Steam garde son adresse sur ton PC. Case cochée, l'appli envoie ces adresses (numéro de la
+            partie et sa clé, rien d'autre) quand tu fermes Deadlock, comme l'outil officiel du site.
+          </p>
+          <form id="formDeadlock" class="reglages-acceptation">
+            <label class="check">
+              <input type="checkbox" id="deadlockEnvoyer">
+              <span>Envoyer mes parties à deadlock-api.com</span>
+            </label>
+          </form>
+          <p id="etatDeadlockEnvoi" class="etat" hidden></p>
+        </div>
+      </section>
+
+      <!-- Mode Deadlock, onglet Héros (onglets/deadlock-heros.js) -->
+      <section class="panneau" id="panneau-deadlockheros" role="tabpanel" aria-labelledby="onglet-deadlockheros" tabindex="0" hidden>
+        <div class="card">
+          <h2>Les meilleurs héros du moment</h2>
+          <p class="aide" id="deadlockHerosAide">
+            Tous les joueurs, sur les 2 dernières semaines. Classés au taux de victoire « prudent » : un héros peu joué est
+            tiré vers le bas, pour ne pas mettre en tête un héros à 60 % sur une poignée de parties.
+          </p>
+          <div class="filtre">
+            <label for="deadlockRang">Niveau des parties</label>
+            <select id="deadlockRang"><option value="">Tous les niveaux</option></select>
+          </div>
+          <p id="etatDeadlockHeros" class="etat" hidden></p>
+          <div class="table-defilante">
+            <table class="table-stats" id="tableDeadlockHeros" hidden>
+              <thead>
+                <tr><th scope="col">#</th><th scope="col">Héros</th><th scope="col">Victoires</th><th scope="col">Joué dans</th><th scope="col">Parties</th></tr>
+              </thead>
+              <tbody id="corpsDeadlockHeros"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="card">
+          <h2>Tes héros</h2>
+          <p id="deadlockMesHerosVide" class="achetables-vide" hidden></p>
+          <div class="table-defilante">
+            <table class="table-stats" id="tableDeadlockMesHeros" hidden>
+              <thead>
+                <tr><th scope="col">Héros</th><th scope="col">Parties</th><th scope="col">Victoires</th><th scope="col">KDA</th><th scope="col">Temps joué</th></tr>
+              </thead>
+              <tbody id="corpsDeadlockMesHeros"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <!-- Mode Deadlock, onglet Build (onglets/deadlock-build.js) -->
+      <section class="panneau" id="panneau-deadlockbuild" role="tabpanel" aria-labelledby="onglet-deadlockbuild" tabindex="0" hidden>
+        <div class="card">
+          <h2>Build d'un héros</h2>
+          <p class="aide">
+            Les objets les plus achetés sur ce héros, rangés par moment de la partie (temps d'achat moyen), avec le taux de
+            victoire de ceux qui les achètent. ★ = le plus sûr de sa période. Compare les objets d'une même période : un
+            objet de fin de partie gagne souvent plus, parce que l'équipe qui gagne a plus d'âmes pour l'acheter.
+            À consulter avant la partie ou sur un 2e écran : l'appli ne touche pas au jeu.
+          </p>
+          <form id="formDeadlockBuild" class="ligne">
+            <select id="deadlockHeros" aria-label="Héros"></select>
+            <button type="submit">Voir le build</button>
+          </form>
+          <p id="etatDeadlockBuild" class="etat" hidden></p>
+          <div id="deadlockBuildResultat" class="build-resultat" aria-live="polite"></div>
+        </div>
+      </section>
+
       <!-- Onglet Paramètres (onglets/parametres.js) -->
       <section class="panneau" id="panneau-parametres" role="tabpanel" aria-labelledby="onglet-parametres" tabindex="0" hidden>
         <div class="card parametres">
@@ -653,8 +774,9 @@
     </div>
 
     <footer class="footer">
-      <p>Estimations basées sur les formules d'XP publiées par le wiki League of Legends. L'XP des missions et des passes d'événement n'est pas comptée.</p>
-      <p>Projet non officiel, non affilié à Riot Games.</p>
+      <p class="jeu-lol">Estimations basées sur les formules d'XP publiées par le wiki League of Legends. L'XP des missions et des passes d'événement n'est pas comptée.</p>
+      <p class="jeu-lol">Projet non officiel, non affilié à Riot Games.</p>
+      <p class="jeu-deadlock">Stats de deadlock-api.com (communauté). Projet non officiel, non affilié à Valve.</p>
     </footer>
   </main>
 
@@ -683,6 +805,9 @@
   <script src="onglets/selection.js"></script>
   <script src="onglets/build.js"></script>
   <script src="onglets/challenge.js"></script>
+  <script src="onglets/deadlock-accueil.js"></script>
+  <script src="onglets/deadlock-heros.js"></script>
+  <script src="onglets/deadlock-build.js"></script>
   <script src="onglets/assistant.js"></script>
   <script src="app.js"></script>
 </body>

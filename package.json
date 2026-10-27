@@ -69,7 +69,13 @@
       "en-jeu.js",
       "preload-overlay.js",
       "assets/**/*",
-      "src/**/*"
+      "src/**/*",
+      "statistiques.js",
+      "deadlock.js",
+      "deadlock-api.js",
+      "deadlock-donnees.js",
+      "deadlock-jeu.js",
+      "deadlock-stats.js"
     ],
     "win": {
       "target": "nsis",

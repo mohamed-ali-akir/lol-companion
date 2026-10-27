@@ -18,11 +18,12 @@ const { ErreurClient } = require("./lcu.js");
 const { ErreurStockage } = require("./stockage.js");
 const { ErreurOpgg } = require("./opgg.js");
 const { ErreurLolalytics } = require("./lolalytics.js");
+const { ErreurDeadlockApi } = require("./deadlock-api.js");
 const { assemblerBuild } = require("./build.js");
 const { riotIdDe } = require("./progression.js");
 
 // Erreurs « prévues » : leur message est déjà fait pour être lu par le joueur.
-const ERREURS_PREVUES = [ErreurClient, ErreurStockage, ErreurOpgg, ErreurLolalytics];
+const ERREURS_PREVUES = [ErreurClient, ErreurStockage, ErreurOpgg, ErreurLolalytics, ErreurDeadlockApi];
 
 /** Transforme une erreur en réponse simple pour la page : { ok: false, erreur, probleme }. */
 function reponseErreur(erreur) {
@@ -71,6 +72,7 @@ function listeChampions(noms) {
  *  - config() : { dossierJeuParDefaut, plateforme, autorisationEcran, lancement } ;
  *  - lireCompte(), lireMaitrise(), importerHistorique(), obtenirNomsChampions(), analyserOpgg(c), analyserLolalytics(c) ;
  *  - lireChallenge() : progression du challenge Arena (challenge.js) ;
+ *  - deadlock() : le service du mode Deadlock (deadlock.js) ;
  *  - apresReglagesAcceptation(), appliquerDemarrageWindows(reglages) ;
  *  - souris(dessus), clicSort(id) : fenêtre du jeu (panneau des sorts) ;
  *  - dernierConseil(), clientConnecte(), etatAppli() ;
@@ -198,6 +200,20 @@ function brancherMessages(ipcMain, services) {
     s.avantInstallation(); // la croix ne doit pas juste cacher la fenêtre pendant l'installation
     return miseAJour.installer();
   });
+
+  // --- Mode Deadlock (deadlock.js) : lecture seule, sauf ses réglages ---
+  repondre("deadlock:etat", () => s.deadlock().etat());
+  repondre("deadlock:accueil", () => essayer(() => s.deadlock().accueil()));
+  repondre("deadlock:heros", () => essayer(() => s.deadlock().heros()));
+  repondre("deadlock:listeHeros", () => essayer(async () => ({ heros: await s.deadlock().listeHeros() })));
+  repondre("deadlock:build", (heroId) =>
+    essayer(() => {
+      const id = Number(heroId);
+      if (!Number.isInteger(id) || id <= 0) return Promise.reject(new ErreurDeadlockApi("Choisis un héros."));
+      return s.deadlock().build(id);
+    })
+  );
+  repondre("deadlock:enregistrer", (reglages) => essayer(() => ({ reglages: s.deadlock().enregistrer(reglages) })));
 
   // --- État de l'appli (au démarrage de la page ; ensuite, main.js prévient la page tout seul) ---
   repondre("client:etatConnexion", () => s.clientConnecte());

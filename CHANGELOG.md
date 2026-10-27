@@ -4,6 +4,15 @@ Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le déta
 le [README](README.md) et dans l'historique Git.
 
 ## Prochaine version (pas encore publiée)
+- **Mode Deadlock** : quand Deadlock est lancé, l'appli passe toute seule en mode Deadlock (boutons « League of
+  Legends / Deadlock » en haut pour changer à la main).
+  - **Accueil** : ton compte Steam, ton temps de jeu, tes dernières parties.
+  - **Héros** : les meilleurs héros du moment, avec un filtre de niveau, et tes stats par héros.
+  - **Build** : les objets les plus achetés d'un héros, par moment de la partie, et les héros qui le contrent.
+  - Les stats viennent de deadlock-api.com (communauté). Case « Envoyer mes parties » (désactivée par défaut) pour
+    que le site connaisse tes parties.
+  - L'appli ne touche jamais au jeu (anti-triche).
+- Site surchargé (codes 429 ou 503) : message clair « réessaie dans quelques minutes » pour tous les sites.
 - **Build adapté à l'équipe adverse** : dès 3 ennemis verrouillés, Sandales de Mercure contre les magiques ou les
   contrôles, Coques en acier contre les physiques, objet anti-tank contre 2 tanks ou plus. Chaque changement est
   expliqué dans l'onglet Build et dans la boutique ; le set suit les nouveaux ennemis verrouillés.

@@ -3,6 +3,8 @@
 **Compagnon de bureau pour League of Legends** (Windows, Mac en bêta). Il lit ton compte directement dans le client
 lancé sur ton PC, sans clé API ni compte à créer : niveau et progression, session du jour, stats par champion,
 maîtrise, conseiller de draft, build automatique (runes, set d'objets, sorts) et aides en jeu.
+Et depuis la 1.5.0, un **mode Deadlock** qui s'active tout seul quand le jeu est lancé : tes parties, les meilleurs
+héros du moment et leurs builds.
 
 **[⬇ Télécharger la dernière version](https://github.com/mohamed-ali-akir/lol-companion/releases/latest)**
 (`LoL-Companion-Setup-x.y.z.exe`) · les versions suivantes s'installent toutes seules. · [Nouveautés de chaque version](CHANGELOG.md)
@@ -23,6 +25,8 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
   défaut** et s'active d'une case.
 - **Prise en main en 3 questions** : à la première ouverture, un assistant demande si tu veux ton build tout prêt,
   les chronos des sorts adverses et l'acceptation automatique, puis coche les bonnes cases pour toi.
+- **Deadlock aussi** : quand Deadlock est lancé, l'appli passe en mode Deadlock (tes parties, ton temps de jeu, les
+  meilleurs héros, leurs builds), sans jamais toucher au jeu (voir [Mode Deadlock](#mode-deadlock-27102026)).
 - **Respect de ta vie privée** : tes données restent sur ton PC ; les seuls appels à Internet envoient des noms de
   champions, de postes et de modes, jamais ton Riot ID (voir [Sécurité](#sécurité)).
 
@@ -38,6 +42,9 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 | **Challenge** | Challenge Arena : faire un top 3 avec tous les champions, dans l'ordre alphabétique. Faits, restants, barre de progression, prochain champion, et pick automatique du prochain champion en Arena |
 | **Build** | Build de ton champion (Lolalytics + OP.GG) : page de runes, set d'objets et sorts créés pour toi, set « Champion Rank 1 », chronos des sorts adverses, consultation du build de n'importe quel champion |
 | **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu, relancer l'assistant de démarrage |
+| **Deadlock · Accueil** | Mode Deadlock (quand le jeu est lancé, ou bouton « Deadlock » en haut) : ton compte Steam, ton temps de jeu, tes dernières parties, et la case pour envoyer tes parties à deadlock-api.com |
+| **Deadlock · Héros** | Les meilleurs héros du moment (taux de victoire prudent, popularité, filtre de niveau) et tes stats par héros |
+| **Deadlock · Build** | Les objets les plus achetés d'un héros, par moment de la partie, et les héros qui le contrent |
 
 <details>
 <summary><strong>Voir une capture de chaque onglet</strong></summary>
@@ -65,6 +72,11 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 
 ### Paramètres
 ![Onglet Paramètres](docs/captures/parametres.png)
+
+### Mode Deadlock : Accueil, Héros, Build
+![Mode Deadlock : Accueil](docs/captures/deadlock-accueil.png)
+![Mode Deadlock : Héros](docs/captures/deadlock-heros.png)
+![Mode Deadlock : Build](docs/captures/deadlock-build.png)
 
 ### Petite fenêtre (420 px de large)
 ![Accueil dans une petite fenêtre](docs/captures/petite-fenetre.png)
@@ -222,6 +234,53 @@ peut rien afficher par-dessus. L'onglet Build le rappelle.
   poignée (« ⠿ ⠿ ⠿ ») ; sa place est gardée ; double-clic sur la poignée pour le remettre en haut à gauche.
   Jamais les ultimes : Riot les interdit.
 
+### Mode Deadlock (27/10/2026)
+Quand **Deadlock** (Valve) est lancé, l'appli passe toute seule en **mode Deadlock** : autres onglets (Accueil, Héros,
+Build), couleurs du jeu. Elle revient à League of Legends quand League se connecte (et que Deadlock est fermé), ou avec
+les boutons **« League of Legends / Deadlock »** en haut, qui marchent aussi jeu fermé. Le dernier onglet ouvert de
+chaque jeu est retenu.
+
+![Mode Deadlock : Accueil](docs/captures/deadlock-accueil.png)
+
+- **Ce que l'appli regarde sur ton PC, et rien d'autre** (`deadlock-jeu.js`) : la liste des programmes de Windows
+  (`deadlock.exe` tourne-t-il ? toutes les 5 s, `tasklist`), ton compte Steam (registre de Windows, sinon
+  `Steam\config\loginusers.vdf`) et, si tu coches la case, le cache web de Steam. **Jamais** la mémoire du jeu, jamais
+  d'affichage par-dessus, jamais un fichier du jeu modifié : Deadlock a un anti-triche, et il n'a pas d'API locale (pas
+  de « Game State Integration » comme CS2 ou Dota 2, vérifié dans les fichiers du jeu le 27/10/2026).
+- **Accueil** : ton compte Steam, ton **temps de jeu** mesuré par l'appli (aujourd'hui, 7 jours, total : de l'ouverture
+  à la fermeture du jeu, gardé dans `deadlock.json`, sans Internet), puis **tes parties** : nombre, taux de victoire,
+  KDA, et les 20 dernières (héros, résultat, K/D/A, âmes, durée, type : normale, classée, Street Brawl...).
+- **Héros** : les **meilleurs héros du moment** (tous les joueurs, 2 dernières semaines), classés au taux de victoire
+  prudent (même formule que le build de LoL, `statistiques.js` : un héros peu joué ne passe pas devant), avec leur
+  popularité ; filtre **« Niveau des parties »** (Initiate et plus... Eternus, gardé dans `config.json`). En dessous,
+  **tes héros** : parties, victoires, KDA, temps joué.
+- **Build** : pour un héros (ton plus joué choisi d'office), les **objets les plus achetés**, rangés par **moment de la
+  partie** (avant 10 min, 10 à 20 min, après 20 min, d'après le temps d'achat moyen), avec leur emplacement (couleurs
+  du jeu : arme, vitalité, esprit), leur prix, la part des parties où ils sont achetés et le taux de victoire de ceux
+  qui les achètent ; ★ au plus sûr de sa période. Puis les héros contre lesquels il gagne le moins (sous 50 %) et le
+  plus (au-dessus). À lire avant la partie ou sur un 2e écran : l'appli ne met rien dans le jeu (Deadlock a son propre
+  navigateur de builds). On compare les objets d'une même période : un objet de fin de partie a souvent un meilleur
+  taux, parce que l'équipe qui gagne a plus d'âmes pour l'acheter.
+- **Les données viennent de deadlock-api.com** (`deadlock-api.js`, décision du propriétaire du 27/10/2026) : l'API
+  gratuite de la communauté (code ouvert, licence MIT), sans clé, non liée à Valve. Mêmes règles que les autres sites
+  (`internet.js`) : identification honnête, cache (3 h pour les stats, 5 min pour ton historique), 20 s au plus,
+  message clair si le site est surchargé (codes 429 et 503). Formats vérifiés sur le vrai site le 27/10/2026
+  (2 700 parties d'un joueur public ; victoire = `match_result` égal à `player_team`).
+- **« Envoyer mes parties à deadlock-api.com »** (case, **désactivée par défaut**) : le site ne connaît une partie que
+  si quelqu'un la lui envoie. Quand tu ouvres une partie dans l'historique du jeu, Steam garde son adresse dans son
+  cache (`Steam\appcache\httpcache`, `http://replay<serveur>.valve.net/1422450/<partie>_<clé>.meta.bz2`). Case
+  cochée, l'appli lit le début de ces fichiers (sans rien modifier) et envoie **seulement** le numéro de chaque partie,
+  son serveur et sa clé (`POST /v1/matches/salts`), quand tu fermes Deadlock (et tout de suite en cochant la case), une
+  seule fois par partie. Même méthode que l'outil officiel du site (`deadlock-api-ingest`, licence MIT), mais sans sa
+  lecture de la mémoire du jeu.
+- **Ton compte** (accord du propriétaire, 27/10/2026) : son numéro Steam (public) est envoyé à deadlock-api.com pour lire
+  TON historique et TES stats. Ton pseudo reste sur le PC.
+- Sur Mac : pas de mode Deadlock automatique (le jeu n'existe que sur Windows) ; les onglets restent consultables.
+
+![Mode Deadlock : Héros](docs/captures/deadlock-heros.png)
+
+![Mode Deadlock : Build](docs/captures/deadlock-build.png)
+
 ### Arrière-plan et mises à jour
 - **Icône près de l'horloge** (Ouvrir, Acceptation auto à cocher, Quitter). L'appli installée **se lance avec
   Windows**, réduite, et se connecte toute seule dès que League s'ouvre ; notification **« LoL Companion est prêt »**
@@ -274,8 +333,8 @@ décompression rencontré avec certaines versions récentes de Node.js), puis re
 | `npm test` | Lance les tests (413, dont 2 seulement sur Mac) |
 | `npm run build` | Crée l'installateur dans `dist/` (sans le publier) |
 | `npm run build:local` | Installateur **de test** pour ce PC : numéro `version suivante-local.N` (ex. `1.4.1-local.2`), jamais celui d'une version publiée ; la mise à jour automatique ne l'écrase pas, la vraie version suivante le remplacera |
-| `npm run essai` | Essai de bout en bout : la vraie appli sur un faux client League (compte fictif), chaque onglet ouvert, aucune erreur tolérée. `CAPTURES=docs/captures npm run essai` refait aussi les captures du README |
-| `npm run sonde` | Vérifie que Lolalytics, OP.GG et arammayhem.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
+| `npm run essai` | Essai de bout en bout : la vraie appli sur un faux client League (compte fictif), chaque onglet ouvert (mode Deadlock compris : faux Deadlock « lancé » et fausse deadlock-api.com), aucune erreur tolérée. `CAPTURES=docs/captures npm run essai` refait aussi les captures du README |
+| `npm run sonde` | Vérifie que Lolalytics, OP.GG, arammayhem.com et deadlock-api.com répondent toujours comme prévu (lancée aussi chaque jour par GitHub : `sonde.yml`, qui ouvre une issue si un site a changé) |
 
 Les tests et l'essai de bout en bout tournent aussi sur GitHub à **chaque envoi** sur `main` (`.github/workflows/tests.yml`).
 **Dependabot** (`.github/dependabot.yml`) propose chaque lundi les mises à jour des paquets npm (Electron compris) et
@@ -657,6 +716,11 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   personnel (le set « Champion Rank 1 » n'envoie plus ni ton serveur ni le Riot ID des meilleurs joueurs depuis le
   17/10/2026 : il lit Lolalytics comme le reste du build). La page web de l'appli, elle, ne se connecte
   à rien (Content-Security-Policy inchangée).
+- **Mode Deadlock** (décision du propriétaire, 27/10/2026) : deadlock-api.com (`deadlock-api.js`), seulement quand tu
+  ouvres un onglet Deadlock. Envoyé : ton numéro de compte Steam (public, pour TON historique), le héros, la période et
+  le niveau choisis ; et, seulement si tu coches « Envoyer mes parties », le numéro, le serveur et la clé des parties
+  trouvées dans le cache de Steam. Jamais ton pseudo. Sur le PC, l'appli ne regarde que la liste des programmes, ton
+  compte Steam et ce cache : jamais la mémoire de Deadlock, jamais d'affichage par-dessus (anti-triche).
 - **Mise à jour automatique** (décision du propriétaire, 11/10/2026) : l'appli installée lit la dernière Release de
   github.com/mohamed-ali-akir/lol-companion (activé par défaut, désactivable). Elle ne fait que télécharger des fichiers
   publics, et refuse un fichier dont l'empreinte sha512 ne correspond pas à `latest.yml`. La sécurité repose sur le
@@ -682,7 +746,8 @@ Tout reste dans `%APPDATA%\lol-level-calculator\` (jamais dans le projet ni dans
 | Fichier | Contenu |
 |---|---|
 | `journal.txt` | Journal de l'appli : connexions au client, parties trouvées, acceptations, builds, erreurs (200 Ko au plus, puis `journal.ancien.txt`) |
-| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du pick automatique du challenge Arena (`challenge` : case, délai), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`), assistant de première ouverture déjà vu (`assistantVu`) |
+| `config.json` | Dossier du jeu, dernier compte lu, dernier onglet ouvert, réglages de l'acceptation automatique, du conseiller de draft, du pick et du ban automatiques (`selectionAuto` : cases, délais, listes de picks et de bans par rôle), du pick automatique du challenge Arena (`challenge` : case, délai), du build (`buildAuto` : stats Lolalytics/OP.GG, runes, set Rank 1, sorts d'invocateur, chronos des sorts), place du panneau des sorts en jeu (`positionSorts`), case des mises à jour (`arrierePlan.majAuto`), assistant de première ouverture déjà vu (`assistantVu`), mode Deadlock (`deadlock` : envoi des parties, niveau des stats) |
+| `deadlock.json` | Mode Deadlock : tes sessions de jeu (`{ debut, fin }`, ouverture et fermeture de Deadlock ; moins de 30 s ignorées, 5 000 au plus) et les parties déjà envoyées à deadlock-api.com (pour ne jamais les renvoyer, 20 000 au plus) |
 | `sets-sauvegarde.json` | Tes sets d'objets retirés du client quand l'appli crée les siens (`{ "summonerId": [sets] }`), pour le bouton « Remettre mes anciens sets » |
 | `parties.json` | Tes parties (Stats, session, maîtrise) : `{ riotId, id, date, dureeS, file, championId, championNom, victoire, kills, deaths, assists }`, plus `cs`, `or`, `degats`, `vision` quand le client les donne (résumé d'après-partie) et `place` en Arena (onglet Challenge, dont la progression est recalculée depuis ce fichier), sans doublons, 25 000 au maximum par compte |
 | `progression.json` | Les points de ta courbe : `{ date, riotId, niveau, progression, xpTotale }`, 1 000 au maximum par compte |
@@ -756,6 +821,12 @@ lol-level-calculator/
 ├── reparer-electron.ps1 # Dépannage de l'installation d'Electron sous Windows (voir Installation)
 ├── outils/essai-complet.js # Essai de bout en bout sur un faux client (npm run essai) ; refait aussi les captures du README
 ├── outils/sonde.js    # Sonde des sites lus par l'appli (npm run sonde, et chaque jour sur GitHub)
+├── deadlock.js        # Mode Deadlock : le service (jeu lancé, historique, héros, build, envoi des parties) (testé)
+├── deadlock-jeu.js    # Deadlock sur ce PC : jeu lancé (tasklist), compte Steam, parties du cache de Steam (testé)
+├── deadlock-api.js    # deadlock-api.com (Internet) : historique, stats des héros et des objets, envoi des parties
+├── deadlock-stats.js  # Mode Deadlock : calculs purs (tes parties, tier list, build par moment, contres, temps de jeu)
+├── deadlock-donnees.js # deadlock.json : tes sessions de jeu et les parties déjà envoyées (écriture sûre)
+├── statistiques.js    # Taux de victoire prudent (Wilson), partagé par le build de LoL et le mode Deadlock
 ├── docs/captures/     # Captures du README
 ├── docs/prompt-selection-auto.md # Cahier des charges du pick et ban automatiques
 ├── src/
@@ -765,7 +836,8 @@ lol-level-calculator/
 │   ├── commun.js      # État partagé, petits outils, mettreAJour() qui redessine tous les onglets
 │   ├── onglets/       # Un fichier par onglet (+ compte.js : carte du compte, session.js : session,
 │   │                  #   derniere-partie.js : résumé d'après-partie, assistant.js : assistant de première ouverture,
-│   │                  #   challenge.js : onglet Challenge)
+│   │                  #   challenge.js : onglet Challenge ; deadlock-accueil.js, deadlock-heros.js,
+│   │                  #   deadlock-build.js : mode Deadlock ; onglets.js : barre d'onglets et choix du jeu)
 │   └── app.js         # Démarrage : branche tout (explique l'ordre de chargement)
 └── test/              # Un fichier de tests par module, faux client dans chaque test réseau, certificat de test
 ```
@@ -783,6 +855,10 @@ s'inscrit avec `surRendu()` et est redessiné par `mettreAJour()`.
   du compte.
 - L'XP de session et les estimations utilisent les formules du wiki : ce sont des estimations.
 - Les données sont rangées par Riot ID (`pseudo#tag`) : si tu changes de Riot ID, l'historique repart de zéro.
+- **Mode Deadlock** : deadlock-api.com est faite par la communauté ; si elle change ou ferme, les onglets Deadlock
+  affichent un message clair (la sonde quotidienne le voit le jour même), seul le temps de jeu reste. Tes parties n'y
+  apparaissent que si quelqu'un les a envoyées (case « Envoyer mes parties », ou un joueur de la partie qui utilise
+  l'outil du site). Pas d'infos pendant la partie : Deadlock n'a pas d'API locale.
 - Le code de la page (`src/onglets/`) et la partie Electron de l'arrière-plan (icône, fenêtre cachée, démarrage de
   Windows) n'ont pas de tests automatiques : ils sont vérifiés en lançant l'appli.
 
@@ -793,4 +869,4 @@ s'inscrit avec `surRendu()` et est redessiné par `mettreAJour()`.
 
 ---
 
-*Projet non officiel, non affilié à Riot Games.*
+*Projet non officiel, non affilié à Riot Games ni à Valve.*

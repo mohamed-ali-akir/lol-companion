@@ -12,6 +12,7 @@
  *      build.js (objets et runes), challenge.js (top 3 en Arena avec tous les champions) : un fichier par onglet
  *      ou par carte de l'Accueil
  *      assistant.js : les 3 questions de la première ouverture
+ *      deadlock-accueil.js, deadlock-heros.js, deadlock-build.js : les onglets du mode Deadlock (27/10/2026)
  *   6. app.js (ce fichier)  : branche tout et démarre
  *
  * Pourquoi des scripts classiques et pas des modules ES ? Les deux marchent dans Electron,
@@ -38,8 +39,8 @@ async function initialiser() {
   // Page ouverte hors de l'appli (dans un navigateur) : pas de client, donc pas d'estimation.
   if (!window.appli) {
     activerOnglet(ONGLET_PAR_DEFAUT, { memoriser: false });
-    ["boutonImport", "remettreSets"].forEach((id) => ($(id).disabled = true));
-    for (const id of ["formAcceptation", "formMaj", "formSelection", "formBuild", "formConsulterBuild", "formChallenge"]) {
+    ["boutonImport", "remettreSets", "deadlockActualiser"].forEach((id) => ($(id).disabled = true));
+    for (const id of ["formAcceptation", "formMaj", "formSelection", "formBuild", "formConsulterBuild", "formChallenge", "formDeadlock", "formDeadlockBuild"]) {
       for (const element of $(id).elements) element.disabled = true;
     }
     afficherEtat("etatClient", "Lance l'appli avec npm start : le niveau est lu dans le client League.", "info");
@@ -52,16 +53,24 @@ async function initialiser() {
   brancherBuild();
   brancherChallenge();
   brancherAssistant();
+  brancherDeadlockAccueil();
+  brancherDeadlockHeros();
+  brancherDeadlockBuild();
 
   // Surveillance en direct : main.js prévient la page après chaque partie.
   window.appli.surMiseAJour(miseAJourAutomatique);
   window.appli.surConnexion(afficherConnexion);
+  // League vient de se connecter et Deadlock n'est pas lancé : retour au mode League of Legends.
+  window.appli.surConnexion((connecte) => {
+    if (connecte && !etatDeadlock.lance) changerDeJeu("lol");
+  });
   afficherConnexion(await window.appli.etatConnexion());
   window.appli.surEtatAppli(afficherEtatAppli); // bandeau « pas encore prête »
   afficherEtatAppli(await window.appli.lireEtatAppli());
 
   const config = await afficherParametres();
   activerOnglet(config.ongletActif || ONGLET_PAR_DEFAUT, { memoriser: false }); // onglet du dernier lancement
+  await lireEtatDeadlockAuDemarrage(); // Deadlock déjà lancé : mode Deadlock
   if (!config.assistantVu) ouvrirAssistant(); // première ouverture : 3 questions pour tout régler
   mettreAJour(); // affiche « Lance League of Legends… » en attendant le client
 

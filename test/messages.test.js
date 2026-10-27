@@ -238,3 +238,36 @@ test("canaux : la liste est stable (preload.js et preload-overlay.js en dépende
   assert.deepStrictEqual(ecoutes.sort(), ["overlay:souris", "sorts:clic", "sorts:position"]);
   assert.ok(reponses.includes("config:lire") && reponses.includes("build:consulter") && reponses.length >= 20);
 });
+
+test("mode Deadlock : état, onglets et réglages passent par deadlock.js ; héros vérifié ; erreur du site lisible", async () => {
+  const { ErreurDeadlockApi } = require("../deadlock-api.js");
+  const appels = [];
+  const deadlock = {
+    etat: async () => ({ lance: true }),
+    accueil: async () => {
+      throw new ErreurDeadlockApi("deadlock-api.com est surchargé pour le moment : réessaie dans quelques minutes.");
+    },
+    heros: async () => ({ tierListe: [] }),
+    listeHeros: async () => [{ id: 1, nom: "Infernus" }],
+    build: async (id) => {
+      appels.push(["build", id]);
+      return { heros: { id, nom: "Infernus" } };
+    },
+    enregistrer: (r) => ({ envoyerParties: r.envoyerParties === true, rang: null }),
+  };
+  const { ipc, journal } = brancher({ deadlock: () => deadlock });
+  assert.deepStrictEqual(await ipc.demander("deadlock:etat"), { lance: true });
+  await assert.rejects(ipc.demander("deadlock:etat", ETRANGER), /refusé/);
+  assert.deepStrictEqual(await ipc.demander("deadlock:accueil"), {
+    ok: false, erreur: "deadlock-api.com est surchargé pour le moment : réessaie dans quelques minutes.", probleme: null,
+  });
+  assert.deepStrictEqual(await ipc.demander("deadlock:heros"), { ok: true, tierListe: [] });
+  assert.deepStrictEqual(await ipc.demander("deadlock:listeHeros"), { ok: true, heros: [{ id: 1, nom: "Infernus" }] });
+  assert.strictEqual((await ipc.demander("deadlock:build", PAGE, "1")).heros.nom, "Infernus");
+  for (const invalide of [0, -3, "abc", null, 1.5]) {
+    assert.deepStrictEqual(await ipc.demander("deadlock:build", PAGE, invalide), { ok: false, erreur: "Choisis un héros.", probleme: null }, String(invalide));
+  }
+  assert.deepStrictEqual(appels, [["build", 1]]);
+  assert.deepStrictEqual(await ipc.demander("deadlock:enregistrer", PAGE, { envoyerParties: true }), { ok: true, reglages: { envoyerParties: true, rang: null } });
+  assert.deepStrictEqual(journal.erreurs, [], "les erreurs prévues ne remplissent pas le journal");
+});

@@ -33,6 +33,13 @@ contextBridge.exposeInMainWorld("appli", {
   lireMaj: () => ipcRenderer.invoke("maj:lire"),
   verifierMaj: () => ipcRenderer.invoke("maj:verifier"),
   installerMaj: () => ipcRenderer.invoke("maj:installer"),
+  // Mode Deadlock (deadlock.js) : état, Accueil, Héros, Build, réglages.
+  lireDeadlock: () => ipcRenderer.invoke("deadlock:etat"),
+  lireAccueilDeadlock: () => ipcRenderer.invoke("deadlock:accueil"),
+  lireHerosDeadlock: () => ipcRenderer.invoke("deadlock:heros"),
+  listeHerosDeadlock: () => ipcRenderer.invoke("deadlock:listeHeros"),
+  consulterBuildDeadlock: (heroId) => ipcRenderer.invoke("deadlock:build", heroId),
+  enregistrerDeadlock: (reglages) => ipcRenderer.invoke("deadlock:enregistrer", reglages),
 
   // Messages envoyés par main.js sans que la page les demande (surveillance en direct).
   // On ne transmet que les données, jamais l'objet "événement" d'Electron.
@@ -49,6 +56,8 @@ contextBridge.exposeInMainWorld("appli", {
   // Mise à jour de l'appli : { etape, version, nouvelle, pourcentage, message } (mise-a-jour.js).
   surMaj: (rappel) => ipcRenderer.on("maj:etat", (_evenement, etat) => rappel(etat)),
   surBuild: (rappel) => ipcRenderer.on("build:evenement", (_evenement, info) => rappel(info)),
+  // Mode Deadlock : jeu lancé ou fermé, temps de jeu, parties envoyées (deadlock.js).
+  surDeadlock: (rappel) => ipcRenderer.on("deadlock:etat", (_evenement, etat) => rappel(etat)),
   // Acceptation auto cochée / décochée depuis le menu de l'icône (zone de notification).
   surReglagesAcceptation: (rappel) => ipcRenderer.on("acceptation:reglages", (_evenement, reglages) => rappel(reglages)),
 });
