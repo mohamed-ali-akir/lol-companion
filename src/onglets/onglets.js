@@ -34,7 +34,7 @@ const boutonsOnglets = () => tousLesOnglets().filter((b) => jeuDuBouton(b) === n
 function appliquerJeu(jeu) {
   const deadlock = jeu === "deadlock";
   document.body.classList.toggle("mode-deadlock", deadlock);
-  document.title = deadlock ? "LoL Companion · Deadlock" : "LoL Companion";
+  document.title = deadlock ? "Deadlock Companion" : "LoL Companion"; // nom de la fenêtre aussi (Electron suit le titre)
   for (const bouton of document.querySelectorAll("[data-jeu-choix]")) bouton.setAttribute("aria-pressed", String(bouton.dataset.jeuChoix === jeu));
 }
 

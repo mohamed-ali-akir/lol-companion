@@ -312,6 +312,7 @@ require(path.join(PROJET, "main.js"));
   }
   if (!enModeDeadlock) problemes.push("mode Deadlock : pas affiché quand le jeu est lancé");
   if (await page(`getComputedStyle($("onglet-stats")).display !== "none"`)) problemes.push("mode Deadlock : les onglets de LoL restent visibles");
+  if ((await page(`document.querySelector("h1").innerText + " | " + document.title`)) !== "Deadlock Companion | Deadlock Companion") problemes.push("mode Deadlock : le nom n'est pas « Deadlock Companion »");
   for (const [onglet, mots] of Object.entries(ATTENDU_DEADLOCK)) {
     await aller(onglet);
     await attendre(1500);

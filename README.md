@@ -235,8 +235,8 @@ peut rien afficher par-dessus. L'onglet Build le rappelle.
   Jamais les ultimes : Riot les interdit.
 
 ### Mode Deadlock (27/10/2026)
-Quand **Deadlock** (Valve) est lancé, l'appli passe toute seule en **mode Deadlock** : autres onglets (Accueil, Héros,
-Build), couleurs du jeu. Elle revient à League of Legends quand League se connecte (et que Deadlock est fermé), ou avec
+Quand **Deadlock** (Valve) est lancé, l'appli passe toute seule en **mode Deadlock** et s'appelle alors **Deadlock Companion**
+(titre et nom de la fenêtre) : autres onglets (Accueil, Héros, Build), couleurs du jeu. Elle revient à League of Legends quand League se connecte (et que Deadlock est fermé), ou avec
 les boutons **« League of Legends / Deadlock »** en haut, qui marchent aussi jeu fermé. Le dernier onglet ouvert de
 chaque jeu est retenu.
 
