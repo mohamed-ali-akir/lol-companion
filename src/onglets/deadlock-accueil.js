@@ -2,12 +2,12 @@
  * Mode Deadlock, onglet Accueil (27/10/2026)
  * ------------------------------------------
  * Ton compte Steam (trouvé sur ce PC), ton temps de jeu (mesuré par l'appli), tes dernières parties (deadlock-api.com)
- * et la case « Envoyer mes parties ». Tout vient de main.js (deadlock.js) par window.appli : la page ne lit rien
+ * et l'envoi automatique de tes parties. Tout vient de main.js (deadlock.js) par window.appli : la page ne lit rien
  * elle-même. Ce fichier tient aussi l'état du jeu (lancé ou fermé), dont dépend le passage automatique en mode Deadlock.
  */
 
 const RELECTURE_DEADLOCK_MS = 5 * 60 * 1000; // un onglet Deadlock rouvert dans les 5 min ne redemande rien
-let etatDeadlock = { lance: false, compte: null, temps: null, reglages: { envoyerParties: false, rang: null }, dernierEnvoi: null };
+let etatDeadlock = { lance: false, compte: null, temps: null, reglages: { rang: null }, dernierEnvoi: null };
 let accueilDeadlockLu = 0; // heure de la dernière lecture réussie de tes parties (0 : à relire)
 let herosLePlusJoue = null; // ton héros le plus joué : choisi d'office dans l'onglet Build
 let buildDeadlockAffiche = null; // héros dont le build est affiché (onglet Build) ; null : rien, ou niveau changé (onglet Héros)
@@ -29,7 +29,6 @@ function afficherEtatDeadlock(etat) {
   $("deadlockTempsJour").textContent = texteDureeMs(t.aujourdhui);
   $("deadlockTempsSemaine").textContent = texteDureeMs(t.septJours);
   $("deadlockTempsTotal").textContent = texteDureeMs(t.total);
-  $("deadlockEnvoyer").checked = Boolean(etat.reglages && etat.reglages.envoyerParties);
 
   const envoi = etat.dernierEnvoi;
   if (envoi && envoi.erreur) afficherEtat("etatDeadlockEnvoi", `Envoi des parties (${formatDateHeure(envoi.date)}) : ${envoi.erreur}`, "erreur");
@@ -82,7 +81,7 @@ async function chargerAccueilDeadlock({ forcer = false } = {}) {
   else afficherEtat("etatDeadlockAccueil", `${pluriel(r.nombre, "partie connue", "parties connues")} · les ${lignes.length} dernières ci-dessous (lu à ${heure()}).`, "info");
 }
 
-/** Enregistre les réglages Deadlock (case de cet onglet, niveau de l'onglet Héros) -> réglages propres, ou null. */
+/** Enregistre les réglages Deadlock (niveau de l'onglet Héros) -> réglages propres, ou null. */
 async function enregistrerReglagesDeadlock(changements, idEtat) {
   const reponse = await window.appli.enregistrerDeadlock({ ...etatDeadlock.reglages, ...changements });
   if (!reponse.ok) {
@@ -101,11 +100,6 @@ function brancherDeadlockAccueil() {
   $("deadlockActualiser").addEventListener("click", async () => {
     afficherEtatDeadlock(await window.appli.lireDeadlock());
     await chargerAccueilDeadlock({ forcer: true });
-  });
-  $("deadlockEnvoyer").addEventListener("change", async () => {
-    const reglages = await enregistrerReglagesDeadlock({ envoyerParties: $("deadlockEnvoyer").checked }, "etatDeadlockEnvoi");
-    if (!reglages) return;
-    afficherEtat("etatDeadlockEnvoi", reglages.envoyerParties ? "Enregistré ✓ Les parties déjà dans le cache de Steam sont envoyées tout de suite, les suivantes quand tu fermes Deadlock." : "Enregistré ✓ Plus rien n'est envoyé.", "ok");
   });
 }
 

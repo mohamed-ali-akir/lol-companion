@@ -124,11 +124,11 @@ test("deadlock.json : sessions et parties envoyées, lecture tolérante, session
   }
 });
 
-test("réglages : envoi désactivé par défaut, niveau entre 1 et 11 ou tous", () => {
-  assert.deepStrictEqual(normaliserReglagesDeadlock(undefined), { envoyerParties: false, rang: null });
-  assert.deepStrictEqual(normaliserReglagesDeadlock({ envoyerParties: "oui", rang: 0 }), { envoyerParties: false, rang: null });
-  assert.deepStrictEqual(normaliserReglagesDeadlock({ envoyerParties: true, rang: 8 }), { envoyerParties: true, rang: 8 });
-  assert.deepStrictEqual(normaliserReglagesDeadlock({ rang: 12 }), { envoyerParties: false, rang: null });
+test("réglages : niveau entre 1 et 11 ou tous ; l'ancienne case de l'envoi des parties est ignorée", () => {
+  assert.deepStrictEqual(normaliserReglagesDeadlock(undefined), { rang: null });
+  assert.deepStrictEqual(normaliserReglagesDeadlock({ envoyerParties: false, rang: 0 }), { rang: null });
+  assert.deepStrictEqual(normaliserReglagesDeadlock({ envoyerParties: true, rang: 8 }), { rang: 8 });
+  assert.deepStrictEqual(normaliserReglagesDeadlock({ rang: 12 }), { rang: null });
 });
 
 // --- Le service ------------------------------------------------------------------------------------------
@@ -136,7 +136,7 @@ test("réglages : envoi désactivé par défaut, niveau entre 1 et 11 ou tous", 
 const HEROS = new Map([[1, { id: 1, nom: "Infernus" }], [2, { id: 2, nom: "Seven" }]]);
 
 function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" }, cache = [], historique = [], echecEnvoi = null } = {}) {
-  const trace = { envoyees: [], etats: [], journal: [], sessions: [], notees: [], reglages: { envoyerParties: false, rang: null } };
+  const trace = { envoyees: [], etats: [], journal: [], sessions: [], notees: [], reglages: { rang: null } };
   const etatJeu = { lance };
   let heure = 1_000_000;
   const jeu = {
@@ -191,7 +191,7 @@ test("service : état (jeu, compte, temps de jeu), lancement puis fermeture enre
   dl.demarrer();
   await dl.verifier();
   assert.deepStrictEqual(await dl.etat(), {
-    lance: false, compte: { accountId: 123, pseudo: "Joueur" }, temps: { aujourdhui: 0, septJours: 0, total: 0 }, reglages: { envoyerParties: false, rang: null }, dernierEnvoi: null,
+    lance: false, compte: { accountId: 123, pseudo: "Joueur" }, temps: { aujourdhui: 0, septJours: 0, total: 0 }, reglages: { rang: null }, dernierEnvoi: { date: 1_000_000, envoyees: 0, erreur: null }, // cache vide, vérifié au démarrage
   });
   etatJeu.lance = true;
   await dl.verifier();
@@ -202,22 +202,27 @@ test("service : état (jeu, compte, temps de jeu), lancement puis fermeture enre
   await dl.verifier();
   assert.deepStrictEqual(trace.sessions, [{ debut: 1_000_000, fin: 1_000_000 + 40 * 60 * 1000 }]);
   assert.strictEqual(trace.etats.at(-1).lance, false);
-  assert.deepStrictEqual(trace.envoyees, [], "case décochée : rien n'est envoyé");
   dl.arreter();
 });
 
-test("service : envoi des parties du cache seulement avec la case, jamais deux fois la même, erreur dite", async () => {
+test("service : parties du cache envoyées d'office (au démarrage, à la fermeture du jeu), jamais deux fois, erreur dite", async () => {
   const cache = [{ match_id: 1, cluster_id: 4, metadata_salt: 5 }, { match_id: 2, cluster_id: 4, replay_salt: 6 }];
-  const { dl, trace } = service({ cache });
-  assert.strictEqual(await dl.envoyerNouvellesParties(), null, "case décochée");
-  dl.enregistrer({ envoyerParties: true });
-  await new Promise((ok) => setTimeout(ok, 10)); // cocher la case envoie tout de suite ce qui est déjà dans le cache
+  const { dl, trace, etatJeu } = service({ cache });
+  dl.demarrer();
+  await new Promise((ok) => setTimeout(ok, 10)); // au démarrage : ce qui est déjà dans le cache
   assert.deepStrictEqual(trace.envoyees, [1, 2]);
+  assert.strictEqual(trace.etats.at(-1).dernierEnvoi.envoyees, 2, "la page est prévenue");
+  cache.push({ match_id: 3, cluster_id: 4, metadata_salt: 7 });
+  etatJeu.lance = true;
+  await dl.verifier();
+  etatJeu.lance = false;
+  await dl.verifier(); // fermeture du jeu : la nouvelle partie part
+  assert.deepStrictEqual(trace.envoyees, [1, 2, 3]);
+  dl.arreter();
   assert.deepStrictEqual((await dl.envoyerNouvellesParties()).envoyees, 0, "déjà envoyées : rien de plus");
-  assert.deepStrictEqual(trace.envoyees, [1, 2]);
+  assert.deepStrictEqual(trace.envoyees, [1, 2, 3]);
   assert.ok(trace.journal.some((ligne) => ligne.includes("parties du cache de Steam")));
   const panne = service({ cache, echecEnvoi: "deadlock-api.com est surchargé" });
-  panne.trace.reglages = { envoyerParties: true, rang: null };
   const r = await panne.dl.envoyerNouvellesParties();
   assert.deepStrictEqual([r.envoyees, r.erreur], [0, "deadlock-api.com est surchargé"]);
   assert.deepStrictEqual(panne.trace.notees, [], "échec : rien n'est noté comme envoyé (réessayé la prochaine fois)");

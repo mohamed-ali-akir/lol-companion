@@ -18,21 +18,20 @@ const { JOURS_TIER_LISTE, JOURS_BUILD } = require("./deadlock-api.js");
 
 /**
  * Réglages du mode Deadlock (config.json, clé « deadlock »), toujours valides :
- *  - envoyerParties : envoyer à deadlock-api.com les parties trouvées dans le cache de Steam (désactivé par défaut) ;
  *  - rang : niveau minimal des parties pour les stats des héros et le build (0 à 11 ; null = tous les niveaux).
+ * L'envoi des parties du cache de Steam n'a plus de case : il est fait d'office (décision du propriétaire, 27/10/2026,
+ * version 1.5.1). L'ancien réglage « envoyerParties » est simplement ignoré.
  */
 function normaliserReglagesDeadlock(brut) {
   const r = brut && typeof brut === "object" ? brut : {};
   return {
-    envoyerParties: r.envoyerParties === true,
     rang: Number.isInteger(r.rang) && r.rang >= 1 && r.rang <= 11 ? r.rang : null,
   };
 }
 
 const MESSAGE_AUCUNE_PARTIE =
-  "deadlock-api.com ne connaît encore aucune de tes parties. Coche « Envoyer mes parties » ci-dessous, puis ouvre tes " +
-  "parties dans l'historique du jeu (Profil → Historique) : Steam garde leur adresse, et l'appli les envoie quand tu " +
-  "fermes Deadlock. Les parties jouées avec des joueurs qui utilisent l'outil du site apparaissent aussi toutes seules.";
+  "deadlock-api.com ne connaît encore aucune de tes parties. Ouvre tes parties dans l'historique du jeu " +
+  "(Profil → Historique) : Steam garde leur adresse, et l'appli les envoie toute seule quand tu fermes Deadlock. Les parties jouées avec des joueurs qui utilisent l'outil du site apparaissent aussi toutes seules.";
 
 /**
  * lecteur : creerLecteurDeadlock (deadlock-api.js) ; donnees : creerDonneesDeadlock (deadlock-donnees.js) ;
@@ -124,11 +123,11 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
   }
 
   /**
-   * Envoie à deadlock-api.com les parties du cache de Steam pas encore envoyées (case cochée seulement).
-   * Un seul envoi à la fois ; le résultat est gardé dans dernierEnvoi et écrit dans le journal.
+   * Envoie à deadlock-api.com les parties du cache de Steam pas encore envoyées (d'office depuis le 27/10/2026 : au
+   * lancement de l'appli et à chaque fermeture de Deadlock). Un seul envoi à la fois ; le résultat est gardé dans
+   * dernierEnvoi et écrit dans le journal.
    */
   function envoyerNouvellesParties() {
-    if (!reglagesPropres().envoyerParties) return Promise.resolve(null);
     if (envoiEnCours) return envoiEnCours;
     envoiEnCours = (async () => {
       try {
@@ -151,12 +150,10 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
     return envoiEnCours;
   }
 
-  /** Enregistre les réglages ; la case « Envoyer mes parties » cochée envoie tout de suite ce qui est déjà dans le cache. */
+  /** Enregistre les réglages (niveau des stats). */
   function enregistrer(brut) {
-    const avant = reglagesPropres();
     const propres = normaliserReglagesDeadlock(brut);
     enregistrerReglages(propres);
-    if (propres.envoyerParties && !avant.envoyerParties) envoyerNouvellesParties().then(publier, () => {});
     return propres;
   }
 
@@ -181,6 +178,8 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
       aErreur: (erreur) => journal("Deadlock : erreur de la surveillance", erreur.message),
     });
     suivi.demarrer();
+    // Parties déjà dans le cache de Steam (jouées avant l'ouverture de l'appli) : envoyées tout de suite.
+    envoyerNouvellesParties().then((envoi) => (envoi && envoi.envoyees > 0 ? publier() : null), () => {});
   }
 
   function arreter() {

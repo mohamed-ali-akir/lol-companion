@@ -211,7 +211,7 @@ const ATTENDU = {
 };
 // Mode Deadlock : ce que chaque onglet doit montrer avec la fausse deadlock-api.com.
 const ATTENDU_DEADLOCK = {
-  deadlock: ["Ton compte Steam", "Joueur", "Deadlock est lancé", "Infernus", "Classée", "Street Brawl", "Envoyer mes parties"],
+  deadlock: ["Ton compte Steam", "Joueur", "Deadlock est lancé", "Infernus", "Classée", "Street Brawl", "automatiquement"],
   deadlockheros: ["Infernus", "Seven", "Vindicta", "Tes héros"],
   deadlockbuild: ["Build Infernus", "Début de partie", "Extended Magazine", "Toxic Bullets", "Plus dur contre", "Seven"],
 };
@@ -318,16 +318,8 @@ require(path.join(PROJET, "main.js"));
     await attendre(1500);
     const texte = await texteDuPanneau(onglet);
     for (const mot of mots) if (!texte.includes(mot)) problemes.push(`onglet ${onglet} : « ${mot} » introuvable`);
-    if (onglet === "deadlock") {
-      // Case de l'envoi des parties : décochée par défaut, enregistrée quand on la coche, puis remise comme avant.
-      const envoi = () => (config().deadlock || {}).envoyerParties;
-      if (await page(`$("deadlockEnvoyer").checked`)) problemes.push("mode Deadlock : envoi des parties coché par défaut");
-      await page(`$("deadlockEnvoyer").click(); true`);
-      await attendre(600);
-      if (envoi() !== true) problemes.push("mode Deadlock : case de l'envoi des parties pas enregistrée");
-      await page(`$("deadlockEnvoyer").click(); true`);
-      await attendre(400);
-      if (envoi() !== false) problemes.push("mode Deadlock : case de l'envoi des parties pas décochée");
+    if (onglet === "deadlock" && (await page(`Boolean(document.querySelector("#panneau-deadlock input[type=checkbox]"))`))) {
+      problemes.push("mode Deadlock : il reste une case (l'envoi des parties est automatique depuis la 1.5.1)");
     }
     await photographier(fenetre, onglet);
     console.log(`onglet ${onglet} : vu`);

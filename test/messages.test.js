@@ -253,7 +253,7 @@ test("mode Deadlock : état, onglets et réglages passent par deadlock.js ; hér
       appels.push(["build", id]);
       return { heros: { id, nom: "Infernus" } };
     },
-    enregistrer: (r) => ({ envoyerParties: r.envoyerParties === true, rang: null }),
+    enregistrer: (r) => ({ rang: Number.isInteger(r.rang) ? r.rang : null }),
   };
   const { ipc, journal } = brancher({ deadlock: () => deadlock });
   assert.deepStrictEqual(await ipc.demander("deadlock:etat"), { lance: true });
@@ -268,6 +268,6 @@ test("mode Deadlock : état, onglets et réglages passent par deadlock.js ; hér
     assert.deepStrictEqual(await ipc.demander("deadlock:build", PAGE, invalide), { ok: false, erreur: "Choisis un héros.", probleme: null }, String(invalide));
   }
   assert.deepStrictEqual(appels, [["build", 1]]);
-  assert.deepStrictEqual(await ipc.demander("deadlock:enregistrer", PAGE, { envoyerParties: true }), { ok: true, reglages: { envoyerParties: true, rang: null } });
+  assert.deepStrictEqual(await ipc.demander("deadlock:enregistrer", PAGE, { rang: 8 }), { ok: true, reglages: { rang: 8 } });
   assert.deepStrictEqual(journal.erreurs, [], "les erreurs prévues ne remplissent pas le journal");
 });

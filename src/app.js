@@ -40,7 +40,7 @@ async function initialiser() {
   if (!window.appli) {
     activerOnglet(ONGLET_PAR_DEFAUT, { memoriser: false });
     ["boutonImport", "remettreSets", "deadlockActualiser"].forEach((id) => ($(id).disabled = true));
-    for (const id of ["formAcceptation", "formMaj", "formSelection", "formBuild", "formConsulterBuild", "formChallenge", "formDeadlock", "formDeadlockBuild"]) {
+    for (const id of ["formAcceptation", "formMaj", "formSelection", "formBuild", "formConsulterBuild", "formChallenge", "formDeadlockBuild"]) {
       for (const element of $(id).elements) element.disabled = true;
     }
     afficherEtat("etatClient", "Lance l'appli avec npm start : le niveau est lu dans le client League.", "info");

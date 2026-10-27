@@ -12,7 +12,7 @@
  *
  * Ce qui est envoyé (accord du propriétaire, 27/10/2026) :
  *  - ton numéro de compte Steam (public), pour TON historique et TES stats ;
- *  - seulement si la case « Envoyer mes parties » est cochée : les numéros et clés des parties trouvées dans le cache
+ *  - automatiquement (sans case depuis la 1.5.1, décision du 27/10/2026) : les numéros et clés des parties trouvées dans le cache
  *    de Steam (deadlock-jeu.js), comme l'outil officiel du site, sans le nom d'utilisateur ni rien d'autre ;
  *  - pour les stats générales : le héros, la période, le niveau choisi. Jamais le pseudo, ni rien d'autre du PC.
  */

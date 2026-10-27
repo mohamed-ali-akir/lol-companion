@@ -42,7 +42,7 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 | **Challenge** | Challenge Arena : faire un top 3 avec tous les champions, dans l'ordre alphabétique. Faits, restants, barre de progression, prochain champion, et pick automatique du prochain champion en Arena |
 | **Build** | Build de ton champion (Lolalytics + OP.GG) : page de runes, set d'objets et sorts créés pour toi, set « Champion Rank 1 », chronos des sorts adverses, consultation du build de n'importe quel champion |
 | **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu, relancer l'assistant de démarrage |
-| **Deadlock · Accueil** | Mode Deadlock (quand le jeu est lancé, ou bouton « Deadlock » en haut) : ton compte Steam, ton temps de jeu, tes dernières parties, et la case pour envoyer tes parties à deadlock-api.com |
+| **Deadlock · Accueil** | Mode Deadlock (quand le jeu est lancé, ou bouton « Deadlock » en haut) : ton compte Steam, ton temps de jeu, tes dernières parties (envoyées automatiquement à deadlock-api.com) |
 | **Deadlock · Héros** | Les meilleurs héros du moment (taux de victoire prudent, popularité, filtre de niveau) et tes stats par héros |
 | **Deadlock · Build** | Les objets les plus achetés d'un héros, par moment de la partie, et les héros qui le contrent |
 
@@ -244,7 +244,7 @@ chaque jeu est retenu.
 
 - **Ce que l'appli regarde sur ton PC, et rien d'autre** (`deadlock-jeu.js`) : la liste des programmes de Windows
   (`deadlock.exe` tourne-t-il ? toutes les 5 s, `tasklist`), ton compte Steam (registre de Windows, sinon
-  `Steam\config\loginusers.vdf`) et, si tu coches la case, le cache web de Steam. **Jamais** la mémoire du jeu, jamais
+  `Steam\config\loginusers.vdf`) et le cache web de Steam (pour envoyer tes parties). **Jamais** la mémoire du jeu, jamais
   d'affichage par-dessus, jamais un fichier du jeu modifié : Deadlock a un anti-triche, et il n'a pas d'API locale (pas
   de « Game State Integration » comme CS2 ou Dota 2, vérifié dans les fichiers du jeu le 27/10/2026).
 - **Accueil** : ton compte Steam, ton **temps de jeu** mesuré par l'appli (aujourd'hui, 7 jours, total : de l'ouverture
@@ -266,12 +266,12 @@ chaque jeu est retenu.
   (`internet.js`) : identification honnête, cache (3 h pour les stats, 5 min pour ton historique), 20 s au plus,
   message clair si le site est surchargé (codes 429 et 503). Formats vérifiés sur le vrai site le 27/10/2026
   (2 700 parties d'un joueur public ; victoire = `match_result` égal à `player_team`).
-- **« Envoyer mes parties à deadlock-api.com »** (case, **désactivée par défaut**) : le site ne connaît une partie que
-  si quelqu'un la lui envoie. Quand tu ouvres une partie dans l'historique du jeu, Steam garde son adresse dans son
-  cache (`Steam\appcache\httpcache`, `http://replay<serveur>.valve.net/1422450/<partie>_<clé>.meta.bz2`). Case
-  cochée, l'appli lit le début de ces fichiers (sans rien modifier) et envoie **seulement** le numéro de chaque partie,
-  son serveur et sa clé (`POST /v1/matches/salts`), quand tu fermes Deadlock (et tout de suite en cochant la case), une
-  seule fois par partie. Même méthode que l'outil officiel du site (`deadlock-api-ingest`, licence MIT), mais sans sa
+- **Envoi automatique de tes parties** (sans case depuis la 1.5.1, décision du propriétaire du 27/10/2026) : le site ne
+  connaît une partie que si quelqu'un la lui envoie. Quand tu ouvres une partie dans l'historique du jeu, Steam garde
+  son adresse dans son cache (`Steam\appcache\httpcache`,
+  `http://replay<serveur>.valve.net/1422450/<partie>_<clé>.meta.bz2`). L'appli lit le début de ces fichiers (sans rien
+  modifier) et envoie **seulement** le numéro de chaque partie, son serveur et sa clé (`POST /v1/matches/salts`), au
+  lancement de l'appli et à chaque fermeture de Deadlock, une seule fois par partie. Même méthode que l'outil officiel du site (`deadlock-api-ingest`, licence MIT), mais sans sa
   lecture de la mémoire du jeu.
 - **Ton compte** (accord du propriétaire, 27/10/2026) : son numéro Steam (public) est envoyé à deadlock-api.com pour lire
   TON historique et TES stats. Ton pseudo reste sur le PC.
@@ -718,8 +718,8 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   à rien (Content-Security-Policy inchangée).
 - **Mode Deadlock** (décision du propriétaire, 27/10/2026) : deadlock-api.com (`deadlock-api.js`), seulement quand tu
   ouvres un onglet Deadlock. Envoyé : ton numéro de compte Steam (public, pour TON historique), le héros, la période et
-  le niveau choisis ; et, seulement si tu coches « Envoyer mes parties », le numéro, le serveur et la clé des parties
-  trouvées dans le cache de Steam. Jamais ton pseudo. Sur le PC, l'appli ne regarde que la liste des programmes, ton
+  le niveau choisis ; et, automatiquement (depuis la 1.5.1), le numéro, le serveur et la clé des parties trouvées dans
+  le cache de Steam. Jamais ton pseudo. Sur le PC, l'appli ne regarde que la liste des programmes, ton
   compte Steam et ce cache : jamais la mémoire de Deadlock, jamais d'affichage par-dessus (anti-triche).
 - **Mise à jour automatique** (décision du propriétaire, 11/10/2026) : l'appli installée lit la dernière Release de
   github.com/mohamed-ali-akir/lol-companion (activé par défaut, désactivable). Elle ne fait que télécharger des fichiers
@@ -857,8 +857,8 @@ s'inscrit avec `surRendu()` et est redessiné par `mettreAJour()`.
 - Les données sont rangées par Riot ID (`pseudo#tag`) : si tu changes de Riot ID, l'historique repart de zéro.
 - **Mode Deadlock** : deadlock-api.com est faite par la communauté ; si elle change ou ferme, les onglets Deadlock
   affichent un message clair (la sonde quotidienne le voit le jour même), seul le temps de jeu reste. Tes parties n'y
-  apparaissent que si quelqu'un les a envoyées (case « Envoyer mes parties », ou un joueur de la partie qui utilise
-  l'outil du site). Pas d'infos pendant la partie : Deadlock n'a pas d'API locale.
+  apparaissent que si quelqu'un les a envoyées (l'appli, une fois la partie ouverte dans l'historique du jeu, ou un
+  joueur de la partie qui utilise l'outil du site). Pas d'infos pendant la partie : Deadlock n'a pas d'API locale.
 - Le code de la page (`src/onglets/`) et la partie Electron de l'arrière-plan (icône, fenêtre cachée, démarrage de
   Windows) n'ont pas de tests automatiques : ils sont vérifiés en lançant l'appli.
 

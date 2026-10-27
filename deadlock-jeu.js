@@ -13,7 +13,7 @@
  *  - le cache web de Steam (Steam\appcache\httpcache) : quand tu ouvres une partie dans l'historique du jeu, Steam y
  *    garde l'adresse de son résumé, http://replay<serveur>.valve.net/1422450/<partie>_<clé>.meta.bz2. Ces numéros
  *    permettent à deadlock-api.com de connaître la partie (même méthode que l'outil officiel du site, deadlock-api-ingest,
- *    licence MIT, src/scan_cache.rs : les 200 premiers octets de chaque fichier). Envoi seulement si la case est cochée.
+ *    licence MIT, src/scan_cache.rs : les 200 premiers octets de chaque fichier). Envoi automatique depuis la 1.5.1 (deadlock.js).
  */
 const fs = require("fs");
 const path = require("path");
