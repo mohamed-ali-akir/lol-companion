@@ -3,7 +3,7 @@
 Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le détail technique de chaque choix est dans
 le [README](README.md) et dans l'historique Git.
 
-## Prochaine version (pas encore publiée)
+## 1.5.0 (27/10/2026)
 - **Mode Deadlock** : quand Deadlock est lancé, l'appli passe toute seule en mode Deadlock et s'appelle alors
   **Deadlock Companion** (boutons « League of
   Legends / Deadlock » en haut pour changer à la main).
