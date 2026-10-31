@@ -8,7 +8,7 @@
  */
 
 const RELECTURE_DEADLOCK_MS = 5 * 60 * 1000; // un onglet Deadlock rouvert dans les 5 min ne redemande rien
-let etatDeadlock = { lance: false, compte: null, temps: null, reglages: { rang: null }, dernierEnvoi: null, partie: null };
+let etatDeadlock = { lance: false, compte: null, temps: null, reglages: { rang: null, ecran: true }, dernierEnvoi: null, partie: null };
 let accueilDeadlockLu = 0; // heure de la dernière lecture réussie de tes parties (0 : à relire)
 let herosLePlusJoue = null; // ton héros le plus joué : choisi d'office dans l'onglet Build
 let buildDeadlockAffiche = null; // héros dont le build est affiché (onglet Build) ; null : rien, ou niveau changé (onglet Héros)

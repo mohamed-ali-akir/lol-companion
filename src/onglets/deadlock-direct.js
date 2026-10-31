@@ -4,8 +4,11 @@
  * Objets conseillés contre l'équipe adverse (deadlock-stats.js : conseilsContreEquipe, calculé par main.js).
  *  - Ta partie est cherchée sur deadlock-api.com toutes les 30 s pendant que Deadlock tourne (deadlock.js). Quand elle est
  *    trouvée, ton héros et les héros adverses sont remplis tout seuls et l'appli ouvre cet onglet.
- *  - Le site ne voit que les parties de l'onglet « Regarder » du jeu (les 200 mieux classées) : sinon, tu cliques sur
- *    les héros adverses (3 au moins), ce qui prend quelques secondes au début de la partie.
+ *  - Le site ne voit que les parties de l'onglet « Regarder » du jeu (les 200 mieux classées) : pour les autres, l'appli
+ *    reconnaît les portraits de la barre du haut de ton écran (deadlock-ecran.js, case « Repérer les héros sur mon
+ *    écran », cochée d'office). Sinon, tu cliques sur les héros adverses (3 au moins).
+ *  - Repérés sur l'écran, tes alliés sont connus mais pas TON portrait : ton héros reste celui de la liste s'il est
+ *    parmi tes alliés, sinon ton héros le plus joué parmi eux.
  * Rien n'est lu dans le jeu lui-même (anti-triche de Valve) et rien n'est mis dans le jeu.
  */
 
@@ -21,7 +24,8 @@ function statutDirect() {
   const nom = (id) => ((herosDirectLus || []).find((h) => h.id === id) || {}).nom || `Héros n° ${id}`;
   const statut = $("deadlockDirectStatut");
   statut.classList.toggle("actif", Boolean(p));
-  if (p) statut.textContent = `● Partie détectée : tu joues ${nom(p.heroId)}`;
+  if (p && p.source === "ecran") statut.textContent = "● Héros adverses repérés sur ton écran";
+  else if (p) statut.textContent = `● Partie détectée : tu joues ${nom(p.heroId)}`;
   else if (etatDeadlock.lance) statut.textContent = "Partie pas détectée : choisis les héros adverses.";
   else statut.textContent = "Deadlock est fermé : tu peux préparer ta prochaine partie.";
 }
@@ -57,6 +61,7 @@ async function remplirDirect() {
     }),
   );
   const parDefaut = (etatDeadlock.partie && etatDeadlock.partie.heroId) || herosLePlusJoue;
+  $("deadlockDirectEcran").checked = etatDeadlock.reglages.ecran !== false;
   if (parDefaut && r.heros.some((h) => h.id === parDefaut)) $("deadlockDirectHeros").value = String(parDefaut);
   dessinerChoixEnnemis();
   return true;
@@ -127,13 +132,24 @@ async function conseillerDirect() {
  * Appelé à chaque état reçu de main.js (deadlock-accueil.js : afficherEtatDeadlock). Partie nouvellement détectée :
  * ton héros et les ennemis sont remplis, et l'onglet s'ouvre (une seule fois par partie, en mode Deadlock).
  */
+/** Repérés sur l'écran : ton héros parmi tes alliés (celui de la liste s'il y est, sinon ton plus joué parmi eux). */
+function tonHerosParmi(allies) {
+  const actuel = Number($("deadlockDirectHeros").value);
+  if (allies.includes(actuel)) return actuel;
+  if (herosLePlusJoue && allies.includes(herosLePlusJoue)) return herosLePlusJoue;
+  return null;
+}
+
 async function surEtatDirect(etat) {
   const p = etat.partie;
-  if (p && p.matchId !== partieDirectVue) {
-    partieDirectVue = p.matchId;
+  const cle = p ? p.matchId || `ecran:${p.ennemis.join(",")}` : null; // une partie de l'écran n'a pas de numéro
+  if (p && cle !== partieDirectVue) {
+    partieDirectVue = cle;
     ennemisDirect = p.ennemis.slice(0, ENNEMIS_MAX);
     if (await remplirDirect()) {
-      if ((herosDirectLus || []).some((h) => h.id === p.heroId)) $("deadlockDirectHeros").value = String(p.heroId);
+      const heroId = p.heroId || tonHerosParmi(p.allies || []);
+      if (heroId && (herosDirectLus || []).some((h) => h.id === heroId)) $("deadlockDirectHeros").value = String(heroId);
+      ennemisDirect = ennemisDirect.filter((id) => id !== Number($("deadlockDirectHeros").value));
       dessinerChoixEnnemis();
     }
     if (jeuAffiche() === "deadlock") activerOnglet("deadlockdirect");
@@ -162,6 +178,10 @@ function brancherDeadlockDirect() {
     ennemisDirect = ennemisDirect.filter((id) => id !== heroId); // ton héros n'est pas dans l'équipe adverse
     dessinerChoixEnnemis();
     conseillerDirect();
+  });
+  $("deadlockDirectEcran").addEventListener("change", async () => {
+    const reglages = await enregistrerReglagesDeadlock({ ecran: $("deadlockDirectEcran").checked }, "etatDeadlockDirect");
+    if (!reglages) $("deadlockDirectEcran").checked = !$("deadlockDirectEcran").checked; // pas enregistré : on remet
   });
   $("deadlockDirectVider").addEventListener("click", () => {
     ennemisDirect = [];

@@ -92,6 +92,21 @@ const DEADLOCK = {
     antitank: [["BulletResistReduction", -6], ["MagicResistReduction", -6], ["BulletArmorReduction", -6], ["CurrentHealthDamage", 1], ["MaxHealthDamage", 1]],
     controles: [["StatusResistancePercent", 20], ["SlowResistancePercent", 25]],
   },
+
+  // --- Portraits de la barre du haut, repérés sur l'écran (31/10/2026, accord du propriétaire) ---
+  // Mesuré sur 2 captures Steam en 2560×1440 (deadlock-ecran.js). Tout est en fraction de la HAUTEUR de l'écran (h) : le
+  // jeu dimensionne son interface sur la hauteur, et la barre est centrée. Ton équipe à gauche, l'équipe adverse à droite.
+  barreHaut: {
+    hauteur: 0.11, // seule la bande du haut de l'écran est capturée (11 % de la hauteur)
+    premierAllie: -0.543, // centre du 1er portrait de ton équipe, par rapport au milieu de l'écran (en h)
+    premierEnnemi: 0.1306, // centre du 1er portrait adverse
+    pas: 0.081, // d'un portrait au suivant
+    decalageIcone: 0.007, // la tête est un peu à droite du centre de l'emplacement
+    tailles: [0.066, 0.071, 0.076, 0.082, 0.088], // côtés essayés pour l'icône (Seven est dessiné plus grand que les autres)
+    margeX: 0.008, // jeu horizontal autour de la place attendue
+    descenteMax: 0.02, // jeu vertical (Billy et ses oreilles sont plus bas)
+    largeurZone: 0.12,
+  },
 };
 
 module.exports = { VERIFIE_LE, FILES, RECHARGES_SORTS, TP_DECHAINEE_DES_S, HATE_SORTS, DECALAGE_ARENA, OBJETS_CONTRE, DEADLOCK };

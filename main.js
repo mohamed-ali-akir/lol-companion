@@ -8,7 +8,7 @@
 // La page, elle, n'a accès à ces fonctions qu'à travers preload.js.
 // En arrière-plan (fenêtre cachée), l'appli reste dans la zone de notification de Windows
 // et continue de surveiller le client (voir la partie "Arrière-plan" en bas de ce fichier).
-const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, protocol, Notification, screen, shell, systemPreferences } = require("electron");
+const { app, BrowserWindow, Menu, Tray, nativeImage, ipcMain, protocol, Notification, screen, shell, systemPreferences, desktopCapturer } = require("electron");
 const { creerEnJeu } = require("./en-jeu.js"); // fenêtre transparente par-dessus le jeu : augments, chronos des sorts
 const path = require("path");
 const os = require("os"); // os.uptime() : depuis quand le Mac est allumé (démarrage réduit)
@@ -39,6 +39,8 @@ const { brancherMessages, reponseErreur } = require("./messages.js"); // message
 const { creerDeadlock } = require("./deadlock.js"); // mode Deadlock : jeu lancé, historique et stats (deadlock-api.com)
 const { creerLecteurDeadlock } = require("./deadlock-api.js");
 const { creerDonneesDeadlock } = require("./deadlock-donnees.js");
+const { creerLecteurEcran, preparerIcone } = require("./deadlock-ecran.js"); // héros de la partie repérés sur l'écran
+const { DEADLOCK } = require("./donnees-jeu.js");
 const { routeIcone, creerCacheIcones, chargerImageClient, PROTOCOLE_ICONES, creerLecteurProfils, lireFicheChampion } = require("./champions.js");
 const {
   actionFermeture,
@@ -466,9 +468,45 @@ function demarrerSelection() {
 // mode Deadlock. Rien n'est lu dans le jeu lui-même (anti-triche de Valve) ; les stats viennent de deadlock-api.com.
 // ---------------------------------------------------------------------------
 
+/**
+ * Capture de la BANDE DU HAUT de l'écran principal (11 % de la hauteur : la barre des portraits), pour deadlock-ecran.js.
+ * Comme un partage d'écran : rien n'est lu dans le jeu. Gardée en mémoire le temps de l'analyse, jamais enregistrée ni
+ * envoyée. Deadlock doit être sur l'écran principal (en plein écran fenêtré ou en fenêtre ; un plein écran exclusif peut
+ * donner une image noire : alors rien n'est reconnu, et on choisit les héros à la main).
+ */
+async function capturerBandeHaut() {
+  const ecran = screen.getPrimaryDisplay();
+  const largeur = Math.round(ecran.size.width * ecran.scaleFactor);
+  const hauteur = Math.round(ecran.size.height * ecran.scaleFactor);
+  const sources = await desktopCapturer.getSources({ types: ["screen"], thumbnailSize: { width: largeur, height: hauteur } });
+  const source = sources.find((s) => s.display_id === String(ecran.id)) || sources[0];
+  if (!source || source.thumbnail.isEmpty()) return null;
+  const image = source.thumbnail;
+  const taille = image.getSize();
+  const bande = image.crop({ x: 0, y: 0, width: taille.width, height: Math.round(taille.height * DEADLOCK.barreHaut.hauteur) });
+  return { bande: { ...bande.getSize(), data: bande.toBitmap() }, hauteurEcran: taille.height };
+}
+
 function demarrerDeadlock() {
+  const lecteur = creerLecteurDeadlock();
+  const iconesPreparees = new Map(); // hauteur d'écran -> icônes prêtes à comparer (préparées une fois)
+  const ecran = creerLecteurEcran({
+    capturer: capturerBandeHaut,
+    icones: async (hauteurEcran) => {
+      if (!iconesPreparees.has(hauteurEcran)) {
+        const liste = [];
+        for (const { id, png } of await lecteur.icones()) {
+          const image = nativeImage.createFromBuffer(png);
+          if (!image.isEmpty()) liste.push(preparerIcone(id, { ...image.getSize(), data: image.toBitmap() }, hauteurEcran));
+        }
+        iconesPreparees.set(hauteurEcran, liste);
+      }
+      return iconesPreparees.get(hauteurEcran);
+    },
+  });
   deadlock = creerDeadlock({
-    lecteur: creerLecteurDeadlock(),
+    lecteur,
+    ecran,
     donnees: creerDonneesDeadlock({ dossier: app.getPath("userData") }),
     reglages: () => stockage.reglagesDeadlock(),
     enregistrerReglages: (reglages) => stockage.enregistrerReglagesDeadlock(reglages),

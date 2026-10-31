@@ -132,6 +132,37 @@ test("lecteur : mise à jour (date, stats avant et après) et détail d'une part
   await assert.rejects(l.partie("42"), /Partie inconnue/);
 });
 
+test("lecteur : icônes des héros (site d'images seulement, en octets, gardées 24 h), adresses étrangères ignorées", async () => {
+  const demandes = [];
+  const herosBrut = [
+    { id: 1, name: "Infernus", images: { icon_image_small: "https://assets-bucket.deadlock-api.com/assets-api-res/images/heroes/inferno_sm.png" } },
+    { id: 2, name: "Seven", images: { icon_image_small: "https://pirate.example.com/seven.png" } }, // autre site : jamais lu
+    { id: 3, name: "Vindicta", images: { icon_image_small: "http://assets-bucket.deadlock-api.com/x.png" } }, // pas https
+    { id: 4, name: "Lady Geist", images: { icon_image_small: "https://assets-bucket.deadlock-api.com/geist.png" } },
+    { id: 5, name: "Désactivé", disabled: true, images: { icon_image_small: "https://assets-bucket.deadlock-api.com/d.png" } },
+    { id: 6, name: "Sans image" },
+  ];
+  const appeler = async (adresse) => {
+    const url = new URL(adresse);
+    demandes.push(url.toString());
+    if (url.pathname === "/v1/assets/heroes") return { ok: true, status: 200, text: async () => JSON.stringify(herosBrut) };
+    if (url.pathname.endsWith("geist.png")) return { ok: false, status: 500, text: async () => "" }; // illisible : sautée
+    return { ok: true, status: 200, arrayBuffer: async () => new Uint8Array([137, 80, 78, 71]).buffer };
+  };
+  let heure = MAINTENANT;
+  const l = A.creerLecteurDeadlock({ appeler, maintenant: () => heure });
+  const icones = await l.icones();
+  assert.deepStrictEqual(icones.map((i) => i.id), [1]);
+  assert.ok(Buffer.isBuffer(icones[0].png) && icones[0].png[1] === 80, "octets de l'image");
+  assert.ok(demandes.every((d) => d.startsWith("https://api.deadlock-api.com/") || d.startsWith("https://assets-bucket.deadlock-api.com/")), "aucun autre site");
+  const avant = demandes.length;
+  heure += 23 * 60 * 60 * 1000;
+  await l.icones();
+  assert.strictEqual(demandes.length, avant, "gardées 24 h");
+  const vide = A.creerLecteurDeadlock({ appeler: async () => ({ ok: true, status: 200, text: async () => "[]" }), maintenant: () => MAINTENANT });
+  await assert.rejects(vide.icones(), /aucune icône/);
+});
+
 // --- deadlock.json ---------------------------------------------------------------------------------
 
 test("deadlock.json : sessions et parties envoyées, lecture tolérante, sessions trop courtes ignorées", () => {
@@ -159,17 +190,18 @@ test("deadlock.json : sessions et parties envoyées, lecture tolérante, session
 });
 
 test("réglages : niveau entre 1 et 11 ou tous ; l'ancienne case de l'envoi des parties est ignorée", () => {
-  assert.deepStrictEqual(normaliserReglagesDeadlock(undefined), { rang: null });
-  assert.deepStrictEqual(normaliserReglagesDeadlock({ envoyerParties: false, rang: 0 }), { rang: null });
-  assert.deepStrictEqual(normaliserReglagesDeadlock({ envoyerParties: true, rang: 8 }), { rang: 8 });
-  assert.deepStrictEqual(normaliserReglagesDeadlock({ rang: 12 }), { rang: null });
+  assert.deepStrictEqual(normaliserReglagesDeadlock(undefined), { rang: null, ecran: true }, "écran : oui par défaut");
+  assert.deepStrictEqual(normaliserReglagesDeadlock({ envoyerParties: false, rang: 0 }), { rang: null, ecran: true });
+  assert.deepStrictEqual(normaliserReglagesDeadlock({ envoyerParties: true, rang: 8 }), { rang: 8, ecran: true });
+  assert.deepStrictEqual(normaliserReglagesDeadlock({ rang: 12, ecran: false }), { rang: null, ecran: false });
+  assert.deepStrictEqual(normaliserReglagesDeadlock({ ecran: "non" }), { rang: null, ecran: true }, "seul false coupe");
 });
 
 // --- Le service ------------------------------------------------------------------------------------------
 
 const HEROS = new Map([[1, { id: 1, nom: "Infernus" }], [2, { id: 2, nom: "Seven" }]]);
 
-function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" }, cache = [], historique = [], echecEnvoi = null, patch = Date.UTC(2026, 8, 29), enDirect = null } = {}) {
+function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" }, cache = [], historique = [], echecEnvoi = null, patch = Date.UTC(2026, 8, 29), enDirect = null, ecran = null } = {}) {
   const trace = { envoyees: [], etats: [], journal: [], sessions: [], notees: [], patchs: [], direct: [], reglages: { rang: null } };
   const etatJeu = { lance };
   let heure = 1_000_000;
@@ -236,6 +268,7 @@ function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" },
   enDirect = enDirect || { partie: null, erreur: null };
   const dl = creerDeadlock({
     lecteur,
+    ecran,
     donnees,
     jeu,
     reglages: () => trace.reglages,
@@ -253,7 +286,7 @@ test("service : état (jeu, compte, temps de jeu), lancement puis fermeture enre
   dl.demarrer();
   await dl.verifier();
   assert.deepStrictEqual(await dl.etat(), {
-    lance: false, compte: { accountId: 123, pseudo: "Joueur" }, temps: { aujourdhui: 0, septJours: 0, total: 0 }, reglages: { rang: null }, dernierEnvoi: { date: 1_000_000, envoyees: 0, erreur: null }, // cache vide, vérifié au démarrage
+    lance: false, compte: { accountId: 123, pseudo: "Joueur" }, temps: { aujourdhui: 0, septJours: 0, total: 0 }, reglages: { rang: null, ecran: true }, dernierEnvoi: { date: 1_000_000, envoyees: 0, erreur: null }, // cache vide, vérifié au démarrage
     partie: null,
   });
   etatJeu.lance = true;
@@ -353,7 +386,7 @@ test("service : partie en direct cherchée seulement jeu lancé, page prévenue 
   const avant = trace.etats.length;
   enDirect.partie = PARTIE;
   await dl.chercherPartie();
-  assert.deepStrictEqual(trace.etats.at(-1).partie, PARTIE, "la page est prévenue");
+  assert.deepStrictEqual(trace.etats.at(-1).partie, { source: "site", ...PARTIE }, "la page est prévenue");
   assert.ok(trace.journal.some((l) => l.includes("partie en direct trouvée")));
   const prevenue = trace.etats.length;
   await dl.chercherPartie();
@@ -361,7 +394,7 @@ test("service : partie en direct cherchée seulement jeu lancé, page prévenue 
   enDirect.erreur = "deadlock-api.com ne répond pas";
   await dl.chercherPartie();
   await dl.chercherPartie();
-  assert.deepStrictEqual((await dl.etat()).partie, PARTIE, "panne passagère : la partie est gardée");
+  assert.deepStrictEqual((await dl.etat()).partie, { source: "site", ...PARTIE }, "panne passagère : la partie est gardée");
   assert.strictEqual(trace.journal.filter((l) => l.includes("illisible")).length, 1, "la panne n'est écrite qu'une fois");
   enDirect.erreur = null;
   etatJeu.lance = false;
@@ -381,4 +414,64 @@ test("service : conseils contre l'équipe adverse, au niveau choisi, sur les obj
   assert.deepStrictEqual(r.conseils.map((c) => [c.titre, c.objets.map((o) => o.nom)]), [["Résistance à l'esprit", ["Extended Magazine"]]]);
   assert.deepStrictEqual(r.menaces.map((m) => m.cle), ["esprit", "soins"]);
   assert.strictEqual((await dl.conseils(2, [1])).manque, 2);
+});
+
+test("service : partie repérée sur l'écran si le site ne la voit pas ; case respectée ; rythme ralenti quand l'équipe est complète", async () => {
+  const vues = [];
+  let vue = null;
+  const ecran = { analyser: async () => { vues.push(1); if (vue instanceof Error) throw vue; return vue; } };
+  const { dl, trace, etatJeu, avancer } = service({ ecran });
+  dl.demarrer();
+  await dl.chercherPartie();
+  assert.strictEqual(vues.length, 0, "jeu fermé : l'écran n'est pas regardé");
+  etatJeu.lance = true;
+  await dl.verifier();
+  assert.strictEqual(vues.length, 1, "jeu lancé, partie inconnue du site : l'écran est regardé");
+  assert.strictEqual((await dl.etat()).partie, null, "rien sur l'écran (menu)");
+  vue = { allies: [3], ennemis: [2, 86, 4] };
+  await dl.chercherPartie();
+  assert.deepStrictEqual(trace.etats.at(-1).partie, { source: "ecran", matchId: null, debut: null, heroId: null, allies: [3], ennemis: [2, 86, 4] });
+  assert.ok(trace.journal.some((l) => l.includes("partie en direct trouvée (écran)")));
+  vue = null; // tableau des scores ouvert, mort... : on garde ce qu'on avait
+  await dl.chercherPartie();
+  assert.deepStrictEqual((await dl.etat()).partie.ennemis, [2, 86, 4]);
+  vue = { allies: [8], ennemis: [2, 4, 5, 6] }; // même partie (2 ennemis en commun) : les héros s'ajoutent
+  await dl.chercherPartie();
+  assert.deepStrictEqual((await dl.etat()).partie.ennemis, [2, 86, 4, 5, 6]);
+  assert.deepStrictEqual((await dl.etat()).partie.allies, [3, 8]);
+  vue = { allies: [3], ennemis: [2, 86, 4, 5, 6, 7] }; // équipe complète : prochaine analyse dans 3 min
+  await dl.chercherPartie();
+  const n = vues.length;
+  await dl.chercherPartie();
+  assert.strictEqual(vues.length, n, "équipe complète : pas de nouvelle analyse tout de suite");
+  avancer(3 * 60 * 1000);
+  vue = new Error("capture impossible");
+  await dl.chercherPartie();
+  assert.strictEqual(vues.length, n + 1);
+  assert.strictEqual((await dl.etat()).partie.ennemis.length, 6, "erreur : on garde ce qu'on avait");
+  vue = { allies: [], ennemis: [11, 12, 13] }; // autre partie (aucun ennemi en commun) : on repart de zéro
+  avancer(3 * 60 * 1000);
+  await dl.chercherPartie();
+  assert.deepStrictEqual((await dl.etat()).partie.ennemis, [11, 12, 13]);
+  vue = new Error("capture impossible");
+  assert.ok(trace.journal.some((l) => l.includes("écran illisible")));
+  trace.reglages = { rang: null, ecran: false };
+  avancer(3 * 60 * 1000);
+  await dl.chercherPartie();
+  assert.strictEqual(vues.length, n + 2, "case décochée : l'écran n'est plus regardé");
+  etatJeu.lance = false;
+  await dl.verifier();
+  assert.strictEqual(trace.etats.at(-1).partie, null, "jeu fermé : plus de partie");
+  dl.arreter();
+
+  // Le site voit la partie : l'écran n'est pas regardé.
+  const vuesSite = [];
+  const site = service({ ecran: { analyser: async () => vuesSite.push(1) && null }, enDirect: { partie: { matchId: 9, heroId: 1, allies: [], ennemis: [2, 3, 4] }, erreur: null } });
+  site.dl.demarrer();
+  await site.dl.verifier(); // première vérification (jeu fermé), lancée par demarrer
+  site.etatJeu.lance = true;
+  await site.dl.verifier();
+  assert.strictEqual((await site.dl.etat()).partie.source, "site");
+  assert.strictEqual(vuesSite.length, 0);
+  site.dl.arreter();
 });

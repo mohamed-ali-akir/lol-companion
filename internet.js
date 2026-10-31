@@ -52,8 +52,9 @@ function creerCache({ dureeMs = DUREE_CACHE_MS, maintenant = Date.now } = {}) {
  *  Erreur      : classe d'erreur du site (ErreurOpgg...)
  *  introuvable : message si le site répond 404 (sinon : message « code 404 »)
  *  delaiMs     : délai maximal (20 s par défaut ; plus long pour les rares réponses lentes ou lourdes de deadlock-api.com)
+ *  binaire     : true -> renvoie les octets (Buffer : images), sinon le texte
  */
-async function telecharger({ appeler, adresse, options = {}, site, Erreur, introuvable = null, delaiMs = DELAI_MAX_MS }) {
+async function telecharger({ appeler, adresse, options = {}, site, Erreur, introuvable = null, delaiMs = DELAI_MAX_MS, binaire = false }) {
   let reponse;
   try {
     reponse = await appeler(adresse, {
@@ -68,7 +69,7 @@ async function telecharger({ appeler, adresse, options = {}, site, Erreur, intro
   // 429 (trop de demandes) et 503 (site surchargé ; deadlock-api.com le dit avec Retry-After) : pas une panne.
   if (reponse.status === 429 || reponse.status === 503) throw new Erreur(`${site} est surchargé pour le moment : réessaie dans quelques minutes.`);
   if (!reponse.ok) throw new Erreur(`${site} a répondu une erreur (code ${reponse.status}).`);
-  return reponse.text();
+  return binaire ? Buffer.from(await reponse.arrayBuffer()) : reponse.text();
 }
 
 module.exports = { DELAI_MAX_MS, DUREE_CACHE_MS, IDENTITE, creerCache, telecharger };

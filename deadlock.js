@@ -18,7 +18,9 @@ const { JOURS_TIER_LISTE, JOURS_BUILD, JOURS_AVANT_PATCH } = require("./deadlock
 
 /**
  * Réglages du mode Deadlock (config.json, clé « deadlock »), toujours valides :
- *  - rang : niveau minimal des parties pour les stats des héros et le build (0 à 11 ; null = tous les niveaux).
+ *  - rang : niveau minimal des parties pour les stats des héros et le build (0 à 11 ; null = tous les niveaux) ;
+ *  - ecran : repérer les héros de la partie sur l'écran (deadlock-ecran.js ; oui par défaut, accord du propriétaire du
+ *    31/10/2026 ; case de l'onglet En partie).
  * L'envoi des parties du cache de Steam n'a plus de case : il est fait d'office (décision du propriétaire, 27/10/2026,
  * version 1.5.1). L'ancien réglage « envoyerParties » est simplement ignoré.
  */
@@ -26,6 +28,7 @@ function normaliserReglagesDeadlock(brut) {
   const r = brut && typeof brut === "object" ? brut : {};
   return {
     rang: Number.isInteger(r.rang) && r.rang >= 1 && r.rang <= 11 ? r.rang : null,
+    ecran: r.ecran !== false,
   };
 }
 
@@ -38,7 +41,7 @@ const MESSAGE_AUCUNE_PARTIE =
  * surEtat(etat) : appelé quand l'état change (jeu lancé ou fermé, parties envoyées) ; journal(...) : journal.txt.
  */
 function creerDeadlock({
-  lecteur, donnees, reglages, enregistrerReglages, jeu = J, maintenant = Date.now, intervalleMs = 5000, intervalleDirectMs = 30 * 1000,
+  lecteur, donnees, reglages, enregistrerReglages, jeu = J, ecran = null, maintenant = Date.now, intervalleMs = 5000, intervalleDirectMs = 30 * 1000,
   journal = () => {}, surEtat = () => {},
 }) {
   let compte; // compte Steam de ce PC (undefined : pas encore lu ; null : aucun)
@@ -46,6 +49,8 @@ function creerDeadlock({
   let minuterieDirect = null;
   let partieDirect = null; // ta partie en cours trouvée sur deadlock-api.com (partieEnCours de deadlock-stats.js), ou null
   let erreurDirectDite = false; // une panne du site n'est écrite qu'une fois dans le journal
+  let rechercheEnCours = null;
+  let prochainEcran = 0; // heure de la prochaine analyse de l'écran (elle prend une dizaine de secondes)
   let dernierEnvoi = null; // { date, envoyees, erreur } du dernier envoi des parties du cache
   let envoiEnCours = null;
 
@@ -159,24 +164,60 @@ function creerDeadlock({
    * trouvée, change ou se termine. Le site ne voit que les parties de l'onglet « Regarder » du jeu : ne rien trouver
    * est normal, la page propose alors de choisir les héros adverses.
    */
-  async function chercherPartie() {
+  function chercherPartie() {
+    if (!rechercheEnCours) rechercheEnCours = rechercher().finally(() => (rechercheEnCours = null));
+    return rechercheEnCours;
+  }
+
+  /**
+   * Partie repérée sur l'écran (deadlock-ecran.js), si le site ne la voit pas. L'analyse coûte une dizaine de secondes de
+   * calcul (découpé, l'appli reste fluide) : toutes les 30 s tant que l'équipe adverse n'est pas complète, puis toutes
+   * les 3 min seulement (pour voir la partie suivante). Rien de trouvé (menu, tableau des scores ouvert...) : on garde
+   * ce qu'on avait, jusqu'à la fermeture du jeu. Même partie (2 ennemis en commun au moins) : les héros trouvés
+   * s'ajoutent d'une analyse à l'autre (un héros mort, en gris, n'est reconnu qu'à la capture suivante) ; sinon,
+   * c'est une nouvelle partie et on repart de zéro.
+   */
+  async function partieSurEcran() {
+    const precedente = partieDirect && partieDirect.source === "ecran" ? partieDirect : null;
+    if (!ecran || !reglagesPropres().ecran || maintenant() < prochainEcran) return precedente;
+    let vue = null;
+    try {
+      vue = await ecran.analyser();
+    } catch (erreur) {
+      journal("Deadlock : écran illisible", erreur.message);
+    }
+    if (!vue) {
+      prochainEcran = 0;
+      return precedente;
+    }
+    const memePartie = precedente && vue.ennemis.filter((id) => precedente.ennemis.includes(id)).length >= 2;
+    const cumul = (avant, nouveaux) => [...avant, ...nouveaux.filter((id) => !avant.includes(id))].slice(0, 6);
+    const ennemis = memePartie ? cumul(precedente.ennemis, vue.ennemis) : vue.ennemis;
+    const allies = (memePartie ? cumul(precedente.allies, vue.allies) : vue.allies).filter((id) => !ennemis.includes(id));
+    prochainEcran = ennemis.length >= 6 ? maintenant() + 3 * 60 * 1000 : 0;
+    return { source: "ecran", matchId: null, debut: null, heroId: null, allies, ennemis };
+  }
+
+  async function rechercher() {
     const lance = suivi ? suivi.etat().lance : false;
     const c = lance ? await compteDuPc() : null;
     let trouvee = null;
     if (c) {
       try {
         trouvee = await lecteur.partieEnCours(c.accountId);
+        if (trouvee) trouvee = { source: "site", ...trouvee };
         erreurDirectDite = false;
       } catch (erreur) {
         if (!erreurDirectDite) journal("Deadlock : partie en direct illisible", erreur.message);
         erreurDirectDite = true;
-        trouvee = partieDirect; // panne passagère : on garde ce qu'on savait
+        trouvee = partieDirect && partieDirect.source === "site" ? partieDirect : null; // panne passagère : on garde ce qu'on savait
       }
     }
+    if (lance && !trouvee) trouvee = await partieSurEcran();
     const avant = partieDirect ? JSON.stringify(partieDirect) : null;
     partieDirect = trouvee;
     if ((trouvee ? JSON.stringify(trouvee) : null) !== avant) {
-      if (trouvee && (!avant || JSON.parse(avant).matchId !== trouvee.matchId)) journal("Deadlock : partie en direct trouvée", trouvee.matchId);
+      if (trouvee) journal(`Deadlock : partie en direct trouvée (${trouvee.source === "ecran" ? "écran" : "site"})`, trouvee.matchId || trouvee.ennemis.join(","));
       await publier();
     }
     return partieDirect;
@@ -256,6 +297,7 @@ function creerDeadlock({
         journal("Deadlock fermé", `${Math.round((session.fin - session.debut) / 60000)} min`);
         donnees.ajouterSession(session);
         partieDirect = null; // jeu fermé : plus de partie en cours
+        prochainEcran = 0;
         await publier();
         if (await envoyerNouvellesParties()) await publier();
       },

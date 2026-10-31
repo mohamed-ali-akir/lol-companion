@@ -215,6 +215,12 @@ const API_DEADLOCK_AVANT = {
   "/v1/analytics/hero-stats": [{ hero_id: 1, wins: 5500, losses: 5500, matches: 11000 }, { hero_id: 2, wins: 5200, losses: 5300, matches: 10500 }, { hero_id: 3, wins: 4600, losses: 4200, matches: 8800 }],
   "/v1/analytics/item-stats": [{ item_id: 11, wins: 4700, losses: 5100, matches: 9800 }, { item_id: 14, wins: 3900, losses: 3100, matches: 7000 }],
 };
+// Jamais de capture du vrai écran pendant l'essai (onglet En partie, deadlock-ecran.js) : aucune source d'écran.
+let capturesEcran = 0;
+require("electron").desktopCapturer.getSources = async () => {
+  capturesEcran++;
+  return [];
+};
 const appelsDeadlock = [];
 const fetchOrigine = globalThis.fetch;
 globalThis.fetch = async (adresse, options = {}) => {
@@ -239,7 +245,7 @@ const ATTENDU = {
 };
 // Mode Deadlock : ce que chaque onglet doit montrer avec la fausse deadlock-api.com.
 const ATTENDU_DEADLOCK = {
-  deadlockdirect: ["Partie détectée : tu joues Infernus", "4 / 6", "Résistance à l'esprit", "3 ennemis à dégâts d'esprit : Seven, Lady Geist, McGinnis", "Spirit Shielding", "Anti-soin", "Toxic Bullets"],
+  deadlockdirect: ["Repérer les héros sur mon écran", "Partie détectée : tu joues Infernus", "4 / 6", "Résistance à l'esprit", "3 ennemis à dégâts d'esprit : Seven, Lady Geist, McGinnis", "Spirit Shielding", "Anti-soin", "Toxic Bullets"],
   deadlock: ["Ton compte Steam", "Joueur", "Deadlock est lancé", "Infernus", "Classée", "Street Brawl"],
   deadlockheros: ["Infernus", "Seven", "Vindicta", "Tes héros", "Depuis la mise à jour du", "Héros en hausse", "Extended Magazine", "+4,5 points"],
   deadlockbuild: ["Build Infernus", "Début de partie", "Extended Magazine", "Toxic Bullets", "Plus dur contre", "Seven"],
@@ -385,6 +391,12 @@ require(path.join(PROJET, "main.js"));
       await attendre(1000);
       const choisis = await texteDuPanneau(onglet);
       if (!choisis.includes("3 / 6") || !choisis.includes("Résistance à l'esprit")) problemes.push("En partie : choix à la main des ennemis sans conseil");
+      if (!(await page(`$("deadlockDirectEcran").checked`))) problemes.push("En partie : la case « Repérer les héros sur mon écran » n'est pas cochée d'office");
+      await page(`$("deadlockDirectEcran").click(); true`);
+      await attendre(400);
+      if (config().deadlock.ecran !== false) problemes.push("En partie : décocher « Repérer les héros sur mon écran » n'est pas enregistré");
+      await page(`$("deadlockDirectEcran").click(); true`);
+      await attendre(400);
     }
     if (onglet === "deadlock") {
       // Détail de la dernière partie (31/10/2026) : les deux équipes, toi repéré, les objets en pastilles.

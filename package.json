@@ -74,6 +74,7 @@
       "deadlock.js",
       "deadlock-api.js",
       "deadlock-donnees.js",
+      "deadlock-ecran.js",
       "deadlock-jeu.js",
       "deadlock-stats.js"
     ],

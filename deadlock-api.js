@@ -20,6 +20,11 @@ const { creerCache, telecharger } = require("./internet.js");
 const S = require("./deadlock-stats.js");
 
 const URL_API = "https://api.deadlock-api.com";
+// Images des héros (31/10/2026, accord du propriétaire) : site d'images de deadlock-api.com. Seules les petites icônes
+// (« icon_image_small », 128×128) sont lues, pour reconnaître les portraits de la barre du haut (deadlock-ecran.js).
+const HOTE_IMAGES = "assets-bucket.deadlock-api.com";
+const DUREE_ICONES_MS = 24 * 60 * 60 * 1000; // les icônes ne changent qu'avec les mises à jour du jeu
+const ICONES_EN_MEME_TEMPS = 6;
 const SITE = "deadlock-api.com";
 const DUREE_JOUEUR_MS = 5 * 60 * 1000;
 const DUREE_DIRECT_MS = 20 * 1000; // ta partie en direct : relue au plus toutes les 20 s // ton historique change après chaque partie : 5 minutes de cache seulement
@@ -65,6 +70,7 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
 
   const parties = creerCache({ maintenant }); // 3 h : détail des parties ouvertes (déjà réduit à l'essentiel)
   const direct = creerCache({ dureeMs: DUREE_DIRECT_MS, maintenant }); // 20 s : ta partie en cours
+  const images = creerCache({ dureeMs: DUREE_ICONES_MS, maintenant }); // 24 h : icônes des héros
 
   /**
    * Lit une adresse (JSON), avec cache. transformer : réduit la réponse AVANT de la garder (détail d'une partie :
@@ -129,6 +135,41 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
   const partieEnCours = async (accountId) =>
     S.partieEnCours(await lireJson(adresse("/v1/matches/active", { account_id: numeroCompte(accountId) }), direct), accountId);
 
+  /**
+   * Petites icônes de tous les héros (même en développement : ils peuvent être joués) : [{ id, png (Buffer) }]. Seules
+   * les adresses https du site d'images sont suivies ; une icône illisible est sautée (son héros ne sera pas reconnu).
+   * Lues 6 par 6, une fois par jour au plus.
+   */
+  const icones = async () => images.avecCache("icones", async () => {
+    const herosBrut = await lireJson(adresse("/v1/assets/heroes"), general);
+    const aLire = [];
+    for (const h of Array.isArray(herosBrut) ? herosBrut : []) {
+      const url = h && h.images && typeof h.images.icon_image_small === "string" ? h.images.icon_image_small : null;
+      if (!Number.isInteger(h.id) || !url || h.disabled === true || h.player_selectable === false) continue;
+      let lien;
+      try {
+        lien = new URL(url);
+      } catch {
+        continue;
+      }
+      if (lien.protocol === "https:" && lien.hostname === HOTE_IMAGES) aLire.push({ id: h.id, url: lien.toString() });
+    }
+    if (aLire.length === 0) throw new ErreurDeadlockApi(`${SITE} n'a donné aucune icône de héros lisible.`);
+    const resultat = [];
+    for (let i = 0; i < aLire.length; i += ICONES_EN_MEME_TEMPS) {
+      const paquet = await Promise.all(aLire.slice(i, i + ICONES_EN_MEME_TEMPS).map(async ({ id, url }) => {
+        try {
+          return { id, png: await telecharger({ appeler, adresse: url, site: SITE, Erreur: ErreurDeadlockApi, binaire: true }) };
+        } catch {
+          return null;
+        }
+      }));
+      resultat.push(...paquet.filter(Boolean));
+    }
+    if (resultat.length < aLire.length / 2) throw new ErreurDeadlockApi(`${SITE} : icônes des héros illisibles (pas d'Internet ?).`);
+    return resultat;
+  });
+
   /** Date de la dernière grosse mise à jour (millisecondes), ou null. */
   const dernierGrosPatch = async () => S.dernierGrosPatch(await lireJson(adresse("/v1/patches/big-days"), general), maintenant());
 
@@ -192,7 +233,7 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
     return valides.length;
   }
 
-  return { heros, nomsHeros, objets, rangs, historique, mesStatsHeros, statsHeros, statsObjets, statsHerosBuild, duels, dernierGrosPatch, statsAutourDuPatch, partie, profils, familles, partieEnCours, envoyerParties };
+  return { heros, nomsHeros, objets, rangs, historique, mesStatsHeros, statsHeros, statsObjets, statsHerosBuild, duels, dernierGrosPatch, statsAutourDuPatch, partie, profils, familles, partieEnCours, icones, envoyerParties };
 }
 
-module.exports = { URL_API, SITE, JOURS_TIER_LISTE, JOURS_BUILD, JOURS_AVANT_PATCH, DELAI_LENT_MS, ErreurDeadlockApi, depuis, adresse, creerLecteurDeadlock };
+module.exports = { URL_API, HOTE_IMAGES, SITE, JOURS_TIER_LISTE, JOURS_BUILD, JOURS_AVANT_PATCH, DELAI_LENT_MS, ErreurDeadlockApi, depuis, adresse, creerLecteurDeadlock };

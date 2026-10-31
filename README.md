@@ -262,10 +262,26 @@ chaque jeu est retenu.
   - **Ta partie en direct** : pendant que Deadlock tourne, l'appli demande toutes les 30 s à deadlock-api.com si ton
     compte est dans une partie en cours (`/v1/matches/active?account_id=`, 20 s de cache). Trouvée : ton héros et les
     héros adverses sont remplis tout seuls et l'onglet s'ouvre (une fois par partie). **Limite** : le site ne voit que les
-    parties de l'onglet « Regarder » du jeu (les 200 mieux classées du moment, vérifié le 31/10/2026). Pour les autres,
-    tu cliques sur les héros adverses (3 au moins) : quelques secondes au début de la partie. Rien n'est lu dans le jeu
-    (pas d'API locale, anti-triche) : le jeu n'écrit nulle part sur le PC qui sont tes adversaires (fichiers du dossier
-    du jeu vérifiés le 31/10/2026).
+    parties de l'onglet « Regarder » du jeu (les 200 mieux classées du moment, vérifié le 31/10/2026). Le jeu n'écrit
+    nulle part sur le PC qui sont tes adversaires (fichiers du dossier du jeu vérifiés le 31/10/2026).
+  - **Héros repérés sur ton écran** (`deadlock-ecran.js`, accord du propriétaire du 31/10/2026, case « Repérer les héros
+    sur mon écran » cochée d'office) : pour toutes les autres parties, l'appli capture la **bande du haut** de ton écran
+    principal (11 % de la hauteur : la barre des 12 portraits ; comme un partage d'écran ou OBS, rien n'est lu dans le
+    jeu) et compare chaque portrait aux petites icônes des héros de deadlock-api.com (`icon_image_small`, téléchargées
+    une fois par jour depuis `assets-bucket.deadlock-api.com`). La capture reste en mémoire le temps du calcul, n'est
+    jamais enregistrée ni envoyée. Ton équipe est à gauche, l'équipe adverse à droite.
+    - Mesure : corrélation des couleurs moins l'écart des couleurs, à plusieurs tailles et autour de la place attendue
+      (`DEADLOCK.barreHaut` dans `donnees-jeu.js`, en fraction de la hauteur de l'écran), puis « ajustée » : moins le
+      score habituel du même héros sur toute la barre (une icône neutre comme Sinclair ressemblait un peu à tout).
+    - Décision : la barre n'est « vue » que si 4 portraits sont reconnus sans aucun doute (jamais sur le menu) ; alors
+      chaque portrait assez net est gardé. Un héros mort (en gris) ou sous « CRITICAL » reste vide : il est trouvé à
+      l'analyse suivante (les héros s'ajoutent tant que c'est la même partie), ou tu le cliques.
+    - Réglé et vérifié le 31/10/2026 sur de vraies captures en 2560×1440 (2 parties, le menu, et une partie en direct) :
+      aucune erreur, 4 à 6 ennemis sur 6 trouvés par capture. Autres résolutions : la géométrie suit la hauteur de
+      l'écran (à vérifier) ; plein écran exclusif : la capture peut être noire (alors rien n'est trouvé).
+    - Coût : une analyse prend une quinzaine de secondes de calcul, découpé en petits morceaux (l'appli reste fluide) ;
+      toutes les 30 s tant que l'équipe adverse n'est pas complète, puis toutes les 3 min (partie suivante).
+  - Sinon, tu cliques sur les héros adverses (3 au moins).
   - **Profil de chaque héros adverse** (`profilsHeros`) : dégâts d'esprit (type « mystic » du jeu) ou de balles
     (« marksman », « assassin »), tank (mot « Tank », ou au moins 15 % de dégâts encaissés de plus par partie que le
     héros médian), soins et contrôles (mots du jeu sur chaque héros : « Lifesteal », « Support »... « Disruptor »,
@@ -767,6 +783,9 @@ inattendu n'est jamais une raison de planter, l'appli affiche ce qu'elle a.
   le niveau choisis ; et, automatiquement (depuis la 1.5.1), le numéro, le serveur et la clé des parties trouvées dans
   le cache de Steam. Jamais ton pseudo. Sur le PC, l'appli ne regarde que la liste des programmes, ton
   compte Steam et ce cache : jamais la mémoire de Deadlock, jamais d'affichage par-dessus (anti-triche).
+  Onglet En partie (31/10/2026) : ta partie en cours (ton numéro de compte) ; les icônes des héros
+  (`assets-bucket.deadlock-api.com`, rien n'y est envoyé) ; la bande du haut de ton écran, analysée sur le PC, jamais
+  enregistrée ni envoyée (case pour couper).
 - **Mise à jour automatique** (décision du propriétaire, 11/10/2026) : l'appli installée lit la dernière Release de
   github.com/mohamed-ali-akir/lol-companion (activé par défaut, désactivable). Elle ne fait que télécharger des fichiers
   publics, et refuse un fichier dont l'empreinte sha512 ne correspond pas à `latest.yml`. La sécurité repose sur le
@@ -870,6 +889,7 @@ lol-level-calculator/
 ├── deadlock.js        # Mode Deadlock : le service (jeu lancé, historique, héros, build, envoi des parties) (testé)
 ├── deadlock-jeu.js    # Deadlock sur ce PC : jeu lancé (tasklist), compte Steam, parties du cache de Steam (testé)
 ├── deadlock-api.js    # deadlock-api.com (Internet) : historique, détail d'une partie, stats des héros et des objets, envoi des parties
+├── deadlock-ecran.js  # Mode Deadlock : héros de la partie reconnus sur la bande du haut de l'écran (testé)
 ├── deadlock-stats.js  # Mode Deadlock : calculs purs (tes parties, détail d'une partie, tier list, mise à jour, build, contres, temps de jeu)
 ├── deadlock-donnees.js # deadlock.json : tes sessions de jeu et les parties déjà envoyées (écriture sûre)
 ├── statistiques.js    # Taux de victoire prudent (Wilson), partagé par le build de LoL et le mode Deadlock
