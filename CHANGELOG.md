@@ -3,7 +3,7 @@
 Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le détail technique de chaque choix est dans
 le [README](README.md) et dans l'historique Git.
 
-## Prochaine version
+## 1.5.3 (31/10/2026)
 - **Deadlock · nouvel onglet « En partie »** : les objets à acheter contre l'équipe adverse (résistance à l'esprit ou
   aux balles, anti-soin, contre les tanks, contre les contrôles), choisis parmi ceux que ton héros achète le plus, avec
   la raison. Ta partie est détectée toute seule quand deadlock-api.com la voit (parties de l'onglet « Regarder » du
