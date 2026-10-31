@@ -132,6 +132,22 @@ const VERIFICATIONS = [
     exiger(heros.montent.length + heros.baissent.length >= 5 && objets.montent.length + objets.baissent.length >= 5, "trop peu de héros ou d'objets comparés");
     return `mise à jour du ${new Date(date).toLocaleDateString("fr-FR")}, en tête : ${(heros.montent[0] || heros.baissent[0]).nom}`;
   }],
+  ["deadlock-api.com : partie en direct et objets contre l'équipe adverse (onglet En partie)", async () => {
+    const familles = await deadlock.familles();
+    const parFamille = (f) => [...familles.values()].filter((l) => l.includes(f)).length;
+    for (const f of ["esprit", "balles", "antisoin", "antitank", "controles"]) exiger(parFamille(f) >= 2, `famille « ${f} » : ${parFamille(f)} objet(s) (effets des objets renommés ?)`);
+    const profils = [...(await deadlock.profils()).values()];
+    for (const cle of ["esprit", "balles", "tank", "soins", "controles"]) exiger(profils.filter((p) => p[cle]).length >= 3, `profil « ${cle} » : moins de 3 héros (types ou mots des héros changés ?)`);
+    // Un joueur d'une partie de l'onglet « Regarder » : sa partie doit être retrouvée par son numéro de compte.
+    const reponse = await fetch("https://api.deadlock-api.com/v1/matches/active", { headers: { "User-Agent": require("../internet.js").IDENTITE } });
+    exiger(reponse.ok, `parties en cours : code ${reponse.status}`);
+    const actives = await reponse.json();
+    if (!Array.isArray(actives) || actives.length === 0) return "aucune partie en cours en ce moment (profils et familles lisibles)";
+    const compte = actives[0].players[0].account_id;
+    const partie = await deadlock.partieEnCours(compte);
+    exiger(partie && partie.ennemis.length >= 3, "partie en cours d'un joueur pas retrouvée (format changé ?)");
+    return `profils et familles lisibles, partie en direct retrouvée (${partie.ennemis.length} ennemis)`;
+  }],
 ];
 
 (async () => {

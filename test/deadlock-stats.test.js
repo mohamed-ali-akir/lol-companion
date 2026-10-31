@@ -295,3 +295,98 @@ test("détail d'une partie : ton équipe d'abord, toi repéré, plus riche d'abo
   assert.strictEqual(pasDedans.equipes.flatMap((e) => e.joueurs).some((j) => j.toi), false);
   assert.strictEqual(S.detailPartie(null), null);
 });
+
+// --- En partie : partie en direct et conseils contre l'équipe adverse (31/10/2026) --------------------------------
+
+test("partie en direct : ta partie trouvée dans /v1/matches/active, alliés et ennemis séparés ; sinon null", () => {
+  const brut = [
+    { match_id: 1, players: [{ account_id: 9, team: 0, hero_id: 1 }] },
+    {
+      match_id: 128475834, start_time: 1793458417,
+      players: [
+        { account_id: 123, team: 1, hero_id: 2 }, { account_id: 5, team: 1, hero_id: 3 }, { account_id: 6, team: 0, hero_id: 1 },
+        { account_id: 7, team: 0, hero_id: 13 }, { account_id: 8, team: 4, hero_id: 6 }, null,
+      ],
+    },
+  ];
+  assert.deepStrictEqual(S.partieEnCours(brut, 123), { matchId: 128475834, debut: 1793458417000, heroId: 2, allies: [3], ennemis: [1, 13] });
+  assert.strictEqual(S.partieEnCours(brut, 999), null);
+  assert.strictEqual(S.partieEnCours([], 123), null);
+  assert.strictEqual(S.partieEnCours({ pas: "une liste" }, 123), null);
+});
+
+test("profils des héros : esprit ou balles (type), tank (mot ou dégâts encaissés), soins et contrôles (mots du jeu)", () => {
+  const herosBrut = [
+    { id: 1, hero_type: "mystic", tags: ["Arsonist"] },
+    { id: 4, hero_type: "mystic", tags: ["Lifesteal", "Self Damage"] },
+    { id: 6, hero_type: "brawler", tags: ["Tank", "Brawler"] },
+    { id: 13, hero_type: "assassin", tags: ["Assassin"] },
+    { id: 18, hero_type: "brawler", tags: ["Initiator"] },
+    { id: 20, tags: "abîmé" },
+  ];
+  const stats = [
+    { hero_id: 1, matches: 1000, total_player_damage_taken: 33_000_000 },
+    { hero_id: 13, matches: 1000, total_player_damage_taken: 30_000_000 },
+    { hero_id: 4, matches: 1000, total_player_damage_taken: 34_000_000 },
+    { hero_id: 18, matches: 1000, total_player_damage_taken: 50_000_000 }, // encaisse beaucoup : tank
+    { hero_id: 20, matches: 10, total_player_damage_taken: 90_000_000 }, // trop peu de parties : ignoré
+  ];
+  const p = S.profilsHeros(herosBrut, stats);
+  assert.deepStrictEqual(p.get(1), { esprit: true, balles: false, tank: false, soins: false, controles: false });
+  assert.deepStrictEqual(p.get(4), { esprit: true, balles: false, tank: false, soins: true, controles: false });
+  assert.strictEqual(p.get(6).tank, true, "mot « Tank »");
+  assert.deepStrictEqual(p.get(13), { esprit: false, balles: true, tank: false, soins: false, controles: false });
+  assert.deepStrictEqual(p.get(18), { esprit: false, balles: false, tank: true, soins: false, controles: true });
+  assert.deepStrictEqual(p.get(20), { esprit: false, balles: false, tank: false, soins: false, controles: false });
+  assert.strictEqual(S.profilsHeros(null, null).size, 0);
+});
+
+test("familles d'objets : reconnues à leurs effets (seuils), objets spéciaux et hors boutique écartés", () => {
+  const effet = (value) => ({ value: String(value) });
+  const familles = S.famillesObjets([
+    { id: 1, type: "upgrade", cost: 1600, properties: { TechResist: effet(15) } }, // Spirit Shielding
+    { id: 2, type: "upgrade", cost: 1600, properties: { TechResist: effet(6) } }, // petit bonus : non
+    { id: 3, type: "upgrade", cost: 1600, properties: { HealAmpReceivePenaltyPercent: effet(-35), BulletResist: effet(18) } }, // deux familles
+    { id: 4, type: "upgrade", cost: 3200, properties: { CurrentHealthDamage: effet(7.5) } }, // Tankbuster
+    { id: 5, type: "upgrade", cost: 1600, properties: { MagicResistReduction: effet(0), StatusResistancePercent: effet(25) } },
+    { id: 6, type: "upgrade", cost: 9999, properties: { HealAmpReceivePenaltyPercent: effet(-40) } }, // objet spécial
+    { id: 7, type: "upgrade", cost: 1600, shopable: false, properties: { TechResist: effet(30) } },
+    { id: 8, type: "ability", cost: 0, properties: { TechResist: effet(30) } },
+    { id: 9, type: "upgrade", cost: 800, properties: { TechResist: "abîmé", BulletResist: { value: "x" } } },
+    { id: 10, type: "upgrade", cost: 6400, properties: { TechResist: effet(17), TechArmorDamageReduction: effet(-8) } }, // Escalating Exposure : malus pour l'ennemi
+    { id: 11, type: "upgrade", cost: 6400, properties: { ImmunityDuration: effet(20) } }, // Spirit Burn : durée d'un effet sur l'ennemi
+  ]);
+  assert.deepStrictEqual([...familles], [[1, ["esprit"]], [3, ["balles", "antisoin"]], [4, ["antitank"]], [5, ["controles"]]]);
+});
+
+test("conseils contre l'équipe : seuils par menace, objets les plus achetés par ton héros, raison avec les noms", () => {
+  const heros = new Map([[1, { nom: "Infernus" }], [2, { nom: "Seven" }], [4, { nom: "Lady Geist" }], [6, { nom: "Abrams" }], [13, { nom: "Haze" }], [18, { nom: "Mo & Krill" }]]);
+  const profils = new Map([
+    [1, { esprit: true }], [2, { esprit: true }], [4, { esprit: true, soins: true }],
+    [6, { tank: true, soins: true }], [13, { balles: true }], [18, { tank: true, controles: true }],
+  ]);
+  const objets = new Map([
+    [10, { nom: "Spirit Shielding", emplacement: "vitalite", prix: 1600 }], [11, { nom: "Spirit Resilience", emplacement: "vitalite", prix: 3200 }],
+    [12, { nom: "Ethereal Shift", emplacement: "esprit", prix: 6400 }], [13, { nom: "Witchmail", emplacement: "vitalite", prix: 6400 }],
+    [20, { nom: "Healbane", emplacement: "vitalite", prix: 1600 }], [30, { nom: "Tankbuster", emplacement: "esprit", prix: 3200 }],
+    [40, { nom: "Bullet Resilience", emplacement: "vitalite", prix: 3200 }],
+  ]);
+  const familles = new Map([[10, ["esprit"]], [11, ["esprit"]], [12, ["esprit"]], [13, ["esprit"]], [20, ["antisoin"]], [30, ["antitank"]], [40, ["balles"]]]);
+  const statsObjets = [
+    { item_id: 10, matches: 5000, avg_buy_time_s: 480 }, { item_id: 11, matches: 3000 }, { item_id: 12, matches: 1000 }, { item_id: 13, matches: 2000 },
+    { item_id: 20, matches: 150 }, // trop peu acheté par ce héros : pas conseillé
+    { item_id: 30, matches: 900 }, { item_id: 40, matches: 4000 },
+  ];
+  const r = S.conseilsContreEquipe({ ennemis: [1, 2, 4, 6, 13, 18, 1, "x"], profils, familles, objets, heros, statsObjets, partiesHeros: 10000 });
+  assert.strictEqual(r.manque, 0);
+  assert.deepStrictEqual(r.conseils.map((c) => [c.titre, c.objets.map((o) => o.nom)]), [
+    ["Résistance à l'esprit", ["Spirit Shielding", "Spirit Resilience", "Witchmail"]],
+    ["Contre les tanks", ["Tankbuster"]],
+  ], "balles : 1 seul ennemi ; soins : 2, mais Healbane trop peu acheté ; contrôles : 1 seul");
+  assert.strictEqual(r.conseils[0].raison, "3 ennemis à dégâts d'esprit : Infernus, Seven, Lady Geist");
+  assert.deepStrictEqual(r.conseils[0].objets[0], { id: 10, nom: "Spirit Shielding", emplacement: "vitalite", prix: 1600, parties: 5000, achat: 0.5, minute: 8 });
+  assert.deepStrictEqual(r.menaces.map((m) => [m.cle, m.heros.length]), [["esprit", 3], ["balles", 1], ["soins", 2], ["tank", 2], ["controles", 1]]);
+  const peu = S.conseilsContreEquipe({ ennemis: [1, 2], profils, familles, objets, heros, statsObjets });
+  assert.deepStrictEqual(peu, { menaces: [], conseils: [], manque: 1 });
+  assert.strictEqual(S.conseilsContreEquipe({ ennemis: null }).manque, 3);
+});

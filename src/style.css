@@ -1685,3 +1685,33 @@ body.mode-deadlock .resultat-victoire { color: #78c04a; }
 .dl-equipe th:nth-child(1) { width: 20%; }
 .dl-equipe th:nth-child(n + 2):nth-child(-n + 5) { width: 11%; }
 .dl-equipe th:last-child { text-align: left; }
+
+/* --- Mode Deadlock, onglet En partie (31/10/2026) : choix des héros adverses --- */
+.dl-choix-heros {
+  display: grid;
+  gap: 6px;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  margin: 10px 0 12px;
+}
+
+.dl-choix-heros button {
+  padding: 6px 8px;
+}
+
+.dl-choix-heros button[aria-pressed="true"] {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+  font-weight: 700;
+}
+
+.dl-choix-heros button:disabled {
+  opacity: 0.35;
+}
+
+#panneau-deadlockdirect h3 {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+  margin-top: 14px;
+}

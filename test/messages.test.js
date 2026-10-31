@@ -259,6 +259,10 @@ test("mode Deadlock : état, onglets et réglages passent par deadlock.js ; hér
       appels.push(["partie", id]);
       return { id, equipes: [] };
     },
+    conseils: async (heroId, ennemis) => {
+      appels.push(["conseils", heroId, ennemis]);
+      return { conseils: [] };
+    },
   };
   const { ipc, journal } = brancher({ deadlock: () => deadlock });
   assert.deepStrictEqual(await ipc.demander("deadlock:etat"), { lance: true });
@@ -279,6 +283,13 @@ test("mode Deadlock : état, onglets et réglages passent par deadlock.js ; hér
     assert.deepStrictEqual(await ipc.demander("deadlock:partie", PAGE, invalide), { ok: false, erreur: "Partie inconnue.", probleme: null }, String(invalide));
   }
   assert.deepStrictEqual(appels, [["build", 1], ["partie", 125339571]]);
+  assert.deepStrictEqual(await ipc.demander("deadlock:conseils", PAGE, { heroId: "2", ennemis: ["1", 3, 86] }), { ok: true, conseils: [] });
+  const invalides = [[null, "Choisis ton héros."], [{ heroId: 0, ennemis: [1] }, "Choisis ton héros."], [{ heroId: 2, ennemis: [1, "x"] }, "Héros adverses invalides."],
+    [{ heroId: 2, ennemis: [1, 2, 3, 4, 5, 6, 7] }, "Héros adverses invalides."], [{ heroId: 2, ennemis: [1.5] }, "Héros adverses invalides."]];
+  for (const [demande, erreur] of invalides) {
+    assert.deepStrictEqual(await ipc.demander("deadlock:conseils", PAGE, demande), { ok: false, erreur, probleme: null }, JSON.stringify(demande));
+  }
+  assert.deepStrictEqual(appels.at(-1), ["conseils", 2, [1, 3, 86]], "rien d'invalide n'arrive à deadlock.js");
   assert.deepStrictEqual(await ipc.demander("deadlock:enregistrer", PAGE, { rang: 8 }), { ok: true, reglages: { rang: 8 } });
   assert.deepStrictEqual(journal.erreurs, [], "les erreurs prévues ne remplissent pas le journal");
 });

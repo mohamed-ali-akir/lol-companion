@@ -58,6 +58,7 @@
       <button type="button" role="tab" id="onglet-build" data-onglet="build" class="jeu-lol" aria-controls="panneau-build" aria-selected="false" tabindex="-1">Build</button>
       <button type="button" role="tab" id="onglet-challenge" data-onglet="challenge" class="jeu-lol" aria-controls="panneau-challenge" aria-selected="false" tabindex="-1">Challenge</button>
       <button type="button" role="tab" id="onglet-deadlock" data-onglet="deadlock" class="jeu-deadlock" aria-controls="panneau-deadlock" aria-selected="false" tabindex="-1">Accueil</button>
+      <button type="button" role="tab" id="onglet-deadlockdirect" data-onglet="deadlockdirect" class="jeu-deadlock" aria-controls="panneau-deadlockdirect" aria-selected="false" tabindex="-1">En partie</button>
       <button type="button" role="tab" id="onglet-deadlockheros" data-onglet="deadlockheros" class="jeu-deadlock" aria-controls="panneau-deadlockheros" aria-selected="false" tabindex="-1">Héros</button>
       <button type="button" role="tab" id="onglet-deadlockbuild" data-onglet="deadlockbuild" class="jeu-deadlock" aria-controls="panneau-deadlockbuild" aria-selected="false" tabindex="-1">Build</button>
       <button type="button" role="tab" id="onglet-parametres" data-onglet="parametres" aria-controls="panneau-parametres" aria-selected="false" tabindex="-1">Paramètres</button>
@@ -594,6 +595,27 @@
 
       </section>
 
+      <!-- Mode Deadlock, onglet En partie (onglets/deadlock-direct.js) -->
+      <section class="panneau" id="panneau-deadlockdirect" role="tabpanel" aria-labelledby="onglet-deadlockdirect" tabindex="0" hidden>
+        <div class="card">
+          <h2>Ta partie</h2>
+          <p id="deadlockDirectStatut" class="suivi-direct"></p>
+          <div class="filtre">
+            <label for="deadlockDirectHeros">Ton héros</label>
+            <select id="deadlockDirectHeros"></select>
+          </div>
+          <h3>Héros adverses <span id="deadlockDirectCompte" class="puce"></span></h3>
+          <div id="deadlockDirectEnnemis" class="dl-choix-heros" role="group" aria-label="Héros adverses"></div>
+          <button type="button" id="deadlockDirectVider" class="bouton-secondaire">Tout enlever</button>
+        </div>
+
+        <div class="card">
+          <h2>Objets conseillés</h2>
+          <p id="etatDeadlockDirect" class="etat" hidden></p>
+          <div id="deadlockDirectConseils" aria-live="polite"></div>
+        </div>
+      </section>
+
       <!-- Mode Deadlock, onglet Héros (onglets/deadlock-heros.js) -->
       <section class="panneau" id="panneau-deadlockheros" role="tabpanel" aria-labelledby="onglet-deadlockheros" tabindex="0" hidden>
         <div class="card">
@@ -718,6 +740,7 @@
   <script src="onglets/build.js"></script>
   <script src="onglets/challenge.js"></script>
   <script src="onglets/deadlock-accueil.js"></script>
+  <script src="onglets/deadlock-direct.js"></script>
   <script src="onglets/deadlock-heros.js"></script>
   <script src="onglets/deadlock-build.js"></script>
   <script src="onglets/assistant.js"></script>

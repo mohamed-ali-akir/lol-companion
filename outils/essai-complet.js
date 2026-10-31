@@ -165,14 +165,19 @@ deadlockJeu.dossierSteam = async () => path.join(os.tmpdir(), "lol-essai-steam-a
 const S_ = (s) => Math.floor(maintenant / 1000) - s;
 const API_DEADLOCK = {
   "/v1/assets/heroes": [
-    { id: 1, name: "Infernus", player_selectable: true }, { id: 2, name: "Seven", player_selectable: true },
-    { id: 3, name: "Vindicta", player_selectable: true }, { id: 99, name: "Héros en test", player_selectable: true, in_development: true },
+    { id: 1, name: "Infernus", player_selectable: true, hero_type: "mystic", tags: ["Arsonist"] },
+    { id: 2, name: "Seven", player_selectable: true, hero_type: "mystic", tags: ["High Voltage"] },
+    { id: 3, name: "Vindicta", player_selectable: true, hero_type: "marksman", tags: ["Sniper"] },
+    { id: 4, name: "Lady Geist", player_selectable: true, hero_type: "mystic", tags: ["Lifesteal"] },
+    { id: 8, name: "McGinnis", player_selectable: true, hero_type: "mystic", tags: ["Support"] },
+    { id: 99, name: "Héros en test", player_selectable: true, in_development: true },
   ],
   "/v1/assets/items": [
     { id: 11, name: "Extended Magazine", type: "upgrade", item_slot_type: "weapon", item_tier: 1, cost: 800, shopable: true },
     { id: 12, name: "Extra Spirit", type: "upgrade", item_slot_type: "spirit", item_tier: 1, cost: 800, shopable: true },
     { id: 13, name: "Extra Regen", type: "upgrade", item_slot_type: "vitality", item_tier: 1, cost: 800, shopable: true },
-    { id: 14, name: "Toxic Bullets", type: "upgrade", item_slot_type: "weapon", item_tier: 3, cost: 3200, shopable: true },
+    { id: 14, name: "Toxic Bullets", type: "upgrade", item_slot_type: "weapon", item_tier: 3, cost: 3200, shopable: true, properties: { HealAmpReceivePenaltyPercent: { value: "-40" } } },
+    { id: 15, name: "Spirit Shielding", type: "upgrade", item_slot_type: "vitality", item_tier: 2, cost: 1600, shopable: true, properties: { TechResist: { value: "15" } } },
   ],
   "/v1/assets/ranks": [{ tier: 0, name: "Obscurus" }, { tier: 1, name: "Initiate" }, { tier: 8, name: "Oracle" }],
   "/v1/players/123456/match-history": [
@@ -185,8 +190,14 @@ const API_DEADLOCK = {
   "/v1/analytics/item-stats": [
     { item_id: 11, wins: 5000, losses: 4800, matches: 9800, avg_buy_time_s: 330 }, { item_id: 12, wins: 4000, losses: 3900, matches: 7900, avg_buy_time_s: 280 },
     { item_id: 13, wins: 2600, losses: 2500, matches: 5100, avg_buy_time_s: 410 }, { item_id: 14, wins: 3900, losses: 3100, matches: 7000, avg_buy_time_s: 1500 },
+    { item_id: 15, wins: 1200, losses: 1100, matches: 2300, avg_buy_time_s: 700 },
   ],
   "/v1/analytics/hero-counter-stats": [{ hero_id: 1, enemy_hero_id: 2, wins: 400, matches_played: 1000 }, { hero_id: 1, enemy_hero_id: 3, wins: 600, matches_played: 1000 }],
+  // Ta partie en cours (onglet « Regarder » du jeu) : Infernus contre Seven, Vindicta, Lady Geist, McGinnis.
+  "/v1/matches/active": [{ match_id: 4, start_time: S_(600), game_mode: 1, match_mode: 1, players: [
+    { account_id: 123456, team: 0, hero_id: 1 }, { account_id: 20, team: 1, hero_id: 2 }, { account_id: 21, team: 1, hero_id: 3 },
+    { account_id: 22, team: 1, hero_id: 4 }, { account_id: 23, team: 1, hero_id: 8 },
+  ] }],
   "/v1/patches/big-days": [new Date(maintenant - 10 * 86400000).toISOString()],
   "/v1/matches/3/metadata": {
     match_info: {
@@ -228,6 +239,7 @@ const ATTENDU = {
 };
 // Mode Deadlock : ce que chaque onglet doit montrer avec la fausse deadlock-api.com.
 const ATTENDU_DEADLOCK = {
+  deadlockdirect: ["Partie détectée : tu joues Infernus", "4 / 6", "Résistance à l'esprit", "3 ennemis à dégâts d'esprit : Seven, Lady Geist, McGinnis", "Spirit Shielding", "Anti-soin", "Toxic Bullets"],
   deadlock: ["Ton compte Steam", "Joueur", "Deadlock est lancé", "Infernus", "Classée", "Street Brawl"],
   deadlockheros: ["Infernus", "Seven", "Vindicta", "Tes héros", "Depuis la mise à jour du", "Héros en hausse", "Extended Magazine", "+4,5 points"],
   deadlockbuild: ["Build Infernus", "Début de partie", "Extended Magazine", "Toxic Bullets", "Plus dur contre", "Seven"],
@@ -349,9 +361,10 @@ require(path.join(PROJET, "main.js"));
   let enModeDeadlock = false;
   for (let i = 0; i < 20 && !enModeDeadlock; i++) {
     await attendre(500);
-    enModeDeadlock = await page(`document.body.classList.contains("mode-deadlock") && !$("panneau-deadlock").hidden`);
+    // Partie détectée tout de suite (fausse /v1/matches/active) : l'appli ouvre l'onglet En partie.
+    enModeDeadlock = await page(`document.body.classList.contains("mode-deadlock") && !$("panneau-deadlockdirect").hidden`);
   }
-  if (!enModeDeadlock) problemes.push("mode Deadlock : pas affiché quand le jeu est lancé");
+  if (!enModeDeadlock) problemes.push("mode Deadlock : pas affiché, ou onglet En partie pas ouvert, quand le jeu est lancé avec une partie en cours");
   if (await page(`getComputedStyle($("onglet-stats")).display !== "none"`)) problemes.push("mode Deadlock : les onglets de LoL restent visibles");
   if ((await page(`document.querySelector("h1").innerText + " | " + document.title`)) !== "Deadlock Companion | Deadlock Companion") problemes.push("mode Deadlock : le nom n'est pas « Deadlock Companion »");
   for (const [onglet, mots] of Object.entries(ATTENDU_DEADLOCK)) {
@@ -361,6 +374,17 @@ require(path.join(PROJET, "main.js"));
     for (const mot of mots) if (!texte.includes(mot)) problemes.push(`onglet ${onglet} : « ${mot} » introuvable`);
     if (onglet === "deadlock" && (await page(`Boolean(document.querySelector("#panneau-deadlock input[type=checkbox]"))`))) {
       problemes.push("mode Deadlock : il reste une case (l'envoi des parties est automatique depuis la 1.5.1)");
+    }
+    if (onglet === "deadlockdirect") {
+      // Sans partie détectée, on choisit les ennemis à la main : tout enlever, puis 3 clics.
+      await photographier(fenetre, "deadlock-direct");
+      await page(`$("deadlockDirectVider").click(); true`);
+      await attendre(300);
+      if (!(await texteDuPanneau(onglet)).includes("Choisis encore 3 héros adverses")) problemes.push("En partie : « Choisis encore 3 héros adverses » absent après « Tout enlever »");
+      await page(`for (const id of [2, 4, 8]) document.querySelector('#deadlockDirectEnnemis [data-heros="' + id + '"]').click(); true`);
+      await attendre(1000);
+      const choisis = await texteDuPanneau(onglet);
+      if (!choisis.includes("3 / 6") || !choisis.includes("Résistance à l'esprit")) problemes.push("En partie : choix à la main des ennemis sans conseil");
     }
     if (onglet === "deadlock") {
       // Détail de la dernière partie (31/10/2026) : les deux équipes, toi repéré, les objets en pastilles.

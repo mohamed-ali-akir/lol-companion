@@ -221,6 +221,15 @@ function brancherMessages(ipcMain, services) {
       return { partie: await s.deadlock().partie(id) };
     })
   );
+  repondre("deadlock:conseils", (demande) =>
+    essayer(() => {
+      const heroId = Number(demande && demande.heroId);
+      const ennemis = Array.isArray(demande && demande.ennemis) ? demande.ennemis.map(Number) : [];
+      if (!Number.isInteger(heroId) || heroId <= 0) return Promise.reject(new ErreurDeadlockApi("Choisis ton héros."));
+      if (ennemis.length > 6 || ennemis.some((id) => !Number.isInteger(id) || id <= 0)) return Promise.reject(new ErreurDeadlockApi("Héros adverses invalides."));
+      return s.deadlock().conseils(heroId, ennemis);
+    })
+  );
   repondre("deadlock:enregistrer", (reglages) => essayer(() => ({ reglages: s.deadlock().enregistrer(reglages) })));
 
   // --- État de l'appli (au démarrage de la page ; ensuite, main.js prévient la page tout seul) ---

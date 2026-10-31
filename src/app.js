@@ -12,7 +12,7 @@
  *      build.js (objets et runes), challenge.js (top 3 en Arena avec tous les champions) : un fichier par onglet
  *      ou par carte de l'Accueil
  *      assistant.js : les 3 questions de la première ouverture
- *      deadlock-accueil.js, deadlock-heros.js, deadlock-build.js : les onglets du mode Deadlock (27/10/2026)
+ *      deadlock-accueil.js, deadlock-direct.js, deadlock-heros.js, deadlock-build.js : les onglets du mode Deadlock (27/10/2026)
  *   6. app.js (ce fichier)  : branche tout et démarre
  *
  * Pourquoi des scripts classiques et pas des modules ES ? Les deux marchent dans Electron,
@@ -54,6 +54,7 @@ async function initialiser() {
   brancherChallenge();
   brancherAssistant();
   brancherDeadlockAccueil();
+  brancherDeadlockDirect();
   brancherDeadlockHeros();
   brancherDeadlockBuild();
 

@@ -459,6 +459,141 @@ function detailPartie(partie, heros = new Map(), objets = new Map(), accountId =
   };
 }
 
+// --- En partie : ta partie en direct et objets contre l'équipe adverse (31/10/2026) ------------------------------
+
+/**
+ * Ta partie en cours dans /v1/matches/active?account_id= (format vérifié le 31/10/2026 : [{ match_id, start_time,
+ * game_mode, match_mode, players: [{ account_id, team, hero_id }] }]) -> { matchId, debut, heroId, allies, ennemis }
+ * (allies et ennemis : numéros de héros, toi non compris), ou null. Attention : le site ne voit que les parties de
+ * l'onglet « Regarder » du jeu (les 200 mieux classées du moment) ; les autres ne sont jamais trouvées.
+ */
+function partieEnCours(brut, accountId) {
+  for (const m of liste(brut)) {
+    const joueurs = liste(m.players).filter((p) => Number.isInteger(p.hero_id) && (p.team === 0 || p.team === 1));
+    const moi = joueurs.find((p) => p.account_id === accountId);
+    if (!moi || !Number.isSafeInteger(m.match_id)) continue;
+    return {
+      matchId: m.match_id,
+      debut: Number.isFinite(m.start_time) ? m.start_time * 1000 : null,
+      heroId: moi.hero_id,
+      allies: joueurs.filter((p) => p.team === moi.team && p !== moi).map((p) => p.hero_id),
+      ennemis: joueurs.filter((p) => p.team !== moi.team).map((p) => p.hero_id),
+    };
+  }
+  return null;
+}
+
+const ENCAISSE_TANK = 1.15; // tank : encaisse au moins 15 % de dégâts de plus par partie que le héros médian
+
+/**
+ * Profil de chaque héros (/v1/assets/heroes brut, /v1/analytics/hero-stats brut) : Map id -> { esprit, balles, tank,
+ * soins, controles } (booléens). Règles et listes de mots dans donnees-jeu.js (DEADLOCK) ; « tank » vient aussi des
+ * stats : dégâts encaissés par partie (total_player_damage_taken / matches) bien au-dessus de la médiane.
+ */
+function profilsHeros(herosBrut, statsBrut) {
+  const encaisse = new Map(
+    liste(statsBrut)
+      .filter((h) => Number.isInteger(h.hero_id) && Number.isFinite(h.total_player_damage_taken) && Number.isFinite(h.matches) && h.matches >= 100)
+      .map((h) => [h.hero_id, h.total_player_damage_taken / h.matches]),
+  );
+  const valeurs = [...encaisse.values()].sort((a, b) => a - b);
+  const mediane = valeurs.length > 0 ? valeurs[Math.floor(valeurs.length / 2)] : null;
+  const profils = new Map();
+  for (const h of liste(herosBrut)) {
+    if (!Number.isInteger(h.id)) continue;
+    const tags = Array.isArray(h.tags) ? h.tags.filter((t) => typeof t === "string") : [];
+    const a = (mots) => tags.some((t) => mots.includes(t));
+    profils.set(h.id, {
+      esprit: DEADLOCK.typesEsprit.includes(h.hero_type),
+      balles: DEADLOCK.typesBalles.includes(h.hero_type),
+      tank: a(DEADLOCK.tagsTank) || (mediane !== null && encaisse.has(h.id) && encaisse.get(h.id) >= mediane * ENCAISSE_TANK),
+      soins: a(DEADLOCK.tagsSoins),
+      controles: a(DEADLOCK.tagsControles),
+    });
+  }
+  return profils;
+}
+
+/**
+ * Familles de chaque objet (/v1/assets/items brut) : Map id -> ["esprit", "antisoin"...], d'après ses effets
+ * (DEADLOCK.famillesObjets). Seuls les objets de la boutique à 6 400 âmes au plus (les objets à 9 999 sont spéciaux).
+ */
+function famillesObjets(brut) {
+  const familles = new Map();
+  for (const o of liste(brut)) {
+    if (o.type !== "upgrade" || !Number.isInteger(o.id) || o.disabled === true || o.shopable === false) continue;
+    if (!(Number.isFinite(o.cost) && o.cost <= 6400)) continue;
+    const effets = o.properties && typeof o.properties === "object" ? o.properties : {};
+    const valeur = (nom) => (effets[nom] && typeof effets[nom] === "object" ? Number.parseFloat(effets[nom].value) : NaN);
+    const respecte = ([nom, seuil]) => {
+      const v = valeur(nom);
+      return Number.isFinite(v) && (seuil > 0 ? v >= seuil : v <= seuil);
+    };
+    const offensif = DEADLOCK.objetsOffensifs.some(respecte); // son « TechResist » est un malus pour l'ennemi
+    const siennes = Object.entries(DEADLOCK.famillesObjets)
+      .filter(([famille, regles]) => !(famille === "esprit" && offensif) && regles.some(respecte))
+      .map(([famille]) => famille);
+    if (siennes.length > 0) familles.set(o.id, siennes);
+  }
+  return familles;
+}
+
+// Chaque menace : combien d'ennemis il faut (sur 6 au plus) pour conseiller sa famille d'objets.
+const MENACES = [
+  { cle: "esprit", famille: "esprit", min: 3, menace: "à dégâts d'esprit", titre: "Résistance à l'esprit" },
+  { cle: "balles", famille: "balles", min: 3, menace: "à dégâts de balles", titre: "Résistance aux balles" },
+  { cle: "soins", famille: "antisoin", min: 2, menace: "qui soignent", titre: "Anti-soin" },
+  { cle: "tank", famille: "antitank", min: 2, menace: "tanks", titre: "Contre les tanks" },
+  { cle: "controles", famille: "controles", min: 2, menace: "qui contrôlent", titre: "Contre les contrôles" },
+];
+const ENNEMIS_MIN = 3;
+const OBJETS_PAR_CONSEIL = 3;
+const PARTIES_MIN_CONSEIL = 200; // objet acheté au moins 200 fois avec ton héros (30 jours) : vraiment utilisé
+
+/**
+ * Objets conseillés contre une équipe (même idée que le build de LoL adapté à l'équipe adverse, adversaires.js).
+ *  - ennemis : numéros de héros (3 au moins, sinon { conseils: [], manque }) ; profils : profilsHeros ;
+ *  - familles : famillesObjets ; objets : normaliserObjets (noms, emplacements, prix) ; heros : noms ;
+ *  - statsObjets : /v1/analytics/item-stats?hero_id= de TON héros (30 jours) : dans chaque famille, les objets que ton
+ *    héros achète le plus (et pas un objet que personne ne prend avec lui) ; partiesHeros : pour la part des achats.
+ * Renvoie { menaces: [{ cle, texte, heros: [noms] }], conseils: [{ cle, titre, raison, objets: [{ id, nom, emplacement,
+ * prix, parties, achat, minute }] }], manque } ; manque : nombre d'ennemis à choisir encore (0 si assez).
+ */
+function conseilsContreEquipe({ ennemis, profils = new Map(), familles = new Map(), objets = new Map(), heros = new Map(), statsObjets = [], partiesHeros = null }) {
+  const ids = [...new Set((Array.isArray(ennemis) ? ennemis : []).filter((id) => Number.isInteger(id)))].slice(0, 6);
+  const nom = (id) => (heros.get(id) || {}).nom || `Héros n° ${id}`;
+  const menaces = MENACES.map((m) => ({ ...m, heros: ids.filter((id) => (profils.get(id) || {})[m.cle]).map(nom) }));
+  if (ids.length < ENNEMIS_MIN) return { menaces: [], conseils: [], manque: ENNEMIS_MIN - ids.length };
+  const lignes = liste(statsObjets).filter((o) => Number.isInteger(o.item_id) && Number.isFinite(o.matches) && o.matches >= PARTIES_MIN_CONSEIL && objets.has(o.item_id));
+  const total = Number.isFinite(partiesHeros) && partiesHeros > 0 ? partiesHeros : Math.max(0, ...lignes.map((o) => o.matches));
+  const conseils = [];
+  for (const m of menaces.filter((x) => x.heros.length >= x.min)) {
+    const choix = lignes
+      .filter((o) => (familles.get(o.item_id) || []).includes(m.famille))
+      .sort((a, b) => b.matches - a.matches)
+      .slice(0, OBJETS_PAR_CONSEIL)
+      .map((o) => {
+        const fiche = objets.get(o.item_id);
+        return {
+          id: o.item_id,
+          nom: fiche.nom,
+          emplacement: fiche.emplacement,
+          prix: fiche.prix,
+          parties: o.matches,
+          achat: total > 0 ? Math.min(1, o.matches / total) : null,
+          minute: Number.isFinite(o.avg_buy_time_s) && o.avg_buy_time_s >= 0 ? o.avg_buy_time_s / 60 : null,
+        };
+      });
+    if (choix.length === 0) continue;
+    conseils.push({ cle: m.cle, titre: m.titre, raison: `${m.heros.length} ennemis ${m.menace} : ${m.heros.join(", ")}`, objets: choix });
+  }
+  return {
+    menaces: menaces.filter((m) => m.heros.length > 0).map((m) => ({ cle: m.cle, texte: m.menace, heros: m.heros })),
+    conseils,
+    manque: 0,
+  };
+}
+
 module.exports = {
   PHASES,
   PARTIES_MIN_HEROS,
@@ -484,4 +619,9 @@ module.exports = {
   evolution,
   extrairePartie,
   detailPartie,
+  ENNEMIS_MIN,
+  partieEnCours,
+  profilsHeros,
+  famillesObjets,
+  conseilsContreEquipe,
 };

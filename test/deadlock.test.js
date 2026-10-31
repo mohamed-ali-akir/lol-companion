@@ -169,8 +169,8 @@ test("réglages : niveau entre 1 et 11 ou tous ; l'ancienne case de l'envoi des 
 
 const HEROS = new Map([[1, { id: 1, nom: "Infernus" }], [2, { id: 2, nom: "Seven" }]]);
 
-function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" }, cache = [], historique = [], echecEnvoi = null, patch = Date.UTC(2026, 8, 29) } = {}) {
-  const trace = { envoyees: [], etats: [], journal: [], sessions: [], notees: [], patchs: [], reglages: { rang: null } };
+function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" }, cache = [], historique = [], echecEnvoi = null, patch = Date.UTC(2026, 8, 29), enDirect = null } = {}) {
+  const trace = { envoyees: [], etats: [], journal: [], sessions: [], notees: [], patchs: [], direct: [], reglages: { rang: null } };
   const etatJeu = { lance };
   let heure = 1_000_000;
   const jeu = {
@@ -182,16 +182,26 @@ function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" },
   };
   const lecteur = {
     heros: async () => HEROS,
-    nomsHeros: async () => new Map([...HEROS, [86, { id: 86, nom: "Violet" }]]),
-    objets: async () => new Map([[11, { id: 11, nom: "Extended Magazine", emplacement: "arme", prix: 800 }]]),
+    nomsHeros: async () => new Map([...HEROS, [3, { id: 3, nom: "Vindicta" }], [86, { id: 86, nom: "Violet" }]]),
+    objets: async () => new Map([[11, { id: 11, nom: "Extended Magazine", emplacement: "arme", prix: 800 }], [12, { id: 12, nom: "Healbane", emplacement: "vitalite", prix: 1600 }]]),
     rangs: async () => [{ rang: 8, nom: "Oracle" }],
     historique: async () => historique,
     mesStatsHeros: async () => [{ hero_id: 1, matches_played: 2, wins: 1 }],
     statsHeros: async () => [{ hero_id: 1, wins: 600, matches: 1000 }, { hero_id: 2, wins: 500, matches: 1000 }],
     statsHerosBuild: async () => [{ hero_id: 1, wins: 600, matches: 1000 }],
-    statsObjets: async () => [{ item_id: 11, wins: 500, matches: 900, avg_buy_time_s: 300 }],
+    statsObjets: async (heroId, { rang } = {}) => {
+      trace.statsObjets = [heroId, rang];
+      return [{ item_id: 11, wins: 500, matches: 900, avg_buy_time_s: 300 }, { item_id: 12, wins: 300, matches: 400, avg_buy_time_s: 900 }];
+    },
     duels: async () => [{ hero_id: 1, enemy_hero_id: 2, wins: 300, matches_played: 1000 }],
     dernierGrosPatch: async () => patch,
+    partieEnCours: async (accountId) => {
+      trace.direct.push(accountId);
+      if (enDirect.erreur) throw new Error(enDirect.erreur);
+      return enDirect.partie;
+    },
+    profils: async () => new Map([[1, { esprit: true, soins: true }], [2, { esprit: true, soins: true }], [3, { esprit: true }], [86, { esprit: true }]]),
+    familles: async () => new Map([[11, ["esprit"]], [12, ["antisoin"]]]),
     statsAutourDuPatch: async (date, { rang }) => {
       trace.patchs.push([date, rang]);
       return {
@@ -223,6 +233,7 @@ function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" },
       trace.notees.push(id);
     }),
   };
+  enDirect = enDirect || { partie: null, erreur: null };
   const dl = creerDeadlock({
     lecteur,
     donnees,
@@ -234,7 +245,7 @@ function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" },
     journal: (...m) => trace.journal.push(m.join(" ")),
     surEtat: (e) => trace.etats.push(e),
   });
-  return { dl, trace, etatJeu, avancer: (ms) => (heure += ms) };
+  return { dl, trace, etatJeu, enDirect, avancer: (ms) => (heure += ms) };
 }
 
 test("service : état (jeu, compte, temps de jeu), lancement puis fermeture enregistrée", async () => {
@@ -243,6 +254,7 @@ test("service : état (jeu, compte, temps de jeu), lancement puis fermeture enre
   await dl.verifier();
   assert.deepStrictEqual(await dl.etat(), {
     lance: false, compte: { accountId: 123, pseudo: "Joueur" }, temps: { aujourdhui: 0, septJours: 0, total: 0 }, reglages: { rang: null }, dernierEnvoi: { date: 1_000_000, envoyees: 0, erreur: null }, // cache vide, vérifié au démarrage
+    partie: null,
   });
   etatJeu.lance = true;
   await dl.verifier();
@@ -326,4 +338,47 @@ test("service : gagnants et perdants de la mise à jour (au niveau choisi), dét
   assert.strictEqual(partie.equipes[0].joueurs[1].nom, "Violet", "héros encore « en développement » : nommé quand même");
   const sansCompte = service({ compte: null });
   assert.deepStrictEqual((await sansCompte.dl.partie(42)).equipes.map((e) => e.titre), ["Équipe 1", "Équipe 2"]);
+});
+
+test("service : partie en direct cherchée seulement jeu lancé, page prévenue au changement, panne passagère sans effacer", async () => {
+  const PARTIE = { matchId: 77, debut: 5, heroId: 1, allies: [3], ennemis: [2] };
+  const { dl, trace, etatJeu, enDirect } = service();
+  dl.demarrer();
+  await dl.verifier();
+  assert.strictEqual(await dl.chercherPartie(), null);
+  assert.deepStrictEqual(trace.direct, [], "jeu fermé : rien demandé au site");
+  etatJeu.lance = true;
+  await dl.verifier(); // lancement : cherche tout de suite
+  assert.deepStrictEqual(trace.direct, [123]);
+  const avant = trace.etats.length;
+  enDirect.partie = PARTIE;
+  await dl.chercherPartie();
+  assert.deepStrictEqual(trace.etats.at(-1).partie, PARTIE, "la page est prévenue");
+  assert.ok(trace.journal.some((l) => l.includes("partie en direct trouvée")));
+  const prevenue = trace.etats.length;
+  await dl.chercherPartie();
+  assert.strictEqual(trace.etats.length, prevenue, "même partie : la page n'est pas prévenue encore");
+  enDirect.erreur = "deadlock-api.com ne répond pas";
+  await dl.chercherPartie();
+  await dl.chercherPartie();
+  assert.deepStrictEqual((await dl.etat()).partie, PARTIE, "panne passagère : la partie est gardée");
+  assert.strictEqual(trace.journal.filter((l) => l.includes("illisible")).length, 1, "la panne n'est écrite qu'une fois");
+  enDirect.erreur = null;
+  etatJeu.lance = false;
+  await dl.verifier(); // fermeture du jeu : plus de partie
+  assert.strictEqual(trace.etats.at(-1).partie, null);
+  assert.ok(trace.etats.length > avant);
+  dl.arreter();
+});
+
+test("service : conseils contre l'équipe adverse, au niveau choisi, sur les objets de TON héros", async () => {
+  const { dl, trace } = service();
+  trace.reglages = { rang: 8 };
+  const r = await dl.conseils(2, [1, 3, 86]);
+  assert.deepStrictEqual(trace.statsObjets, [2, 8]);
+  assert.strictEqual(r.heros.nom, "Seven");
+  assert.strictEqual(r.rang, 8);
+  assert.deepStrictEqual(r.conseils.map((c) => [c.titre, c.objets.map((o) => o.nom)]), [["Résistance à l'esprit", ["Extended Magazine"]]]);
+  assert.deepStrictEqual(r.menaces.map((m) => m.cle), ["esprit", "soins"]);
+  assert.strictEqual((await dl.conseils(2, [1])).manque, 2);
 });

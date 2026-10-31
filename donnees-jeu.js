@@ -68,6 +68,30 @@ const DEADLOCK = {
   typesPartie: { 1: "Normale", 2: "Salon privé", 3: "Contre des bots", 4: "Classée", 7: "Hero Labs" },
   // Une victoire : match_result (équipe gagnante) === player_team (vérifié : 55,9 % calculé, 56,6 % donné par l'API
   // pour le même joueur, l'écart vient des parties hors modes normaux).
+
+  // --- Conseils contre l'équipe adverse (31/10/2026, onglet « En partie ») ---
+  // Profil d'un héros, lu dans /v1/assets/heroes : hero_type ("mystic" = dégâts d'esprit ; "marksman" et "assassin" =
+  // dégâts de balles ; "brawler" ou absent = mixte) et tags (3 mots du jeu par héros, vérifiés le 31/10/2026).
+  typesEsprit: ["mystic"],
+  typesBalles: ["marksman", "assassin"],
+  tagsTank: ["Tank"], // en plus : les héros qui encaissent le plus de dégâts par partie (deadlock-stats.js)
+  tagsSoins: ["Lifesteal", "Helpful", "Savior", "Support", "Protector"], // Lady Geist, Rem, Paige, Nurse Harrow, McGinnis, Kelvin
+  tagsControles: ["Disruptor", "Disruption", "Disruptive", "Disorienting", "Initiator", "Isolator", "Apprehender", "Hook"],
+  // Familles d'objets, reconnues à leurs EFFETS (properties de /v1/assets/items) et pas à leur nom, qui change avec les
+  // mises à jour. Chaque effet : [nom de la propriété, seuil] ; seuil > 0 : valeur au moins égale ; seuil < 0 : valeur
+  // au plus égale (réductions). Résistances de 15 % ou plus : les objets où elle n'est qu'un petit bonus sont écartés.
+  // Vérifié sur les vrais objets le 31/10/2026 : un objet qui RÉDUIT la résistance des ennemis (TechArmorDamageReduction
+  // négatif : Escalating Exposure, Mystic Vulnerability) affiche aussi un « TechResist » qui est ce malus, pas une
+  // protection : il est écarté (objetsOffensifs). ImmunityDuration n'est pas retenu : c'est la durée d'un effet sur
+  // l'ennemi (Silencer, Spirit Burn), pas une immunité pour toi.
+  objetsOffensifs: [["TechArmorDamageReduction", -1]],
+  famillesObjets: {
+    esprit: [["TechResist", 15]],
+    balles: [["BulletResist", 15]],
+    antisoin: [["HealAmpReceivePenaltyPercent", -30], ["HealAmpRegenPenaltyPercent", -30]],
+    antitank: [["BulletResistReduction", -6], ["MagicResistReduction", -6], ["BulletArmorReduction", -6], ["CurrentHealthDamage", 1], ["MaxHealthDamage", 1]],
+    controles: [["StatusResistancePercent", 20], ["SlowResistancePercent", 25]],
+  },
 };
 
 module.exports = { VERIFIE_LE, FILES, RECHARGES_SORTS, TP_DECHAINEE_DES_S, HATE_SORTS, DECALAGE_ARENA, OBJETS_CONTRE, DEADLOCK };

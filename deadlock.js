@@ -37,9 +37,15 @@ const MESSAGE_AUCUNE_PARTIE =
  * reglages() / enregistrerReglages(r) : config.json ; jeu : fonctions de deadlock-jeu.js (modifiables pour les tests) ;
  * surEtat(etat) : appelé quand l'état change (jeu lancé ou fermé, parties envoyées) ; journal(...) : journal.txt.
  */
-function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = J, maintenant = Date.now, intervalleMs = 5000, journal = () => {}, surEtat = () => {} }) {
+function creerDeadlock({
+  lecteur, donnees, reglages, enregistrerReglages, jeu = J, maintenant = Date.now, intervalleMs = 5000, intervalleDirectMs = 30 * 1000,
+  journal = () => {}, surEtat = () => {},
+}) {
   let compte; // compte Steam de ce PC (undefined : pas encore lu ; null : aucun)
   let suivi = null;
+  let minuterieDirect = null;
+  let partieDirect = null; // ta partie en cours trouvée sur deadlock-api.com (partieEnCours de deadlock-stats.js), ou null
+  let erreurDirectDite = false; // une panne du site n'est écrite qu'une fois dans le journal
   let dernierEnvoi = null; // { date, envoyees, erreur } du dernier envoi des parties du cache
   let envoiEnCours = null;
 
@@ -57,7 +63,7 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
     return compte;
   }
 
-  /** État pour la page : { lance, compte, temps, reglages, dernierEnvoi }. */
+  /** État pour la page : { lance, compte, temps, reglages, dernierEnvoi, partie (ta partie en direct ou null) }. */
   async function etat() {
     const s = suivi ? suivi.etat() : { lance: false, debut: null };
     const c = await compteDuPc();
@@ -67,6 +73,7 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
       temps: S.tempsDeJeu(donnees.sessions(), s.debut, maintenant()),
       reglages: reglagesPropres(),
       dernierEnvoi,
+      partie: partieDirect,
     };
   }
 
@@ -148,6 +155,56 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
   }
 
   /**
+   * Cherche ta partie en cours (toutes les 30 s pendant que Deadlock tourne). La page est prévenue quand une partie est
+   * trouvée, change ou se termine. Le site ne voit que les parties de l'onglet « Regarder » du jeu : ne rien trouver
+   * est normal, la page propose alors de choisir les héros adverses.
+   */
+  async function chercherPartie() {
+    const lance = suivi ? suivi.etat().lance : false;
+    const c = lance ? await compteDuPc() : null;
+    let trouvee = null;
+    if (c) {
+      try {
+        trouvee = await lecteur.partieEnCours(c.accountId);
+        erreurDirectDite = false;
+      } catch (erreur) {
+        if (!erreurDirectDite) journal("Deadlock : partie en direct illisible", erreur.message);
+        erreurDirectDite = true;
+        trouvee = partieDirect; // panne passagère : on garde ce qu'on savait
+      }
+    }
+    const avant = partieDirect ? JSON.stringify(partieDirect) : null;
+    partieDirect = trouvee;
+    if ((trouvee ? JSON.stringify(trouvee) : null) !== avant) {
+      if (trouvee && (!avant || JSON.parse(avant).matchId !== trouvee.matchId)) journal("Deadlock : partie en direct trouvée", trouvee.matchId);
+      await publier();
+    }
+    return partieDirect;
+  }
+
+  /**
+   * Objets conseillés contre une équipe (onglet « En partie ») : { heros (ton héros), menaces, conseils, manque, rang }.
+   * heroId : ton héros ; ennemis : numéros des héros adverses (détectés, ou choisis dans la page).
+   */
+  async function conseils(heroId, ennemis) {
+    const { rang } = reglagesPropres();
+    const [liste, objets, profils, familles, items, herosStats] = await Promise.all([
+      lecteur.nomsHeros(),
+      lecteur.objets(),
+      lecteur.profils(),
+      lecteur.familles(),
+      lecteur.statsObjets(heroId, { rang }),
+      lecteur.statsHerosBuild({ rang }),
+    ]);
+    const total = S.tierListe(herosStats, liste, { partiesMin: 1 }).find((h) => h.heroId === heroId);
+    return {
+      heros: liste.get(heroId) || { id: heroId, nom: `Héros n° ${heroId}` },
+      rang,
+      ...S.conseilsContreEquipe({ ennemis, profils, familles, objets, heros: liste, statsObjets: items, partiesHeros: total ? total.parties : null }),
+    };
+  }
+
+  /**
    * Envoie à deadlock-api.com les parties du cache de Steam pas encore envoyées (d'office depuis le 27/10/2026 : au
    * lancement de l'appli et à chaque fermeture de Deadlock). Un seul envoi à la fois ; le résultat est gardé dans
    * dernierEnvoi et écrit dans le journal.
@@ -193,28 +250,34 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
         journal("Deadlock lancé");
         await compteDuPc({ relire: true }); // un autre compte Steam a pu se connecter
         await publier();
+        await chercherPartie();
       },
       surFermeture: async (session) => {
         journal("Deadlock fermé", `${Math.round((session.fin - session.debut) / 60000)} min`);
         donnees.ajouterSession(session);
+        partieDirect = null; // jeu fermé : plus de partie en cours
         await publier();
         if (await envoyerNouvellesParties()) await publier();
       },
       aErreur: (erreur) => journal("Deadlock : erreur de la surveillance", erreur.message),
     });
     suivi.demarrer();
+    minuterieDirect = setInterval(() => chercherPartie().catch(() => {}), intervalleDirectMs);
+    if (minuterieDirect.unref) minuterieDirect.unref(); // ne garde pas Node ouvert à elle seule (tests)
     // Parties déjà dans le cache de Steam (jouées avant l'ouverture de l'appli) : envoyées tout de suite.
     envoyerNouvellesParties().then((envoi) => (envoi && envoi.envoyees > 0 ? publier() : null), () => {});
   }
 
   function arreter() {
     if (suivi) suivi.arreter();
+    if (minuterieDirect) clearInterval(minuterieDirect);
+    minuterieDirect = null;
   }
 
   /** Pour les tests : une vérification tout de suite (sinon toutes les intervalleMs). */
   const verifier = () => (suivi ? suivi.verifier() : Promise.resolve());
 
-  return { demarrer, arreter, verifier, etat, accueil, heros, listeHeros, build, patch, partie, enregistrer, envoyerNouvellesParties };
+  return { demarrer, arreter, verifier, chercherPartie, etat, accueil, heros, listeHeros, build, patch, partie, conseils, enregistrer, envoyerNouvellesParties };
 }
 
 module.exports = { MESSAGE_AUCUNE_PARTIE, normaliserReglagesDeadlock, creerDeadlock };

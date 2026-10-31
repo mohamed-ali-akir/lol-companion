@@ -43,6 +43,7 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 | **Build** | Build de ton champion (Lolalytics + OP.GG) : page de runes, set d'objets et sorts créés pour toi, set « Champion Rank 1 », chronos des sorts adverses, consultation du build de n'importe quel champion |
 | **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu, relancer l'assistant de démarrage |
 | **Deadlock · Accueil** | Mode Deadlock (quand le jeu est lancé, ou bouton « Deadlock » en haut) : ton compte Steam, ton temps de jeu, tes dernières parties (envoyées automatiquement à deadlock-api.com), avec le détail de chacune (les 12 joueurs, leurs objets) |
+| **Deadlock · En partie** | Ta partie en direct (détectée quand le site la voit, sinon tu cliques sur les héros adverses) et les objets à acheter contre l'équipe adverse, avec la raison |
 | **Deadlock · Héros** | Les meilleurs héros du moment (taux de victoire prudent, popularité, filtre de niveau), ce qui monte et baisse depuis la dernière mise à jour, et tes stats par héros |
 | **Deadlock · Build** | Les objets les plus achetés d'un héros, par moment de la partie, et les héros qui le contrent |
 
@@ -257,6 +258,33 @@ chaque jeu est retenu.
   pastilles colorées par emplacement). Lu sur `/v1/matches/{id}/metadata` : environ 1 Mo par partie, réduit tout de
   suite à quelques Ko (`extrairePartie`) avant d'être gardé 3 h ; les numéros de compte des autres joueurs ne vont pas
   à la page, et leurs pseudos ne sont pas demandés.
+- **En partie** (31/10/2026) : les **objets à acheter contre l'équipe adverse**.
+  - **Ta partie en direct** : pendant que Deadlock tourne, l'appli demande toutes les 30 s à deadlock-api.com si ton
+    compte est dans une partie en cours (`/v1/matches/active?account_id=`, 20 s de cache). Trouvée : ton héros et les
+    héros adverses sont remplis tout seuls et l'onglet s'ouvre (une fois par partie). **Limite** : le site ne voit que les
+    parties de l'onglet « Regarder » du jeu (les 200 mieux classées du moment, vérifié le 31/10/2026). Pour les autres,
+    tu cliques sur les héros adverses (3 au moins) : quelques secondes au début de la partie. Rien n'est lu dans le jeu
+    (pas d'API locale, anti-triche) : le jeu n'écrit nulle part sur le PC qui sont tes adversaires (fichiers du dossier
+    du jeu vérifiés le 31/10/2026).
+  - **Profil de chaque héros adverse** (`profilsHeros`) : dégâts d'esprit (type « mystic » du jeu) ou de balles
+    (« marksman », « assassin »), tank (mot « Tank », ou au moins 15 % de dégâts encaissés de plus par partie que le
+    héros médian), soins et contrôles (mots du jeu sur chaque héros : « Lifesteal », « Support »... « Disruptor »,
+    « Initiator »...). Listes dans `donnees-jeu.js` (`DEADLOCK`).
+  - **Familles d'objets** (`famillesObjets`) reconnues à leurs **effets** (`/v1/assets/items`, `properties`) et non à
+    leur nom, qui change avec les mises à jour : résistance à l'esprit ou aux balles (15 % ou plus), anti-soin, réduction
+    de résistance ou dégâts selon la vie (contre les tanks), résistance aux effets ou aux ralentissements (contre les
+    contrôles). Un objet qui affaiblit l'ennemi n'est pas pris pour une protection (vérifié sur Escalating Exposure).
+  - **Règles** (`conseilsContreEquipe`, comme le build de LoL adapté à l'équipe adverse) : 3 ennemis à dégâts d'esprit
+    -> résistance à l'esprit ; 3 à balles -> résistance aux balles ; 2 qui soignent -> anti-soin ; 2 tanks -> objets
+    contre les tanks ; 2 qui contrôlent -> résistance aux effets. Dans chaque famille, les 3 objets que **ton héros**
+    achète le plus (200 parties au moins sur 30 jours, au niveau choisi dans l'onglet Héros), avec vers quelle minute,
+    dans combien de parties et le prix. Chaque conseil dit pourquoi (« 3 ennemis à dégâts d'esprit : Seven, Lady
+    Geist, McGinnis »). Pourquoi des règles et pas « le taux de victoire de chaque objet contre chaque héros » (essayé le
+    31/10/2026 avec `enemy_hero_ids`) : les écarts trouvés étaient de quelques dixièmes de point, trop faibles pour
+    conseiller quoi que ce soit, et chaque héros adverse coûtait une lecture de 15 s.
+
+![Mode Deadlock : En partie](docs/captures/deadlock-direct.png)
+
 - **Héros** : les **meilleurs héros du moment** (tous les joueurs, 2 dernières semaines), classés au taux de victoire
   prudent (même formule que le build de LoL, `statistiques.js` : un héros peu joué ne passe pas devant), avec leur
   popularité ; filtre **« Niveau des parties »** (Initiate et plus... Eternus, gardé dans `config.json`). En dessous,

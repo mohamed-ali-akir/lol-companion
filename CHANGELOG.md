@@ -4,6 +4,10 @@ Ce qui change d'une version à l'autre, du plus récent au plus ancien. Le déta
 le [README](README.md) et dans l'historique Git.
 
 ## Prochaine version
+- **Deadlock · nouvel onglet « En partie »** : les objets à acheter contre l'équipe adverse (résistance à l'esprit ou
+  aux balles, anti-soin, contre les tanks, contre les contrôles), choisis parmi ceux que ton héros achète le plus, avec
+  la raison. Ta partie est détectée toute seule quand deadlock-api.com la voit (parties de l'onglet « Regarder » du
+  jeu) ; sinon, tu cliques sur les héros adverses.
 - **Deadlock · Accueil** : bouton **« Détail »** sur chaque partie : les 12 joueurs (ton équipe d'abord, ta ligne
   surlignée), leurs K/D/A, âmes, dégâts, soins et objets.
 - **Deadlock · Héros** : nouvelle carte **« Depuis la mise à jour du … »** : les héros et les objets qui ont le plus

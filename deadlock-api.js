@@ -21,7 +21,8 @@ const S = require("./deadlock-stats.js");
 
 const URL_API = "https://api.deadlock-api.com";
 const SITE = "deadlock-api.com";
-const DUREE_JOUEUR_MS = 5 * 60 * 1000; // ton historique change après chaque partie : 5 minutes de cache seulement
+const DUREE_JOUEUR_MS = 5 * 60 * 1000;
+const DUREE_DIRECT_MS = 20 * 1000; // ta partie en direct : relue au plus toutes les 20 s // ton historique change après chaque partie : 5 minutes de cache seulement
 const JOURS_TIER_LISTE = 14; // « héros du moment » : les 2 dernières semaines (un patch tous les 15 jours environ)
 const JOURS_BUILD = 30; // build et contres : 30 jours, pour avoir assez de parties sur chaque objet
 const CLES_PAR_ENVOI = 1000; // même limite que l'outil du site
@@ -63,6 +64,7 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
   const joueur = creerCache({ dureeMs: DUREE_JOUEUR_MS, maintenant }); // 5 min : ton historique
 
   const parties = creerCache({ maintenant }); // 3 h : détail des parties ouvertes (déjà réduit à l'essentiel)
+  const direct = creerCache({ dureeMs: DUREE_DIRECT_MS, maintenant }); // 20 s : ta partie en cours
 
   /**
    * Lit une adresse (JSON), avec cache. transformer : réduit la réponse AVANT de la garder (détail d'une partie :
@@ -110,6 +112,22 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
   /** Parties sur la période du build (pour la part des achats de chaque objet). */
   const statsHerosBuild = async ({ rang = null } = {}) =>
     lireJson(adresse("/v1/analytics/hero-stats", { min_unix_timestamp: depuis(JOURS_BUILD, maintenant()), min_average_badge: S.badgeMinimal(rang) }), general);
+
+  /** Profil de chaque héros (dégâts d'esprit ou de balles, tank, soins, contrôles) : profilsHeros de deadlock-stats.js. */
+  const profils = async () => {
+    const [herosBrut, stats] = await Promise.all([lireJson(adresse("/v1/assets/heroes"), general), statsHeros()]);
+    return S.profilsHeros(herosBrut, stats);
+  };
+
+  /** Familles des objets d'après leurs effets (résistance à l'esprit, anti-soin...) : famillesObjets de deadlock-stats.js. */
+  const familles = async () => S.famillesObjets(await lireJson(adresse("/v1/assets/items"), general));
+
+  /**
+   * Ta partie en cours (partieEnCours de deadlock-stats.js), ou null. Seulement les parties de l'onglet « Regarder » du
+   * jeu (les 200 mieux classées) : pour les autres, la page fait choisir les héros adverses à la main.
+   */
+  const partieEnCours = async (accountId) =>
+    S.partieEnCours(await lireJson(adresse("/v1/matches/active", { account_id: numeroCompte(accountId) }), direct), accountId);
 
   /** Date de la dernière grosse mise à jour (millisecondes), ou null. */
   const dernierGrosPatch = async () => S.dernierGrosPatch(await lireJson(adresse("/v1/patches/big-days"), general), maintenant());
@@ -174,7 +192,7 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
     return valides.length;
   }
 
-  return { heros, nomsHeros, objets, rangs, historique, mesStatsHeros, statsHeros, statsObjets, statsHerosBuild, duels, dernierGrosPatch, statsAutourDuPatch, partie, envoyerParties };
+  return { heros, nomsHeros, objets, rangs, historique, mesStatsHeros, statsHeros, statsObjets, statsHerosBuild, duels, dernierGrosPatch, statsAutourDuPatch, partie, profils, familles, partieEnCours, envoyerParties };
 }
 
 module.exports = { URL_API, SITE, JOURS_TIER_LISTE, JOURS_BUILD, JOURS_AVANT_PATCH, DELAI_LENT_MS, ErreurDeadlockApi, depuis, adresse, creerLecteurDeadlock };
