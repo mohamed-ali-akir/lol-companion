@@ -1632,3 +1632,56 @@ body.mode-deadlock .resultat-victoire { color: #78c04a; }
   justify-content: space-between;
   padding: 8px 0;
 }
+
+/* --- Mode Deadlock (31/10/2026) : gagnants et perdants de la mise à jour, détail d'une partie --- */
+/* 2 colonnes (héros en haut, objets en bas), une seule sur une petite fenêtre */
+.dl-patch {
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  margin-top: 10px;
+}
+
+.visuellement-cache {
+  clip: rect(0 0 0 0);
+  height: 1px;
+  overflow: hidden;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
+}
+
+.bouton-petit {
+  padding: 4px 12px;
+}
+
+.dl-equipe {
+  margin-top: 18px;
+}
+
+.dl-equipe h3 {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.ligne-toi td {
+  background: rgba(120, 192, 74, 0.08);
+}
+
+.ligne-toi .col-nom {
+  font-weight: 700;
+}
+
+/* Objets d'un joueur : même couleur que leur emplacement dans le build */
+.puce-arme { border-color: #e6913c; }
+.puce-vitalite { border-color: #78c04a; }
+.puce-esprit { border-color: #b07ce6; }
+
+/* Les deux équipes ont les mêmes colonnes, alignées l'une sous l'autre */
+.dl-equipe table {
+  table-layout: fixed;
+  width: 100%;
+}
+
+.dl-equipe th:nth-child(1) { width: 20%; }
+.dl-equipe th:nth-child(n + 2):nth-child(-n + 5) { width: 11%; }
+.dl-equipe th:last-child { text-align: left; }

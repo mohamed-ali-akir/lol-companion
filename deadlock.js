@@ -14,7 +14,7 @@
  */
 const J = require("./deadlock-jeu.js");
 const S = require("./deadlock-stats.js");
-const { JOURS_TIER_LISTE, JOURS_BUILD } = require("./deadlock-api.js");
+const { JOURS_TIER_LISTE, JOURS_BUILD, JOURS_AVANT_PATCH } = require("./deadlock-api.js");
 
 /**
  * Réglages du mode Deadlock (config.json, clé « deadlock »), toujours valides :
@@ -122,6 +122,32 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
   }
 
   /**
+   * Gagnants et perdants de la dernière grosse mise à jour (31/10/2026, idée reprise de Statlocker) :
+   * { date (ms) ou null, joursAvant, rang, heros: { montent, baissent }, objets: { montent, baissent } }.
+   * Comparé : les 2 semaines avant la mise à jour et la période depuis, au niveau choisi dans l'onglet Héros.
+   */
+  async function patch() {
+    const { rang } = reglagesPropres();
+    const date = await lecteur.dernierGrosPatch();
+    const vide = { montent: [], baissent: [] };
+    if (date === null) return { date: null, joursAvant: JOURS_AVANT_PATCH, rang, heros: vide, objets: vide };
+    const [liste, objets, stats] = await Promise.all([lecteur.heros(), lecteur.objets(), lecteur.statsAutourDuPatch(date, { rang })]);
+    return {
+      date,
+      joursAvant: JOURS_AVANT_PATCH,
+      rang,
+      heros: S.evolution(stats.heros.avant, stats.heros.apres, "hero_id", liste, { partiesMin: S.PARTIES_MIN_EVOLUTION_HEROS }),
+      objets: S.evolution(stats.objets.avant, stats.objets.apres, "item_id", objets, { partiesMin: S.PARTIES_MIN_EVOLUTION_OBJET }),
+    };
+  }
+
+  /** Détail d'une de tes parties (detailPartie de deadlock-stats.js) : les 12 joueurs, ton équipe d'abord. */
+  async function partie(matchId) {
+    const [c, liste, objets, extrait] = await Promise.all([compteDuPc(), lecteur.nomsHeros(), lecteur.objets(), lecteur.partie(matchId)]);
+    return S.detailPartie(extrait, liste, objets, c ? c.accountId : null);
+  }
+
+  /**
    * Envoie à deadlock-api.com les parties du cache de Steam pas encore envoyées (d'office depuis le 27/10/2026 : au
    * lancement de l'appli et à chaque fermeture de Deadlock). Un seul envoi à la fois ; le résultat est gardé dans
    * dernierEnvoi et écrit dans le journal.
@@ -188,7 +214,7 @@ function creerDeadlock({ lecteur, donnees, reglages, enregistrerReglages, jeu = 
   /** Pour les tests : une vérification tout de suite (sinon toutes les intervalleMs). */
   const verifier = () => (suivi ? suivi.verifier() : Promise.resolve());
 
-  return { demarrer, arreter, verifier, etat, accueil, heros, listeHeros, build, enregistrer, envoyerNouvellesParties };
+  return { demarrer, arreter, verifier, etat, accueil, heros, listeHeros, build, patch, partie, enregistrer, envoyerNouvellesParties };
 }
 
 module.exports = { MESSAGE_AUCUNE_PARTIE, normaliserReglagesDeadlock, creerDeadlock };

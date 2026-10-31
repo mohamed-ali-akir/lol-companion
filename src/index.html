@@ -576,11 +576,20 @@
           <div class="table-defilante">
             <table class="table-stats" id="tableDeadlockParties" hidden>
               <thead>
-                <tr><th scope="col">Héros</th><th scope="col">Résultat</th><th scope="col">K / D / A</th><th scope="col">Âmes</th><th scope="col">Durée</th><th scope="col">Type</th><th scope="col">Date</th></tr>
+                <tr><th scope="col">Héros</th><th scope="col">Résultat</th><th scope="col">K / D / A</th><th scope="col">Âmes</th><th scope="col">Durée</th><th scope="col">Type</th><th scope="col">Date</th><th scope="col"><span class="visuellement-cache">Détail</span></th></tr>
               </thead>
               <tbody id="corpsDeadlockParties"></tbody>
             </table>
           </div>
+        </div>
+
+        <div class="card" id="deadlockPartieCarte" hidden>
+          <div class="titre-carte">
+            <h2 id="deadlockPartieTitre">Détail de la partie</h2>
+            <button type="button" id="deadlockPartieFermer" class="bouton-secondaire">Fermer</button>
+          </div>
+          <p id="etatDeadlockPartie" class="etat" hidden></p>
+          <div id="deadlockPartie" aria-live="polite"></div>
         </div>
 
       </section>
@@ -602,6 +611,12 @@
               <tbody id="corpsDeadlockHeros"></tbody>
             </table>
           </div>
+        </div>
+
+        <div class="card">
+          <h2 id="deadlockPatchTitre">Depuis la dernière mise à jour</h2>
+          <p id="etatDeadlockPatch" class="etat" hidden></p>
+          <div id="deadlockPatch" class="dl-contres dl-patch" hidden></div>
         </div>
 
         <div class="card">

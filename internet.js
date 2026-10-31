@@ -51,14 +51,15 @@ function creerCache({ dureeMs = DUREE_CACHE_MS, maintenant = Date.now } = {}) {
  *  site        : nom affiché dans les messages ("OP.GG"...)
  *  Erreur      : classe d'erreur du site (ErreurOpgg...)
  *  introuvable : message si le site répond 404 (sinon : message « code 404 »)
+ *  delaiMs     : délai maximal (20 s par défaut ; plus long pour les rares réponses lentes ou lourdes de deadlock-api.com)
  */
-async function telecharger({ appeler, adresse, options = {}, site, Erreur, introuvable = null }) {
+async function telecharger({ appeler, adresse, options = {}, site, Erreur, introuvable = null, delaiMs = DELAI_MAX_MS }) {
   let reponse;
   try {
     reponse = await appeler(adresse, {
       ...options,
       headers: { "User-Agent": IDENTITE, ...options.headers },
-      signal: AbortSignal.timeout(DELAI_MAX_MS),
+      signal: AbortSignal.timeout(delaiMs),
     });
   } catch {
     throw new Erreur(`${site} ne répond pas (pas d'Internet ?).`);

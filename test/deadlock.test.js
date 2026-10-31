@@ -98,6 +98,40 @@ test("envoi des parties : POST JSON au format de l'outil du site, par paquets de
   assert.strictEqual(net.demandes.length, 2, "rien à envoyer : aucune demande");
 });
 
+test("lecteur : mise à jour (date, stats avant et après) et détail d'une partie réduit à l'essentiel, gardé en cache", async () => {
+  const patch = Date.parse("2026-09-29T20:25:11Z");
+  const net = fauxInternet({
+    "/v1/patches/big-days": ["2026-09-29T20:25:11Z", "2026-05-22T21:51:02Z", "2027-01-01T00:00:00Z"],
+    "/v1/matches/42/metadata": { match_info: { match_id: 42, duration_s: 1800, winning_team: 1, players: [{ account_id: 123, team: 1, hero_id: 1, kills: 3, items: [], stats: [] }] }, pings: "énorme" },
+    "/v1/matches/43/metadata": 404,
+    "/v1/matches/44/metadata": { pas: "le bon format" },
+  });
+  const l = A.creerLecteurDeadlock({ appeler: net.appeler, maintenant: () => MAINTENANT });
+  assert.strictEqual(await l.dernierGrosPatch(), patch, "la date future est ignorée");
+  await l.statsAutourDuPatch(patch, { rang: 8 });
+  const stats = net.demandes.slice(1);
+  assert.deepStrictEqual(stats.map((d) => d.url.pathname), ["/v1/analytics/hero-stats", "/v1/analytics/hero-stats", "/v1/analytics/item-stats", "/v1/analytics/item-stats"]);
+  const date = Math.floor(patch / 1000);
+  assert.strictEqual(stats[0].url.searchParams.get("min_unix_timestamp"), String(date - 14 * 86400), "avant : les 2 semaines qui précèdent");
+  assert.strictEqual(stats[0].url.searchParams.get("max_unix_timestamp"), String(date));
+  assert.strictEqual(stats[1].url.searchParams.get("min_unix_timestamp"), String(date), "après : depuis la mise à jour");
+  assert.strictEqual(stats[1].url.searchParams.has("max_unix_timestamp"), false);
+  assert.strictEqual(stats[2].url.searchParams.has("hero_id"), false, "objets de tous les héros");
+  assert.ok(stats.every((d) => d.url.searchParams.get("min_average_badge") === "80"), "niveau choisi");
+
+  const partie = await l.partie(42);
+  assert.strictEqual(partie.joueurs[0].eliminations, 3);
+  assert.strictEqual(JSON.stringify(partie).includes("énorme"), false, "seul l'essentiel est gardé");
+  await l.partie(42);
+  assert.strictEqual(net.demandes.filter((d) => d.url.pathname === "/v1/matches/42/metadata").length, 1, "gardée en cache");
+  await assert.rejects(l.partie(43), /pas encore le détail de cette partie/);
+  await assert.rejects(l.partie(44), /illisible/);
+  await assert.rejects(l.partie(44), /illisible/);
+  assert.strictEqual(net.demandes.filter((d) => d.url.pathname === "/v1/matches/44/metadata").length, 2, "une réponse illisible n'est pas gardée");
+  await assert.rejects(l.partie(0), /Partie inconnue/);
+  await assert.rejects(l.partie("42"), /Partie inconnue/);
+});
+
 // --- deadlock.json ---------------------------------------------------------------------------------
 
 test("deadlock.json : sessions et parties envoyées, lecture tolérante, sessions trop courtes ignorées", () => {
@@ -135,8 +169,8 @@ test("réglages : niveau entre 1 et 11 ou tous ; l'ancienne case de l'envoi des 
 
 const HEROS = new Map([[1, { id: 1, nom: "Infernus" }], [2, { id: 2, nom: "Seven" }]]);
 
-function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" }, cache = [], historique = [], echecEnvoi = null } = {}) {
-  const trace = { envoyees: [], etats: [], journal: [], sessions: [], notees: [], reglages: { rang: null } };
+function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" }, cache = [], historique = [], echecEnvoi = null, patch = Date.UTC(2026, 8, 29) } = {}) {
+  const trace = { envoyees: [], etats: [], journal: [], sessions: [], notees: [], patchs: [], reglages: { rang: null } };
   const etatJeu = { lance };
   let heure = 1_000_000;
   const jeu = {
@@ -148,6 +182,7 @@ function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" },
   };
   const lecteur = {
     heros: async () => HEROS,
+    nomsHeros: async () => new Map([...HEROS, [86, { id: 86, nom: "Violet" }]]),
     objets: async () => new Map([[11, { id: 11, nom: "Extended Magazine", emplacement: "arme", prix: 800 }]]),
     rangs: async () => [{ rang: 8, nom: "Oracle" }],
     historique: async () => historique,
@@ -156,6 +191,22 @@ function service({ lance = false, compte = { accountId: 123, pseudo: "Joueur" },
     statsHerosBuild: async () => [{ hero_id: 1, wins: 600, matches: 1000 }],
     statsObjets: async () => [{ item_id: 11, wins: 500, matches: 900, avg_buy_time_s: 300 }],
     duels: async () => [{ hero_id: 1, enemy_hero_id: 2, wins: 300, matches_played: 1000 }],
+    dernierGrosPatch: async () => patch,
+    statsAutourDuPatch: async (date, { rang }) => {
+      trace.patchs.push([date, rang]);
+      return {
+        heros: { avant: [{ hero_id: 1, wins: 500, matches: 1000 }, { hero_id: 2, wins: 500, matches: 1000 }], apres: [{ hero_id: 1, wins: 530, matches: 1000 }, { hero_id: 2, wins: 480, matches: 1000 }] },
+        objets: { avant: [{ item_id: 11, wins: 1000, matches: 2000 }], apres: [{ item_id: 11, wins: 1100, matches: 2000 }] },
+      };
+    },
+    partie: async (id) => ({
+      id, debut: 5000, dureeS: 1800, gagnante: 0,
+      joueurs: [
+        { accountId: 999, heroId: 2, equipe: 0, eliminations: 5, morts: 1, assistances: 4, ames: 30000, objets: [11] },
+        { accountId: 123, heroId: 1, equipe: 1, eliminations: 2, morts: 6, assistances: 3, ames: 20000, objets: [11, 404] },
+        { accountId: 5, heroId: 86, equipe: 1, eliminations: 0, morts: 0, assistances: 0, ames: 100, objets: [] },
+      ],
+    }),
     envoyerParties: async (cles) => {
       if (echecEnvoi) throw new Error(echecEnvoi);
       trace.envoyees.push(...cles.map((c) => c.match_id));
@@ -250,4 +301,29 @@ test("service : Accueil (tes parties, message si aucune), Héros et Build calcul
   assert.deepStrictEqual(build.build.phases[0].objets.map((o) => o.nom), ["Extended Magazine"]);
   assert.deepStrictEqual(build.contres.difficiles.map((c) => c.nom), ["Seven"]);
   assert.strictEqual((await dl.build(77)).heros.nom, "Héros n° 77");
+});
+
+test("service : gagnants et perdants de la mise à jour (au niveau choisi), détail d'une partie avec ton équipe d'abord", async () => {
+  const { dl, trace } = service();
+  trace.reglages = { rang: 8 };
+  const p = await dl.patch();
+  assert.strictEqual(p.date, Date.UTC(2026, 8, 29));
+  assert.deepStrictEqual(trace.patchs, [[Date.UTC(2026, 8, 29), 8]]);
+  assert.deepStrictEqual(p.heros.montent.map((h) => h.nom), ["Infernus"]);
+  assert.deepStrictEqual(p.heros.baissent.map((h) => h.nom), ["Seven"]);
+  assert.deepStrictEqual(p.objets.montent.map((o) => o.nom), ["Extended Magazine"]);
+  const sansDate = service({ patch: null });
+  assert.deepStrictEqual(await sansDate.dl.patch(), { date: null, joursAvant: A.JOURS_AVANT_PATCH, rang: null, heros: { montent: [], baissent: [] }, objets: { montent: [], baissent: [] } });
+  assert.deepStrictEqual(sansDate.trace.patchs, [], "sans date : aucune stat demandée");
+
+  const partie = await dl.partie(42);
+  assert.strictEqual(partie.victoire, false);
+  assert.deepStrictEqual(partie.equipes.map((e) => [e.titre, e.gagnante]), [["Ton équipe", false], ["Adversaires", true]]);
+  assert.deepStrictEqual(partie.equipes[0].joueurs[0], {
+    nom: "Infernus", toi: true, eliminations: 2, morts: 6, assistances: 3, ames: 20000, derniersCoups: undefined, degats: undefined, soins: undefined,
+    objets: [{ nom: "Extended Magazine", emplacement: "arme" }],
+  });
+  assert.strictEqual(partie.equipes[0].joueurs[1].nom, "Violet", "héros encore « en développement » : nommé quand même");
+  const sansCompte = service({ compte: null });
+  assert.deepStrictEqual((await sansCompte.dl.partie(42)).equipes.map((e) => e.titre), ["Équipe 1", "Équipe 2"]);
 });

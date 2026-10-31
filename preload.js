@@ -33,12 +33,14 @@ contextBridge.exposeInMainWorld("appli", {
   lireMaj: () => ipcRenderer.invoke("maj:lire"),
   verifierMaj: () => ipcRenderer.invoke("maj:verifier"),
   installerMaj: () => ipcRenderer.invoke("maj:installer"),
-  // Mode Deadlock (deadlock.js) : état, Accueil, Héros, Build, réglages.
+  // Mode Deadlock (deadlock.js) : état, Accueil (et détail d'une partie), Héros (et mise à jour), Build, réglages.
   lireDeadlock: () => ipcRenderer.invoke("deadlock:etat"),
   lireAccueilDeadlock: () => ipcRenderer.invoke("deadlock:accueil"),
   lireHerosDeadlock: () => ipcRenderer.invoke("deadlock:heros"),
   listeHerosDeadlock: () => ipcRenderer.invoke("deadlock:listeHeros"),
   consulterBuildDeadlock: (heroId) => ipcRenderer.invoke("deadlock:build", heroId),
+  lirePatchDeadlock: () => ipcRenderer.invoke("deadlock:patch"),
+  lirePartieDeadlock: (matchId) => ipcRenderer.invoke("deadlock:partie", matchId),
   enregistrerDeadlock: (reglages) => ipcRenderer.invoke("deadlock:enregistrer", reglages),
 
   // Messages envoyés par main.js sans que la page les demande (surveillance en direct).

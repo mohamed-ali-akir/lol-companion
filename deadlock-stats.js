@@ -31,13 +31,17 @@ const texte = (s) => (typeof s === "string" && s.trim() ? s.trim() : null);
 
 // --- Référentiels (héros, objets, rangs) -----------------------------------------------------------------------
 
-/** Héros jouables : Map id -> { id, nom } (les héros en développement ou désactivés sont écartés). */
-function normaliserHeros(brut) {
+/**
+ * Héros jouables : Map id -> { id, nom } (les héros en développement ou désactivés sont écartés).
+ * tous : garde aussi ceux-là, pour mettre un nom sur un héros vu dans une partie (31/10/2026 : Violet, encore marqué
+ * « en développement » par le site, est déjà joué).
+ */
+function normaliserHeros(brut, { tous = false } = {}) {
   const heros = new Map();
   for (const h of liste(brut)) {
     const nom = texte(h.name);
     if (!Number.isInteger(h.id) || h.id <= 0 || !nom) continue;
-    if (h.player_selectable === false || h.disabled === true || h.in_development === true) continue;
+    if (!tous && (h.player_selectable === false || h.disabled === true || h.in_development === true)) continue;
     heros.set(h.id, { id: h.id, nom });
   }
   return heros;
@@ -324,6 +328,137 @@ function tempsDeJeu(sessions, enCours = null, maintenant = Date.now()) {
   };
 }
 
+// --- Gagnants et perdants de la mise à jour (31/10/2026) ---------------------------------------------------------
+
+/**
+ * Date de la dernière grosse mise à jour (/v1/patches/big-days : ["2026-09-29T20:25:11Z", ...], tenue à la main par
+ * le site, environ toutes les 2 à 8 semaines) -> millisecondes, ou null. Les dates futures ou illisibles sont ignorées.
+ */
+function dernierGrosPatch(brut, maintenant = Date.now()) {
+  const dates = (Array.isArray(brut) ? brut : [])
+    .map((d) => (typeof d === "string" ? Date.parse(d) : NaN))
+    .filter((d) => Number.isFinite(d) && d <= maintenant);
+  return dates.length > 0 ? Math.max(...dates) : null;
+}
+
+const PARTIES_MIN_EVOLUTION_HEROS = 500; // sur CHAQUE période (avant et après la mise à jour)
+const PARTIES_MIN_EVOLUTION_OBJET = 1000; // tous héros confondus : un objet peu acheté bouge beaucoup par hasard
+const EVOLUTIONS_AFFICHEES = 5;
+
+/**
+ * Ce qui a le plus monté et le plus baissé entre deux périodes (/v1/analytics/hero-stats ou item-stats sans héros).
+ *  - cle : "hero_id" ou "item_id" ; fiches : Map id -> { nom, ... } (héros jouables ou objets de la boutique) ;
+ *  - seuls les héros ou objets avec au moins partiesMin parties AVANT et APRÈS sont comparés ;
+ *  - ecart : taux de victoire après - avant (0,021 = +2,1 points). Renvoie { montent, baissent } :
+ *    [{ id, nom, avant, apres, ecart, parties (après) }], les plus grands changements d'abord, 5 au plus chacun.
+ */
+function evolution(avantBrut, apresBrut, cle, fiches = new Map(), { partiesMin = PARTIES_MIN_EVOLUTION_HEROS } = {}) {
+  const taux = (brut) => {
+    const parId = new Map();
+    for (const l of liste(brut)) {
+      if (!Number.isInteger(l[cle]) || !Number.isFinite(l.matches) || l.matches < partiesMin || !fiches.has(l[cle])) continue;
+      const victoires = Number.isFinite(l.wins) ? Math.min(l.wins, l.matches) : 0;
+      parId.set(l[cle], { parties: l.matches, taux: victoires / l.matches });
+    }
+    return parId;
+  };
+  const avant = taux(avantBrut);
+  const changements = [];
+  for (const [id, apres] of taux(apresBrut)) {
+    const a = avant.get(id);
+    if (!a) continue;
+    changements.push({ id, nom: fiches.get(id).nom, avant: a.taux, apres: apres.taux, ecart: apres.taux - a.taux, parties: apres.parties });
+  }
+  return {
+    montent: changements.filter((c) => c.ecart > 0).sort((a, b) => b.ecart - a.ecart).slice(0, EVOLUTIONS_AFFICHEES),
+    baissent: changements.filter((c) => c.ecart < 0).sort((a, b) => a.ecart - b.ecart).slice(0, EVOLUTIONS_AFFICHEES),
+  };
+}
+
+// --- Détail d'une partie (31/10/2026) -------------------------------------------------------------------------------
+
+/**
+ * /v1/matches/{id}/metadata (environ 1 Mo : positions, pings, dégâts seconde par seconde...) -> l'essentiel, quelques
+ * Ko, gardé en cache : { id, debut, dureeS, gagnante, joueurs: [{ accountId, heroId, equipe, eliminations, morts,
+ * assistances, ames, derniersCoups, degats, soins, objets: [ids] }] }, ou null si la partie est illisible.
+ * Format vérifié le 31/10/2026 : { match_info: { match_id, start_time, duration_s, winning_team, players: [{ account_id,
+ * team, hero_id, kills, deaths, assists, net_worth, last_hits, items: [{ item_id, game_time_s, sold_time_s }],
+ * stats: [{ player_damage, player_healing, ... }] (instantanés, le dernier est la fin de partie) }] } }.
+ * Objets gardés : ceux encore en main à la fin (sold_time_s = 0), dans l'ordre d'achat. Les sorts du héros sont aussi
+ * dans items : ils sont écartés plus tard (detailPartie ne garde que les objets de la boutique).
+ */
+function extrairePartie(brut) {
+  const m = brut && typeof brut === "object" ? brut.match_info : null;
+  if (!m || typeof m !== "object" || !Number.isSafeInteger(m.match_id) || !Array.isArray(m.players)) return null;
+  const joueurs = liste(m.players)
+    .filter((p) => Number.isInteger(p.hero_id) && (p.team === 0 || p.team === 1))
+    .map((p) => {
+      const fin = liste(p.stats).at(-1) || {};
+      return {
+        accountId: Number.isInteger(p.account_id) ? p.account_id : null,
+        heroId: p.hero_id,
+        equipe: p.team,
+        eliminations: positif(p.kills),
+        morts: positif(p.deaths),
+        assistances: positif(p.assists),
+        ames: positif(p.net_worth),
+        derniersCoups: positif(p.last_hits),
+        degats: positif(fin.player_damage),
+        soins: positif(fin.player_healing),
+        objets: liste(p.items)
+          .filter((o) => Number.isInteger(o.item_id) && !(Number.isFinite(o.sold_time_s) && o.sold_time_s > 0))
+          .sort((a, b) => (a.game_time_s || 0) - (b.game_time_s || 0))
+          .map((o) => o.item_id),
+      };
+    });
+  if (joueurs.length === 0) return null;
+  return {
+    id: m.match_id,
+    debut: Number.isFinite(m.start_time) ? m.start_time * 1000 : null,
+    dureeS: positif(m.duration_s),
+    gagnante: m.winning_team === 0 || m.winning_team === 1 ? m.winning_team : null,
+    joueurs,
+  };
+}
+
+/**
+ * Partie extraite -> ce que la page affiche : { id, debut, dureeS, victoire, equipes: [{ titre, gagnante, joueurs }] }.
+ * Ton équipe d'abord (« Ton équipe », « Adversaires ») si ton compte est dans la partie, sinon « Équipe 1 / 2 ».
+ * Chaque joueur : { nom (héros), toi, eliminations, morts, assistances, ames, derniersCoups, degats, soins,
+ * objets: [{ nom, emplacement }] } ; dans chaque équipe, le plus riche en âmes d'abord.
+ */
+function detailPartie(partie, heros = new Map(), objets = new Map(), accountId = null) {
+  if (!partie) return null;
+  const moi = partie.joueurs.find((j) => accountId !== null && j.accountId === accountId);
+  const equipeA = moi ? moi.equipe : 0;
+  const joueursDe = (equipe) =>
+    partie.joueurs
+      .filter((j) => j.equipe === equipe)
+      .map((j) => ({
+        nom: (heros.get(j.heroId) || {}).nom || `Héros n° ${j.heroId}`,
+        toi: Boolean(moi) && j.accountId === moi.accountId,
+        eliminations: j.eliminations,
+        morts: j.morts,
+        assistances: j.assistances,
+        ames: j.ames,
+        derniersCoups: j.derniersCoups,
+        degats: j.degats,
+        soins: j.soins,
+        objets: j.objets.filter((o) => objets.has(o)).map((o) => ({ nom: objets.get(o).nom, emplacement: objets.get(o).emplacement })),
+      }))
+      .sort((a, b) => (b.ames || 0) - (a.ames || 0));
+  const equipe = (numero, titre) => ({ titre, gagnante: partie.gagnante === null ? null : partie.gagnante === numero, joueurs: joueursDe(numero) });
+  return {
+    id: partie.id,
+    debut: partie.debut,
+    dureeS: partie.dureeS,
+    victoire: moi && partie.gagnante !== null ? partie.gagnante === moi.equipe : null,
+    equipes: moi
+      ? [equipe(equipeA, "Ton équipe"), equipe(1 - equipeA, "Adversaires")]
+      : [equipe(0, "Équipe 1"), equipe(1, "Équipe 2")],
+  };
+}
+
 module.exports = {
   PHASES,
   PARTIES_MIN_HEROS,
@@ -343,4 +478,10 @@ module.exports = {
   buildDuHeros,
   contresDuHeros,
   tempsDeJeu,
+  PARTIES_MIN_EVOLUTION_HEROS,
+  PARTIES_MIN_EVOLUTION_OBJET,
+  dernierGrosPatch,
+  evolution,
+  extrairePartie,
+  detailPartie,
 };

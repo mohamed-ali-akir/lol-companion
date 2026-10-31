@@ -213,6 +213,14 @@ function brancherMessages(ipcMain, services) {
       return s.deadlock().build(id);
     })
   );
+  repondre("deadlock:patch", () => essayer(() => s.deadlock().patch()));
+  repondre("deadlock:partie", (matchId) =>
+    essayer(async () => {
+      const id = Number(matchId);
+      if (!Number.isSafeInteger(id) || id <= 0) throw new ErreurDeadlockApi("Partie inconnue.");
+      return { partie: await s.deadlock().partie(id) };
+    })
+  );
   repondre("deadlock:enregistrer", (reglages) => essayer(() => ({ reglages: s.deadlock().enregistrer(reglages) })));
 
   // --- État de l'appli (au démarrage de la page ; ensuite, main.js prévient la page tout seul) ---

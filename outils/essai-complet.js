@@ -187,6 +187,22 @@ const API_DEADLOCK = {
     { item_id: 13, wins: 2600, losses: 2500, matches: 5100, avg_buy_time_s: 410 }, { item_id: 14, wins: 3900, losses: 3100, matches: 7000, avg_buy_time_s: 1500 },
   ],
   "/v1/analytics/hero-counter-stats": [{ hero_id: 1, enemy_hero_id: 2, wins: 400, matches_played: 1000 }, { hero_id: 1, enemy_hero_id: 3, wins: 600, matches_played: 1000 }],
+  "/v1/patches/big-days": [new Date(maintenant - 10 * 86400000).toISOString()],
+  "/v1/matches/3/metadata": {
+    match_info: {
+      match_id: 3, start_time: S_(3600), duration_s: 1980, winning_team: 0,
+      players: [
+        { account_id: 123456, team: 0, hero_id: 1, kills: 9, deaths: 3, assists: 12, net_worth: 41000, last_hits: 180, items: [{ item_id: 11, game_time_s: 330, sold_time_s: 0 }, { item_id: 14, game_time_s: 1500, sold_time_s: 0 }], stats: [{ player_damage: 42000, player_healing: 3000 }] },
+        { account_id: 2, team: 0, hero_id: 3, kills: 5, deaths: 4, assists: 9, net_worth: 35000, items: [{ item_id: 13, game_time_s: 400, sold_time_s: 0 }], stats: [{ player_damage: 30000, player_healing: 9000 }] },
+        { account_id: 3, team: 1, hero_id: 2, kills: 6, deaths: 7, assists: 5, net_worth: 33000, items: [{ item_id: 12, game_time_s: 280, sold_time_s: 0 }], stats: [{ player_damage: 28000, player_healing: 1000 }] },
+      ],
+    },
+  },
+};
+// Stats d'AVANT la mise à jour (demandes avec max_unix_timestamp) : Infernus et Extended Magazine montent, Vindicta baisse.
+const API_DEADLOCK_AVANT = {
+  "/v1/analytics/hero-stats": [{ hero_id: 1, wins: 5500, losses: 5500, matches: 11000 }, { hero_id: 2, wins: 5200, losses: 5300, matches: 10500 }, { hero_id: 3, wins: 4600, losses: 4200, matches: 8800 }],
+  "/v1/analytics/item-stats": [{ item_id: 11, wins: 4700, losses: 5100, matches: 9800 }, { item_id: 14, wins: 3900, losses: 3100, matches: 7000 }],
 };
 const appelsDeadlock = [];
 const fetchOrigine = globalThis.fetch;
@@ -194,7 +210,8 @@ globalThis.fetch = async (adresse, options = {}) => {
   const url = new URL(String(adresse));
   if (url.hostname !== "api.deadlock-api.com") return fetchOrigine(adresse, options);
   appelsDeadlock.push({ chemin: url.pathname, methode: options.method || "GET" });
-  const corps = url.pathname === "/v1/matches/salts" ? {} : API_DEADLOCK[url.pathname];
+  const donnees = url.searchParams.has("max_unix_timestamp") ? API_DEADLOCK_AVANT : API_DEADLOCK;
+  const corps = url.pathname === "/v1/matches/salts" ? {} : donnees[url.pathname];
   return new Response(JSON.stringify(corps === undefined ? { erreur: "inconnu" } : corps), { status: corps === undefined ? 404 : 200, headers: { "Content-Type": "application/json" } });
 };
 
@@ -212,7 +229,7 @@ const ATTENDU = {
 // Mode Deadlock : ce que chaque onglet doit montrer avec la fausse deadlock-api.com.
 const ATTENDU_DEADLOCK = {
   deadlock: ["Ton compte Steam", "Joueur", "Deadlock est lancé", "Infernus", "Classée", "Street Brawl"],
-  deadlockheros: ["Infernus", "Seven", "Vindicta", "Tes héros"],
+  deadlockheros: ["Infernus", "Seven", "Vindicta", "Tes héros", "Depuis la mise à jour du", "Héros en hausse", "Extended Magazine", "+4,5 points"],
   deadlockbuild: ["Build Infernus", "Début de partie", "Extended Magazine", "Toxic Bullets", "Plus dur contre", "Seven"],
 };
 
@@ -344,6 +361,18 @@ require(path.join(PROJET, "main.js"));
     for (const mot of mots) if (!texte.includes(mot)) problemes.push(`onglet ${onglet} : « ${mot} » introuvable`);
     if (onglet === "deadlock" && (await page(`Boolean(document.querySelector("#panneau-deadlock input[type=checkbox]"))`))) {
       problemes.push("mode Deadlock : il reste une case (l'envoi des parties est automatique depuis la 1.5.1)");
+    }
+    if (onglet === "deadlock") {
+      // Détail de la dernière partie (31/10/2026) : les deux équipes, toi repéré, les objets en pastilles.
+      await page(`document.querySelector("#corpsDeadlockParties button").click(); true`);
+      await attendre(1500);
+      const detail = (await page(`$("deadlockPartieCarte").hidden ? "" : $("deadlockPartieCarte").innerText`)).replace(/\s/g, " "); // espaces fines de « 42 000 »
+      for (const mot of ["Ton équipe", "Adversaires", "Infernus (toi)", "Vindicta", "Extended Magazine", "Toxic Bullets", "42 000"]) {
+        if (!detail.includes(mot)) problemes.push(`détail d'une partie : « ${mot} » introuvable`);
+      }
+      await photographier(fenetre, "deadlock-partie");
+      await page(`$("deadlockPartieFermer").click(); true`);
+      if (!(await page(`$("deadlockPartieCarte").hidden`))) problemes.push("détail d'une partie : le bouton Fermer ne le cache pas");
     }
     await photographier(fenetre, onglet);
     console.log(`onglet ${onglet} : vu`);

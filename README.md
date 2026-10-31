@@ -42,8 +42,8 @@ avec le vrai client, ce sont celles du jeu). Le build de l'onglet Build vient de
 | **Challenge** | Challenge Arena : faire un top 3 avec tous les champions, dans l'ordre alphabétique. Faits, restants, barre de progression, prochain champion, et pick automatique du prochain champion en Arena |
 | **Build** | Build de ton champion (Lolalytics + OP.GG) : page de runes, set d'objets et sorts créés pour toi, set « Champion Rank 1 », chronos des sorts adverses, consultation du build de n'importe quel champion |
 | **Paramètres** | Accepter automatiquement les parties, mises à jour, dossier du jeu, relancer l'assistant de démarrage |
-| **Deadlock · Accueil** | Mode Deadlock (quand le jeu est lancé, ou bouton « Deadlock » en haut) : ton compte Steam, ton temps de jeu, tes dernières parties (envoyées automatiquement à deadlock-api.com) |
-| **Deadlock · Héros** | Les meilleurs héros du moment (taux de victoire prudent, popularité, filtre de niveau) et tes stats par héros |
+| **Deadlock · Accueil** | Mode Deadlock (quand le jeu est lancé, ou bouton « Deadlock » en haut) : ton compte Steam, ton temps de jeu, tes dernières parties (envoyées automatiquement à deadlock-api.com), avec le détail de chacune (les 12 joueurs, leurs objets) |
+| **Deadlock · Héros** | Les meilleurs héros du moment (taux de victoire prudent, popularité, filtre de niveau), ce qui monte et baisse depuis la dernière mise à jour, et tes stats par héros |
 | **Deadlock · Build** | Les objets les plus achetés d'un héros, par moment de la partie, et les héros qui le contrent |
 
 <details>
@@ -242,6 +242,8 @@ chaque jeu est retenu.
 
 ![Mode Deadlock : Accueil](docs/captures/deadlock-accueil.png)
 
+![Mode Deadlock : détail d'une partie](docs/captures/deadlock-partie.png)
+
 - **Ce que l'appli regarde sur ton PC, et rien d'autre** (`deadlock-jeu.js`) : la liste des programmes de Windows
   (`deadlock.exe` tourne-t-il ? toutes les 5 s, `tasklist`), ton compte Steam (registre de Windows, sinon
   `Steam\config\loginusers.vdf`) et le cache web de Steam (pour envoyer tes parties). **Jamais** la mémoire du jeu, jamais
@@ -250,10 +252,21 @@ chaque jeu est retenu.
 - **Accueil** : ton compte Steam, ton **temps de jeu** mesuré par l'appli (aujourd'hui, 7 jours, total : de l'ouverture
   à la fermeture du jeu, gardé dans `deadlock.json`, sans Internet), puis **tes parties** : nombre, taux de victoire,
   KDA, et les 20 dernières (héros, résultat, K/D/A, âmes, durée, type : normale, classée, Street Brawl...).
+  **Bouton « Détail »** sur chaque partie (31/10/2026, idée reprise de Statlocker) : les 12 joueurs, ton équipe
+  d'abord et ta ligne surlignée, avec K/D/A, âmes, dégâts aux héros, soins et les objets gardés jusqu'à la fin (en
+  pastilles colorées par emplacement). Lu sur `/v1/matches/{id}/metadata` : environ 1 Mo par partie, réduit tout de
+  suite à quelques Ko (`extrairePartie`) avant d'être gardé 3 h ; les numéros de compte des autres joueurs ne vont pas
+  à la page, et leurs pseudos ne sont pas demandés.
 - **Héros** : les **meilleurs héros du moment** (tous les joueurs, 2 dernières semaines), classés au taux de victoire
   prudent (même formule que le build de LoL, `statistiques.js` : un héros peu joué ne passe pas devant), avec leur
   popularité ; filtre **« Niveau des parties »** (Initiate et plus... Eternus, gardé dans `config.json`). En dessous,
   **tes héros** : parties, victoires, KDA, temps joué.
+  **« Depuis la mise à jour du … »** (31/10/2026, idée reprise de Statlocker) : les 5 héros et les 5 objets qui ont le
+  plus gagné, et le plus perdu, en taux de victoire depuis la dernière grosse mise à jour (date tenue par le site,
+  `/v1/patches/big-days`). Comparé : les 2 semaines avant la mise à jour et la période depuis, au même niveau de
+  parties ; seuls les héros joués au moins 500 fois (objets : 1 000 fois) sur chaque période. Le taux avant et après
+  s'affiche au survol. Lu après la tier list, à part : ces stats peuvent mettre une vingtaine de secondes à venir du
+  site quand personne ne les a demandées avant (45 s au plus pour elles et pour le détail d'une partie, 20 s ailleurs).
 - **Build** : pour un héros (ton plus joué choisi d'office), les **objets les plus achetés**, rangés par **moment de la
   partie** (avant 10 min, 10 à 20 min, après 20 min, d'après le temps d'achat moyen). Ce n'est pas un ordre à suivre à
   la lettre : dans chaque période, les objets sont groupés en **« Presque toujours »** (achetés dans au moins 60 % des
@@ -828,8 +841,8 @@ lol-level-calculator/
 ├── outils/sonde.js    # Sonde des sites lus par l'appli (npm run sonde, et chaque jour sur GitHub)
 ├── deadlock.js        # Mode Deadlock : le service (jeu lancé, historique, héros, build, envoi des parties) (testé)
 ├── deadlock-jeu.js    # Deadlock sur ce PC : jeu lancé (tasklist), compte Steam, parties du cache de Steam (testé)
-├── deadlock-api.js    # deadlock-api.com (Internet) : historique, stats des héros et des objets, envoi des parties
-├── deadlock-stats.js  # Mode Deadlock : calculs purs (tes parties, tier list, build par moment, contres, temps de jeu)
+├── deadlock-api.js    # deadlock-api.com (Internet) : historique, détail d'une partie, stats des héros et des objets, envoi des parties
+├── deadlock-stats.js  # Mode Deadlock : calculs purs (tes parties, détail d'une partie, tier list, mise à jour, build, contres, temps de jeu)
 ├── deadlock-donnees.js # deadlock.json : tes sessions de jeu et les parties déjà envoyées (écriture sûre)
 ├── statistiques.js    # Taux de victoire prudent (Wilson), partagé par le build de LoL et le mode Deadlock
 ├── docs/captures/     # Captures du README

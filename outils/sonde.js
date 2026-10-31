@@ -114,9 +114,23 @@ const VERIFICATIONS = [
       if (parties.length === 0) continue;
       const r = DS.resumeParties(parties);
       exiger(r.tauxVictoire !== null && r.kda !== null, "victoires ou KDA illisibles");
-      return `${r.nombre} parties lues pour un joueur du classement`;
+      // Détail de sa dernière partie (bouton « Détail » de l'Accueil, 31/10/2026)
+      const detail = DS.detailPartie(await deadlock.partie(parties[0].id), await deadlock.nomsHeros(), await deadlock.objets(), id);
+      const joueurs = detail.equipes.flatMap((e) => e.joueurs);
+      exiger(joueurs.length === 12, `${joueurs.length} joueurs dans le détail de la partie`);
+      exiger(joueurs.some((j) => j.toi) && joueurs.every((j) => j.objets.length > 0 && !j.nom.startsWith("Héros n°")), "détail : joueur, objets ou héros illisibles");
+      return `${r.nombre} parties lues pour un joueur du classement, détail de la dernière lisible`;
     }
     throw new Error("aucun historique lisible chez les 5 premiers du classement");
+  }],
+  ["deadlock-api.com : gagnants et perdants de la dernière mise à jour (onglet Héros)", async () => {
+    const date = await deadlock.dernierGrosPatch();
+    exiger(date !== null && Date.now() - date < 120 * 86400000, "pas de grosse mise à jour depuis 4 mois (liste du site plus tenue ?)");
+    const stats = await deadlock.statsAutourDuPatch(date);
+    const heros = DS.evolution(stats.heros.avant, stats.heros.apres, "hero_id", await deadlock.heros(), { partiesMin: DS.PARTIES_MIN_EVOLUTION_HEROS });
+    const objets = DS.evolution(stats.objets.avant, stats.objets.apres, "item_id", await deadlock.objets(), { partiesMin: DS.PARTIES_MIN_EVOLUTION_OBJET });
+    exiger(heros.montent.length + heros.baissent.length >= 5 && objets.montent.length + objets.baissent.length >= 5, "trop peu de héros ou d'objets comparés");
+    return `mise à jour du ${new Date(date).toLocaleDateString("fr-FR")}, en tête : ${(heros.montent[0] || heros.baissent[0]).nom}`;
   }],
 ];
 

@@ -22,6 +22,7 @@ test("héros : seulement les jouables, données abîmées ignorées", () => {
   assert.deepStrictEqual([...HEROS.values()], [{ id: 1, nom: "Infernus" }, { id: 2, nom: "Seven" }, { id: 3, nom: "Vindicta" }]);
   assert.strictEqual(S.normaliserHeros(null).size, 0);
   assert.strictEqual(S.normaliserHeros({ pas: "une liste" }).size, 0);
+  assert.deepStrictEqual([...S.normaliserHeros(HEROS_API, { tous: true }).keys()], [1, 2, 3, 50, 51, 52], "tous : pour nommer les héros d'une partie");
 });
 
 test("objets : améliorations de la boutique, emplacement traduit, le reste ignoré", () => {
@@ -199,4 +200,98 @@ test("temps de jeu : aujourd'hui depuis minuit, 7 jours, total, session en cours
   assert.strictEqual(t.septJours, 2 * h + 0.5 * h);
   assert.strictEqual(t.total, 4 * h + 0.5 * h);
   assert.deepStrictEqual(S.tempsDeJeu(null, null, maintenant), { aujourdhui: 0, septJours: 0, total: 0 });
+});
+
+// --- Mise à jour et détail d'une partie (31/10/2026) -----------------------------------------------------------
+
+test("dernière grosse mise à jour : la plus récente déjà passée, dates abîmées ignorées", () => {
+  const maintenant = Date.parse("2026-10-31T12:00:00Z");
+  const brut = ["2026-05-22T21:51:02Z", "2026-09-29T20:25:11Z", "2026-12-01T00:00:00Z", "pas une date", 42, null];
+  assert.strictEqual(S.dernierGrosPatch(brut, maintenant), Date.parse("2026-09-29T20:25:11Z"));
+  assert.strictEqual(S.dernierGrosPatch([], maintenant), null);
+  assert.strictEqual(S.dernierGrosPatch({ pas: "une liste" }, maintenant), null);
+});
+
+test("évolution : comparée seulement si assez de parties avant ET après, plus grands écarts d'abord", () => {
+  const avant = [
+    { hero_id: 1, wins: 500, matches: 1000 },
+    { hero_id: 2, wins: 520, matches: 1000 },
+    { hero_id: 3, wins: 500, matches: 1000 },
+    { hero_id: 50, wins: 100, matches: 1000 }, // pas jouable
+    { hero_id: "x", wins: 1, matches: 1000 },
+  ];
+  const apres = [
+    { hero_id: 1, wins: 540, matches: 1000 }, // +4 points
+    { hero_id: 2, wins: 490, matches: 1000 }, // -3 points
+    { hero_id: 3, wins: 100, matches: 200 }, // trop peu après
+    { hero_id: 50, wins: 900, matches: 1000 },
+  ];
+  const e = S.evolution(avant, apres, "hero_id", HEROS, { partiesMin: 500 });
+  assert.deepStrictEqual(e.montent.map((c) => [c.nom, Math.round(c.ecart * 1000) / 10]), [["Infernus", 4]]);
+  assert.deepStrictEqual(e.baissent.map((c) => [c.nom, Math.round(c.ecart * 1000) / 10]), [["Seven", -3]]);
+  assert.deepStrictEqual(Object.keys(e.montent[0]).sort(), ["apres", "avant", "ecart", "id", "nom", "parties"]);
+  assert.deepStrictEqual(S.evolution(null, undefined, "hero_id", HEROS), { montent: [], baissent: [] });
+  const objets = new Map([[7, { id: 7, nom: "Extra Spirit" }]]);
+  const items = S.evolution([{ item_id: 7, wins: 600, matches: 1200 }], [{ item_id: 7, wins: 700, matches: 1200 }], "item_id", objets, { partiesMin: S.PARTIES_MIN_EVOLUTION_OBJET });
+  assert.deepStrictEqual(items.montent.map((c) => c.nom), ["Extra Spirit"]);
+});
+
+// Extrait au format réel de /v1/matches/{id}/metadata (31/10/2026), réduit à 3 joueurs.
+const DETAIL_API = {
+  match_info: {
+    match_id: 125339571,
+    start_time: 1793040291,
+    duration_s: 1911,
+    winning_team: 1,
+    players: [
+      {
+        account_id: 123, team: 1, hero_id: 1, kills: 9, deaths: 6, assists: 12, net_worth: 34710, last_hits: 123,
+        items: [
+          { game_time_s: 10, item_id: 548943648, sold_time_s: 0 }, // un sort du héros
+          { game_time_s: 91, item_id: 2, sold_time_s: 1018 }, // vendu
+          { game_time_s: 400, item_id: 11, sold_time_s: 0 },
+          { game_time_s: 200, item_id: 2, sold_time_s: 0 }, // racheté plus tôt : l'ordre d'achat compte
+        ],
+        stats: [{ player_damage: 10, player_healing: 1 }, { player_damage: 39059, player_healing: 2680 }],
+        pings: [{ ping_type: 8 }],
+      },
+      { account_id: 456, team: 0, hero_id: 2, kills: 13, deaths: 9, assists: 7, net_worth: 40727, items: "abîmé", stats: null },
+      { account_id: 789, team: 1, hero_id: 3, kills: 1, deaths: 2, assists: 3, net_worth: 40000, items: [], stats: [] },
+      { account_id: 1, team: 5, hero_id: 1 }, // équipe inconnue
+      null,
+    ],
+  },
+};
+const OBJETS_PARTIE = new Map([[11, { id: 11, nom: "Extended Magazine", emplacement: "arme" }], [2, { id: 2, nom: "Extra Spirit", emplacement: "esprit" }]]);
+
+test("partie : l'essentiel extrait (objets gardés jusqu'à la fin, dans l'ordre d'achat), réponse abîmée -> null", () => {
+  const p = S.extrairePartie(DETAIL_API);
+  assert.deepStrictEqual([p.id, p.debut, p.dureeS, p.gagnante], [125339571, 1793040291000, 1911, 1]);
+  assert.strictEqual(p.joueurs.length, 3);
+  assert.deepStrictEqual(p.joueurs[0], {
+    accountId: 123, heroId: 1, equipe: 1, eliminations: 9, morts: 6, assistances: 12, ames: 34710, derniersCoups: 123, degats: 39059, soins: 2680,
+    objets: [548943648, 2, 11],
+  });
+  assert.deepStrictEqual([p.joueurs[1].objets, p.joueurs[1].degats], [[], null], "champs abîmés : vides, pas d'erreur");
+  for (const abime of [null, {}, { match_info: { match_id: "x", players: [] } }, { match_info: { match_id: 1, players: [{ team: 0 }] } }]) {
+    assert.strictEqual(S.extrairePartie(abime), null, JSON.stringify(abime));
+  }
+});
+
+test("détail d'une partie : ton équipe d'abord, toi repéré, plus riche d'abord, seuls les objets de la boutique", () => {
+  const d = S.detailPartie(S.extrairePartie(DETAIL_API), HEROS, OBJETS_PARTIE, 123);
+  assert.strictEqual(d.victoire, true);
+  assert.deepStrictEqual(d.equipes.map((e) => [e.titre, e.gagnante, e.joueurs.map((j) => j.nom)]), [
+    ["Ton équipe", true, ["Vindicta", "Infernus"]],
+    ["Adversaires", false, ["Seven"]],
+  ]);
+  const moi = d.equipes[0].joueurs[1];
+  assert.strictEqual(moi.toi, true);
+  assert.strictEqual(d.equipes[0].joueurs[0].toi, false);
+  assert.deepStrictEqual(moi.objets, [{ nom: "Extra Spirit", emplacement: "esprit" }, { nom: "Extended Magazine", emplacement: "arme" }]);
+  assert.strictEqual("accountId" in moi, false, "les numéros de compte des autres joueurs ne vont pas à la page");
+  const pasDedans = S.detailPartie(S.extrairePartie(DETAIL_API), HEROS, OBJETS_PARTIE, 555);
+  assert.deepStrictEqual([pasDedans.victoire, pasDedans.equipes.map((e) => e.titre)], [null, ["Équipe 1", "Équipe 2"]]);
+  assert.strictEqual(pasDedans.equipes.flatMap((e) => e.joueurs).some((j) => j.toi), false);
+  assert.strictEqual(S.detailPartie(null), null);
 });

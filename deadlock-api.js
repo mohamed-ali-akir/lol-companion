@@ -26,6 +26,10 @@ const JOURS_TIER_LISTE = 14; // « héros du moment » : les 2 dernières semain
 const JOURS_BUILD = 30; // build et contres : 30 jours, pour avoir assez de parties sur chaque objet
 const CLES_PAR_ENVOI = 1000; // même limite que l'outil du site
 const JOUR_S = 24 * 60 * 60;
+// Réponses lentes (31/10/2026) : les stats d'objets de tous les héros, pas encore calculées par le site, ont mis 19 s ;
+// le détail d'une partie pèse environ 1 Mo. Ces lectures ont donc droit à 45 s au lieu de 20.
+const DELAI_LENT_MS = 45 * 1000;
+const JOURS_AVANT_PATCH = 14; // « avant la mise à jour » : les 2 semaines qui la précèdent
 
 class ErreurDeadlockApi extends Error {}
 
@@ -58,18 +62,30 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
   const general = creerCache({ maintenant }); // 3 h : héros, objets, stats de tout le monde
   const joueur = creerCache({ dureeMs: DUREE_JOUEUR_MS, maintenant }); // 5 min : ton historique
 
-  async function lireJson(url, cache) {
+  const parties = creerCache({ maintenant }); // 3 h : détail des parties ouvertes (déjà réduit à l'essentiel)
+
+  /**
+   * Lit une adresse (JSON), avec cache. transformer : réduit la réponse AVANT de la garder (détail d'une partie :
+   * 1 Mo -> quelques Ko) ; delaiMs et introuvable : voir telecharger (internet.js).
+   */
+  async function lireJson(url, cache, { transformer = (x) => x, delaiMs, introuvable = null } = {}) {
     return cache.avecCache(url, async () => {
-      const texte = await telecharger({ appeler, adresse: url, options: { headers: { Accept: "application/json" } }, site: SITE, Erreur: ErreurDeadlockApi });
+      const texte = await telecharger({
+        appeler, adresse: url, options: { headers: { Accept: "application/json" } }, site: SITE, Erreur: ErreurDeadlockApi, delaiMs, introuvable,
+      });
+      let json;
       try {
-        return JSON.parse(texte);
+        json = JSON.parse(texte);
       } catch {
         throw new ErreurDeadlockApi(`${SITE} a renvoyé une réponse illisible.`);
       }
+      return transformer(json);
     });
   }
 
   const heros = async () => S.normaliserHeros(await lireJson(adresse("/v1/assets/heroes"), general));
+  /** Tous les héros, même en développement (noms des joueurs d'une partie). Même lecture que heros, gardée en cache. */
+  const nomsHeros = async () => S.normaliserHeros(await lireJson(adresse("/v1/assets/heroes"), general), { tous: true });
   const objets = async () => S.normaliserObjets(await lireJson(adresse("/v1/assets/items"), general));
   const rangs = async () => S.normaliserRangs(await lireJson(adresse("/v1/assets/ranks"), general));
 
@@ -95,6 +111,45 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
   const statsHerosBuild = async ({ rang = null } = {}) =>
     lireJson(adresse("/v1/analytics/hero-stats", { min_unix_timestamp: depuis(JOURS_BUILD, maintenant()), min_average_badge: S.badgeMinimal(rang) }), general);
 
+  /** Date de la dernière grosse mise à jour (millisecondes), ou null. */
+  const dernierGrosPatch = async () => S.dernierGrosPatch(await lireJson(adresse("/v1/patches/big-days"), general), maintenant());
+
+  /**
+   * Stats des héros et de tous les objets avant et après une mise à jour (patch : millisecondes) :
+   * { heros: { avant, apres }, objets: { avant, apres } } (réponses brutes, comparées par evolution de deadlock-stats.js).
+   * Avant : les 2 semaines qui précèdent ; après : de la mise à jour à maintenant. Les dates ne bougent pas d'une heure
+   * à l'autre : le cache sert jusqu'à la prochaine mise à jour (dans la limite des 3 h).
+   */
+  async function statsAutourDuPatch(patch, { rang = null } = {}) {
+    const date = Math.floor(patch / 1000);
+    const avant = { min_unix_timestamp: date - JOURS_AVANT_PATCH * JOUR_S, max_unix_timestamp: date, min_average_badge: S.badgeMinimal(rang) };
+    const apres = { min_unix_timestamp: date, min_average_badge: S.badgeMinimal(rang) };
+    const lent = { delaiMs: DELAI_LENT_MS };
+    const [herosAvant, herosApres, objetsAvant, objetsApres] = await Promise.all([
+      lireJson(adresse("/v1/analytics/hero-stats", avant), general, lent),
+      lireJson(adresse("/v1/analytics/hero-stats", apres), general, lent),
+      lireJson(adresse("/v1/analytics/item-stats", avant), general, lent),
+      lireJson(adresse("/v1/analytics/item-stats", apres), general, lent),
+    ]);
+    return { heros: { avant: herosAvant, apres: herosApres }, objets: { avant: objetsAvant, apres: objetsApres } };
+  }
+
+  /** Détail d'une partie (extrairePartie de deadlock-stats.js), ou erreur claire si le site ne l'a pas. */
+  async function partie(matchId) {
+    if (!Number.isSafeInteger(matchId) || matchId <= 0) throw new ErreurDeadlockApi("Partie inconnue.");
+    // Une réponse illisible est une erreur (et non un null gardé en cache) : la prochaine ouverture réessaie.
+    const lisible = (json) => {
+      const detail = S.extrairePartie(json);
+      if (!detail) throw new ErreurDeadlockApi(`${SITE} a renvoyé un détail de partie illisible.`);
+      return detail;
+    };
+    return lireJson(adresse(`/v1/matches/${matchId}/metadata`), parties, {
+      transformer: lisible,
+      delaiMs: DELAI_LENT_MS,
+      introuvable: `${SITE} n'a pas encore le détail de cette partie : réessaie plus tard.`,
+    });
+  }
+
   /**
    * Envoie les parties trouvées dans le cache de Steam ([{ match_id, cluster_id, metadata_salt?, replay_salt? }]) :
    * POST /v1/matches/salts, par paquets de 1 000. Renvoie le nombre envoyé. Jamais mis en cache.
@@ -119,7 +174,7 @@ function creerLecteurDeadlock({ appeler = (...a) => fetch(...a), maintenant = Da
     return valides.length;
   }
 
-  return { heros, objets, rangs, historique, mesStatsHeros, statsHeros, statsObjets, statsHerosBuild, duels, envoyerParties };
+  return { heros, nomsHeros, objets, rangs, historique, mesStatsHeros, statsHeros, statsObjets, statsHerosBuild, duels, dernierGrosPatch, statsAutourDuPatch, partie, envoyerParties };
 }
 
-module.exports = { URL_API, SITE, JOURS_TIER_LISTE, JOURS_BUILD, ErreurDeadlockApi, depuis, adresse, creerLecteurDeadlock };
+module.exports = { URL_API, SITE, JOURS_TIER_LISTE, JOURS_BUILD, JOURS_AVANT_PATCH, DELAI_LENT_MS, ErreurDeadlockApi, depuis, adresse, creerLecteurDeadlock };
