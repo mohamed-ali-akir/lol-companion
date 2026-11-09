@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "electron": "44.9.0",
-    "electron-builder": "^26.0.0"
+    "electron-builder": "^26.18.0"
   },
   "build": {
     "appId": "com.lolcalculator.app",
@@ -119,8 +119,8 @@
     "electron-winstaller@5.4.0": true
   },
   "dependencies": {
-    "electron-updater": "6.8.9",
-    "ws": "^8.22.0"
+    "electron-updater": "6.8.11",
+    "ws": "^8.22.1"
   },
   "overrides": {
     "http-cache-semantics": "^4.3.0"
